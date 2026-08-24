@@ -34,6 +34,7 @@ fingoal/
 │   │   │   ├── AuthController.php
 │   │   │   ├── FinancialGoalController.php
 │   │   │   ├── GoalContributionController.php
+│   │   │   ├── DashboardController.php             # agregasi ringkasan (§6.9)
 │   │   │   ├── CalculatorController.php            # kalkulator tujuan
 │   │   │   ├── UtilityCalculatorController.php     # pinjaman/KPR & investasi (FR-41,42)
 │   │   │   ├── InvestmentRecommendationController.php
@@ -48,6 +49,7 @@ fingoal/
 │   │   │   └── NewsArticleCache.php
 │   │   ├── Services/
 │   │   │   ├── GoalCalculatorService.php      # rumus future value of annuity
+│   │   │   ├── DashboardSummaryService.php     # agregasi lintas goals milik satu user (§6.9)
 │   │   │   ├── InvestmentAllocationService.php # rule-based recommendation engine
 │   │   │   └── CurrentsNewsService.php         # fetch + cache Currents API
 │   │   └── Jobs/
@@ -271,6 +273,54 @@ Kalkulator Pinjaman/KPR (FR-41) dan Investasi (FR-42) memakai keluarga rumus yan
 - Konvensi konversi rate (§6.2) dan aturan uang (§6.5) berlaku sama. Mockup awal sudah menampilkan "Sistem Perhitungan: Anuitas Efektif" — pertahankan, metode hitung yang terbuka adalah pembeda kepercayaan yang murah.
 - Endpoint kalkulator utilitas **tidak memerlukan autentikasi** (PRD FR-44), jadi pasang rate limit di sana. Endpoint publik tanpa batas laju adalah beban gratis bagi siapa pun yang ingin menyalahgunakannya.
 
+### 6.9 Ringkasan Dashboard — agregasi di backend
+
+> **Diputuskan (D-8): agregasi dashboard dihitung di backend**, bukan frontend menjumlahkan hasil `GET /api/goals` sendiri. Frontend hanya menampilkan apa yang diterima.
+
+Alasan:
+- **Satu sumber kebenaran.** Rumus "total aset" (`initial_amount + SUM(goal_contributions.amount)` per goal, lalu dijumlahkan lintas goal) sudah didefinisikan di §5 untuk `goal_contributions`. Menghitungnya ulang di JavaScript berarti dua implementasi dari rumus yang sama — persis masalah yang coba dihindari di §6.6 untuk kalkulator.
+- **Keamanan kepemilikan data.** Agregasi backend otomatis terikat ke `user_id` dari token yang login (lihat §10.1 soal kepemilikan). Kalau frontend menjumlahkan dari daftar goals, ia harus menarik *seluruh* baris goals dulu — boros payload dan membuka celah kalau paginasi berubah.
+- **Konsistensi dengan pola servis yang sudah ada.** `GoalCalculatorService` dan `InvestmentAllocationService` sama-sama backend-first (§6.6, §6.7); `DashboardSummaryService` mengikuti pola yang sama, bukan pengecualian.
+- Menghindari duplikasi agregasi *time-series* untuk grafik pertumbuhan aset (FR-14), yang butuh `GROUP BY` bulanan atas `goal_contributions` — lebih murah dilakukan satu kali sebagai query SQL daripada di-reduce dari array besar di client.
+
+**Endpoint:** `GET /api/dashboard/summary`
+
+```jsonc
+// Sukses
+{
+  "data": {
+    "total_assets": 15750000,              // Σ (initial_amount + SUM(contributions)) goals aktif
+    "total_target": 450000000,             // Σ target_amount goals aktif
+    "overall_progress_percentage": 3.50,
+    "active_goals_count": 3,
+    "goals": [                             // ringkasan per goal untuk GoalProgressList
+      {
+        "id": 12,
+        "name": "DP Rumah",
+        "type": "house",
+        "current_amount": 15000000,
+        "target_amount": 200000000,
+        "progress_percentage": 7.50,
+        "target_date": "2029-06-01"
+      }
+    ],
+    "asset_growth_series": [               // untuk AssetGrowthChart, sudah di-agregasi per bulan
+      { "month": "2026-06", "cumulative_amount": 5000000 },
+      { "month": "2026-07", "cumulative_amount": 9750000 }
+    ],
+    "recent_activity": [                   // FR-15, gabungan goal_calculations & goal_contributions terbaru
+      { "type": "contribution_recorded", "goal_name": "DP Rumah", "amount": 2500000, "occurred_at": "2026-08-20T09:00:00Z" },
+      { "type": "goal_calculation_completed", "goal_name": "Dana Darurat", "occurred_at": "2026-08-18T14:22:00Z" }
+    ]
+  }
+}
+```
+
+- Endpoint ini **wajib login** (berbeda dari kalkulator utilitas di §6.8) — hasilnya selalu milik satu user, diambil dari token bearer, tidak menerima parameter `user_id` dari client.
+- Bila `active_goals_count = 0`, kembalikan struktur yang sama dengan array/nilai kosong (bukan `404`) — frontend memakainya sebagai sinyal untuk menampilkan empty state (DESIGN.md §9.1), bukan error state (§9.3).
+- `asset_growth_series` dan `recent_activity` masing-masing dibatasi (mis. 12 bulan terakhir, 10 aktivitas terakhir) — ini bukan endpoint berpaginasi, jadi jangan biarkan tumbuh tanpa batas.
+- Uji `DashboardSummaryService` dengan kasus: user tanpa goals, goals dengan `target_date` `NULL` (dana darurat, tidak masuk hitungan "progress ke tanggal"), dan goals lintas beberapa `status` (pastikan hanya `active` yang masuk agregasi utama, `achieved`/`archived` dikecualikan kecuali diminta eksplisit).
+
 ## 7. Integrasi Currents API
 
 - Endpoint: `https://api.currentsapi.services/v1/search` (free tier — perhatikan rate limit harian). **Verifikasi domain ini di dokumentasi resmi sebelum implementasi** — dokumen versi awal sempat menulis `api.currentsapi.io`, yang tidak sama dengan `currentsapi.services` yang disebut di tabel tech stack.
@@ -349,13 +399,14 @@ Sepakati bentuk response sebelum frontend dan backend dikerjakan paralel — ini
 - Uang dikirim sebagai **angka**, bukan string terformat. Pemformatan `Rp` adalah urusan frontend.
 - Tanggal memakai format ISO 8601.
 - Persentase dikirim dalam satuan persen (`7.5`), konsisten dengan penyimpanan di DB.
-- `GET /api/news` dan `GET /api/goals` wajib berpaginasi sejak awal.
+- `GET /api/news` dan `GET /api/goals` wajib berpaginasi sejak awal. `GET /api/dashboard/summary` (§6.9) sengaja **tidak** berpaginasi — ia agregat terbatas, bukan daftar.
 - Response berita menyertakan `stale: true` beserta `fetched_at` bila cache tidak segar (PRD NFR-4).
 - Kode status: 422 validasi, 401 belum login, 403 bukan pemilik, 404 tidak ada. Selalu periksa kepemilikan tujuan terhadap user yang login — ini titik rawan kebocoran data antar pengguna.
 
 ### 10.2 Pengujian
 - `GoalCalculatorService` adalah fungsi matematis murni tanpa efek samping — cakupan pengujiannya harus paling tinggi di seluruh aplikasi. Uji terhadap `docs/fixtures/calculator-cases.json` (§6.6), termasuk semua kasus batas di §6.4.
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
+- `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
 - `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
 - Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B.
 
