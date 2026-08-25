@@ -22,14 +22,16 @@ Konsekuensinya: kedua anggota tim perlu bisa Laravel **dan** React pada tingkat 
 
 **Jangan pecah tugas sebelum bagian ini selesai.** Kalau dibagi terlalu cepat, hasilnya dua komponen Button yang berbeda, dua format error, dan dua cara memformat rupiah. Menyatukannya belakangan lebih lama daripada menyepakatinya di awal.
 
+> **Catatan (2026-08-25):** repo ternyata sudah di-scaffold sebagai Laravel Breeze + Inertia.js + React (lihat CLAUDE.md, keputusan D-9), bukan project kosong. Beberapa item di bawah sudah selesai secara gratis lewat Breeze — ditandai (sudah ada). Jangan bangun ulang dari nol, cukup verifikasi dan lanjutkan dari situ.
+
 Cakupan Fase 0:
 
-- [ ] Scaffolding `backend/` (Laravel) + `frontend/` (Vite React)
-- [ ] `tailwind.config.js` dengan token warna dari CLAUDE.md §4
-- [ ] Komponen primitif `ui/` — Button, Input, Card, Badge, Slider
-- [ ] Layout shell — Sidebar, Topbar, PageContainer
-- [ ] Auth utuh: register, login, logout, Sanctum bearer token, `AuthContext`, protected route
-- [ ] Pembungkus API + penanganan error terpusat sesuai CLAUDE.md §10.1
+- [x] Scaffolding satu project Laravel + Inertia (React) — **sudah ada** dari Breeze, bukan `backend/` + `frontend/` terpisah seperti rencana awal
+- [ ] `tailwind.config.js` (di root) dengan token warna dari CLAUDE.md §4 — font default Breeze (Figtree) perlu diganti
+- [ ] Komponen primitif `ui/` — Button, Input, Card, Badge, Slider. **Cek dulu `resources/js/Components/` bawaan Breeze** (PrimaryButton, Modal, Dropdown, dst) — perluas/gaya-ulang komponen itu daripada bikin duplikat
+- [ ] Layout shell — Sidebar, Topbar, PageContainer, disusun **di dalam** `resources/js/Layouts/AuthenticatedLayout.jsx` yang sudah ada, bukan file baru terpisah
+- [x] Auth register/login/logout/reset password/verifikasi email/protected route (middleware `auth`) — **sudah ada** dari Breeze, session-based. Tidak perlu Sanctum bearer token maupun `AuthContext` — `auth.user` sudah otomatis dibagikan ke semua halaman lewat `HandleInertiaRequests` (props global, lihat `usePage().props.auth.user`)
+- [ ] Konvensi penanganan error form — Inertia `useForm().errors` sudah otomatis menangkap error validasi backend, tinggal disepakati pola pemakaiannya lintas fitur (lihat CLAUDE.md §10.1); **tidak perlu** pembungkus API/axios interceptor terpisah seperti rencana awal
 - [ ] **`docs/fixtures/calculator-cases.json`** — test vector kalkulator
 
 Test vector ditulis **berdua**. Di berkas itulah keputusan D-1 (inflasi menaikkan target) dan D-2 (ordinary annuity) berubah dari kalimat di dokumen menjadi angka yang mengikat. Setelah disepakati, siapa pun yang menyentuh rumus tidak bisa menyimpang tanpa ketahuan.
@@ -45,7 +47,7 @@ Test vector ditulis **berdua**. Di berkas itulah keputusan D-1 (inflasi menaikka
 | FR terkait | FR-4..FR-9 | FR-13..FR-15, FR-32..FR-36 |
 | Risiko utama | matematika salah tanpa ketahuan | otorisasi bocor antar pengguna |
 
-**Satu-satunya sambungan antar keduanya** adalah bentuk payload yang dikembalikan endpoint `POST /api/goals/{id}/calculate` dan disimpan sebagai tujuan. Sepakati bentuknya di Fase 0, lalu keduanya bisa jalan tanpa saling tunggu.
+**Satu-satunya sambungan antar keduanya** adalah bentuk props yang dikirim `CalculatorController` (route `goals.calculations.store`, lihat CLAUDE.md §10.1) saat hasil kalkulasi disimpan sebagai tujuan. Sepakati bentuknya di Fase 0, lalu keduanya bisa jalan tanpa saling tunggu.
 
 Isi Rilis 1, 2, dan 3 ada di PRD §12.
 
@@ -85,10 +87,10 @@ git switch -c feat/kalkulator-form
 ### Zona rawan konflik
 Berkas berikut disentuh hampir setiap fitur. Perlakukan sebagai **append-only** dan sering-sering merge `main` ke branch Anda:
 
-- `backend/routes/api.php`
-- `frontend/src/App.jsx` (definisi router)
-- `frontend/tailwind.config.js`
-- daftar menu di `Sidebar`
+- `routes/web.php` (semua route halaman didaftarkan di sini — tidak ada `routes/api.php`)
+- `resources/js/app.jsx` (entry point Inertia)
+- `tailwind.config.js`
+- daftar menu di `Sidebar` (di dalam `resources/js/Layouts/AuthenticatedLayout.jsx`)
 
 Migrasi relatif aman karena bernama timestamp, tapi **jangan pernah mengubah migrasi yang sudah di-merge** — buat migrasi baru.
 
@@ -107,7 +109,7 @@ Sebuah PR dianggap selesai bila:
 
 - [ ] Fitur berjalan end-to-end (bukan hanya backend, bukan hanya UI)
 - [ ] Validasi ada di **backend**, tidak hanya di frontend
-- [ ] Endpoint yang mengakses data tujuan memeriksa kepemilikan terhadap user yang login
+- [ ] Route/controller yang mengakses data tujuan memeriksa kepemilikan terhadap user yang login (Policy Laravel, bukan pengecekan di frontend)
 - [ ] Ada test untuk logika non-trivial; kode kalkulator wajib lolos `calculator-cases.json`
 - [ ] Empty state, loading state, dan error state tertangani (DESIGN.md §9) — bukan hanya jalur sukses
 - [ ] Tidak ada nilai uang bertipe float, tidak ada rupiah diformat di backend
@@ -118,8 +120,8 @@ Sebuah PR dianggap selesai bila:
 
 ## 7. Keamanan — Tidak Bisa Ditawar
 
-- **Jangan commit `.env`.** Pastikan ada di `.gitignore` sebelum commit pertama backend.
-- `CURRENTS_API_KEY` tidak boleh muncul di kode frontend maupun di response API.
+- **Jangan commit `.env`.** Sudah ada di `.gitignore` bawaan Laravel (dikonfirmasi) — tetap periksa sebelum commit pertama yang menyentuh konfigurasi.
+- `CURRENTS_API_KEY` tidak boleh muncul di kode frontend maupun di props yang dikirim ke halaman mana pun.
 - Jangan mencatat nominal keuangan pengguna beserta identitasnya ke dalam log.
 - Setiap query data tujuan disaring berdasarkan user yang login. Ini titik kebocoran data antar pengguna yang paling mudah terjadi dan paling sulit dimaafkan pada aplikasi keuangan.
 
@@ -127,7 +129,7 @@ Sebuah PR dianggap selesai bila:
 
 ## 8. Menjalankan Project
 
-Lihat CLAUDE.md §9 untuk perintah setup backend dan frontend.
+Satu project, satu perintah: lihat CLAUDE.md §9 (`composer install && npm install`, atur `.env`, lalu `composer run dev` menjalankan server+queue+log+vite sekaligus).
 
 ---
 

@@ -4,7 +4,7 @@ Aplikasi web manajemen keuangan pribadi dengan **kalkulator tujuan finansial**: 
 
 Produk ini punya dua pilar. **Tujuan** adalah intinya — target tersimpan yang punya progres dan dipantau berbulan-bulan. **Kalkulator** adalah pendukungnya — alat hitung sekali pakai untuk pertanyaan cepat seperti simulasi cicilan KPR. Keduanya dijembatani tombol "Jadikan Tujuan".
 
-> **Status: tahap perencanaan.** Dokumen produk, desain, dan konteks teknis sudah selesai. Implementasi belum dimulai.
+> **Status: scaffolding awal selesai, fitur FinGoal belum dimulai.** Dokumen produk, desain, dan konteks teknis sudah selesai. Repo sudah berisi skeleton **Laravel Breeze + Inertia.js + React** (auth register/login/logout/profil sudah berfungsi) — ini titik mulai implementasi, bukan project kosong. Belum ada satu pun fitur FinGoal (kalkulator, tujuan, dashboard, news) yang dikerjakan.
 
 FinGoal adalah alat **simulasi dan perencanaan**, bukan aplikasi transaksi. Aplikasi ini tidak membeli/menjual instrumen apa pun, tidak terhubung ke rekening bank, dan tidak memberi nasihat investasi personal.
 
@@ -112,8 +112,9 @@ Integrasi rekening bank, eksekusi transaksi investasi sungguhan, aplikasi mobile
 
 ## Tech Stack
 
-**Frontend** React (Vite), React Router, Tailwind CSS, Recharts, lucide-react
-**Backend** Laravel (PHP 8.2+), Sanctum (bearer token), PostgreSQL
+**Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
+**Styling** Tailwind CSS, @headlessui/react, Recharts (charting, belum terpasang), lucide-react (ikon, belum terpasang)
+**Database** PostgreSQL (repo saat ini masih default `sqlite` bawaan Breeze, lihat CLAUDE.md §8)
 **Eksternal** Currents API untuk modul News
 
 Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, dark-first. Lihat [DESIGN.md](DESIGN.md).
@@ -126,11 +127,11 @@ Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, d
 |---|---|
 | [PRD.md](PRD.md) | Requirement produk, user stories, metrik sukses, roadmap, keputusan yang sudah diambil |
 | [DESIGN.md](DESIGN.md) | Design system: palet, tipografi, komponen, state, aksesibilitas |
-| [CLAUDE.md](CLAUDE.md) | Konteks teknis: struktur repo, skema DB, rumus kalkulator, kontrak API, konvensi |
+| [CLAUDE.md](CLAUDE.md) | Konteks teknis: struktur repo, skema DB, rumus kalkulator, kontrak props Inertia, konvensi |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cara kerja tim: pembagian tugas, alur git, definition of done |
 
 ---
 
 ## Menjalankan Project
 
-Belum ada kode untuk dijalankan. Perintah setup backend dan frontend tersedia di [CLAUDE.md](CLAUDE.md) §9 dan akan berlaku setelah scaffolding Fase 0 selesai.
+Skeleton Breeze+Inertia sudah bisa dijalankan sekarang lewat satu perintah (`composer run dev`) — lihat [CLAUDE.md](CLAUDE.md) §9 untuk urutan setup lengkap termasuk konfigurasi `.env` yang masih perlu diganti dari default Breeze (database, nama app, kredensial Currents API). Menjalankannya hari ini akan menampilkan halaman Breeze bawaan (Welcome, Login, Register, Dashboard kosong) — fitur FinGoal sendiri belum ada di dalamnya.

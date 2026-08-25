@@ -1,93 +1,105 @@
 # CLAUDE.md — Panduan Konteks Project untuk Claude Code
 
-Dokumen ini adalah konteks kerja untuk Claude (atau developer lain) saat membangun/mengembangkan project **FinGoal**. Baca bersama `PRD.md` (requirement produk) dan `DESIGN.md` (design system) di folder yang sama.
+Dokumen ini adalah konteks kerja untuk Claude (atau developer lain) saat membangun/mengembangkan project **FinGoal**. Baca bersama `PRD.md` (requirement produk) dan `DESIGN.md` (design system) di folder `claude/` yang sama.
+
+> **Catatan migrasi arsitektur (2026-08-25):** versi dokumen ini sebelumnya mengasumsikan React SPA terpisah + Laravel REST API (Sanctum bearer token, dua origin, dua proses dev). Repo yang sebenarnya sudah di-scaffold sebagai **Laravel Breeze + Inertia.js + React** — satu aplikasi, session auth, tanpa lapisan API terpisah. Dokumen ini ditulis ulang mengikuti kenyataan kode yang sudah ada (lihat keputusan **D-9** di §8, menggantikan D-5). Kalau kamu membaca versi lama dokumen ini dari riwayat chat/git, anggap §2, §3, §6.9, §7, §8, §9, dan §10 di bawah ini sebagai versi yang berlaku.
 
 ## 1. Ringkasan Project
 
 FinGoal adalah aplikasi web manajemen keuangan pribadi dengan fitur utama **kalkulator tujuan finansial** (dana pensiun, beli rumah, beli kendaraan, dana darurat, dana pendidikan) yang menghasilkan nominal setoran bulanan yang dibutuhkan beserta **rekomendasi alokasi instrumen investasi** (saham, reksa dana, obligasi/SBN, deposito, emas). Dilengkapi dashboard progres tujuan dan modul berita finansial dari Currents API.
 
-Tema visual: **"Malam"** — near-black dipadu lime listrik, dark-first (lihat `DESIGN.md` untuk token warna & komponen). Arah ini menggantikan dua versi sebelumnya: mockup terang + teal, dan konsep soft black & gold.
+Tema visual: **"Malam"** — near-black dipadu lime listrik, dark-first (lihat `DESIGN.md` untuk token warna & komponen).
+
+Dibangun sebagai **satu aplikasi Laravel + Inertia**, bukan dua project terpisah (frontend SPA dan backend API). React tetap dipakai penuh untuk seluruh UI, tapi routing, auth, dan pengiriman data diatur lewat Laravel & Inertia, bukan lewat fetch/axios ke endpoint JSON.
 
 ## 2. Tech Stack
 
 | Layer | Teknologi |
 |---|---|
-| Frontend | React (Vite), React Router |
-| Styling | Tailwind CSS |
-| State management | React Context / Zustand (untuk state ringan seperti auth & preferensi user) |
-| Charting | Recharts atau Chart.js (line/bar/donut untuk proyeksi & alokasi) |
-| Icon | lucide-react |
-| Backend | Laravel (REST API), PHP 8.2+ |
-| Auth API | Laravel Sanctum (token-based) |
-| Database | PostgreSQL |
-| Cache (opsional) | Redis (cache hasil Currents API) atau tabel cache di PostgreSQL |
+| Full-stack framework | **Laravel 12 + Inertia.js v2 (React 18)** — satu aplikasi, bukan SPA+API terpisah |
+| Rendering halaman | React 18, komponen halaman di `resources/js/Pages/**`, navigasi lewat `<Link>`/`router` dari Inertia — **bukan React Router** |
+| Styling | Tailwind CSS v3 (config-based, lihat §4) |
+| Komponen UI dasar | `@headlessui/react` (sudah terpasang lewat Breeze) |
+| State management | State lokal React + Inertia shared props (`usePage().props`) untuk data user login & flash message. Context/Zustand hanya dipakai kalau benar-benar ada state lintas halaman yang tidak cocok dikirim sebagai props |
+| Charting | Recharts atau Chart.js (belum terpasang, perlu `npm install`) |
+| Icon | lucide-react (belum terpasang, perlu `npm install`) |
+| Backend | Laravel 12, PHP 8.2+ |
+| Auth | **Laravel Breeze, guard `web` (session/cookie)** — bukan Sanctum bearer token. Lihat D-9 di §8 |
+| Database | PostgreSQL. **Repo saat ini masih default `sqlite` bawaan Breeze** — ganti sebelum development sungguhan dimulai, lihat §8 |
+| Cache (opsional) | Redis atau tabel cache di PostgreSQL |
 | API eksternal | Currents API (currentsapi.services) — free tier, untuk modul News |
-| Queue/Scheduler | Laravel Scheduler + Queue (fetch berita berkala, hindari rate limit) |
+| Queue/Scheduler | Laravel Scheduler + Queue. `composer run dev` sudah menjalankan `queue:listen` — lihat §9 |
+| Routing tambahan | Semua route (termasuk kalkulator utilitas publik) didaftarkan sebagai route Inertia biasa di `routes/web.php`. **Tidak ada `routes/api.php`** — lihat D-9 |
 
-## 3. Struktur Repository (disarankan)
+## 3. Struktur Repository (mengikuti struktur nyata di repo)
 
 ```
-fingoal/
-├── backend/                 # Laravel app
-│   ├── app/
-│   │   ├── Http/Controllers/Api/
-│   │   │   ├── AuthController.php
-│   │   │   ├── FinancialGoalController.php
-│   │   │   ├── GoalContributionController.php
-│   │   │   ├── DashboardController.php             # agregasi ringkasan (§6.9)
-│   │   │   ├── CalculatorController.php            # kalkulator tujuan
-│   │   │   ├── UtilityCalculatorController.php     # pinjaman/KPR & investasi (FR-41,42)
-│   │   │   ├── InvestmentRecommendationController.php
-│   │   │   ├── NewsController.php
-│   │   │   └── UserPreferenceController.php
-│   │   ├── Models/
-│   │   │   ├── User.php
-│   │   │   ├── FinancialGoal.php
-│   │   │   ├── GoalContribution.php
-│   │   │   ├── GoalCalculation.php
-│   │   │   ├── InvestmentInstrument.php
-│   │   │   └── NewsArticleCache.php
-│   │   ├── Services/
-│   │   │   ├── GoalCalculatorService.php      # rumus future value of annuity
-│   │   │   ├── DashboardSummaryService.php     # agregasi lintas goals milik satu user (§6.9)
-│   │   │   ├── InvestmentAllocationService.php # rule-based recommendation engine
-│   │   │   └── CurrentsNewsService.php         # fetch + cache Currents API
-│   │   └── Jobs/
-│   │       └── FetchLatestNewsJob.php
-│   ├── database/
-│   │   ├── migrations/
-│   │   └── seeders/ (default rate return/inflasi per kategori, master instrumen investasi)
-│   └── routes/api.php
-│
-├── frontend/                 # React app
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/ (Sidebar, Topbar, PageContainer)
-│   │   │   ├── dashboard/ (SummaryCard, AssetGrowthChart, GoalProgressList)
-│   │   │   ├── calculator/ (GoalForm, ResultPanel, RecommendationPanel, ProjectionChart)
-│   │   │   ├── news/ (NewsCard, NewsFilterTabs)   # MarketIndexPanel dicoret, lihat D-4
-│   │   │   └── ui/ (Button, Input, Slider, Badge, Card — design primitives sesuai DESIGN.md)
-│   │   ├── pages/
-│   │   │   ├── DashboardPage.jsx
-│   │   │   ├── GoalsPage.jsx        # daftar tujuan (menggantikan Portofolio)
-│   │   │   ├── GoalDetailPage.jsx
-│   │   │   ├── CalculatorPage.jsx   # kalkulator utilitas, sidebar kategori
-│   │   │   ├── NewsPage.jsx
-│   │   │   └── SettingsPage.jsx
-│   │   ├── hooks/
-│   │   ├── services/ (api client — axios/fetch wrapper ke Laravel API)
-│   │   ├── context/ (AuthContext, PreferenceContext)
-│   │   └── styles/ (tailwind.config.js theme extension — token warna dari DESIGN.md)
-│   └── tailwind.config.js
-│
-├── docs/
-│   ├── PRD.md
-│   ├── DESIGN.md
-│   └── CLAUDE.md
-└── README.md
+finfree-app/                          # satu project Laravel+Inertia, bukan dua folder terpisah
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   ├── Auth/                              # bawaan Breeze — jangan diubah strukturnya
+│   │   │   ├── ProfileController.php               # bawaan Breeze
+│   │   │   ├── DashboardController.php             # BARU — Inertia::render + DashboardSummaryService (§6.9)
+│   │   │   ├── FinancialGoalController.php         # BARU
+│   │   │   ├── GoalContributionController.php      # BARU
+│   │   │   ├── CalculatorController.php            # BARU — kalkulator tujuan
+│   │   │   ├── UtilityCalculatorController.php     # BARU — pinjaman/KPR & investasi (FR-41,42), tanpa auth
+│   │   │   ├── InvestmentRecommendationController.php  # BARU
+│   │   │   └── NewsController.php                  # BARU
+│   │   └── Middleware/
+│   │       └── HandleInertiaRequests.php           # bawaan Breeze — taruh shared props (user login dsb) di sini
+│   ├── Models/
+│   │   ├── User.php                # bawaan, tambahkan kolom sesuai §5
+│   │   ├── FinancialGoal.php
+│   │   ├── GoalContribution.php
+│   │   ├── GoalCalculation.php
+│   │   ├── InvestmentInstrument.php
+│   │   └── NewsArticleCache.php
+│   ├── Services/
+│   │   ├── GoalCalculatorService.php       # rumus future value of annuity
+│   │   ├── DashboardSummaryService.php     # agregasi lintas goals milik satu user (§6.9)
+│   │   ├── InvestmentAllocationService.php # rule-based recommendation engine
+│   │   └── CurrentsNewsService.php         # fetch + cache Currents API
+│   └── Jobs/
+│       └── FetchLatestNewsJob.php
+├── database/
+│   ├── migrations/
+│   └── seeders/               # default rate return/inflasi per kategori, master instrumen investasi
+├── resources/
+│   ├── css/app.css
+│   └── js/
+│       ├── Components/         # bawaan Breeze (PrimaryButton, Modal, Dropdown, dst) — pakai ulang, jangan duplikat
+│       │   └── ui/              # BARU — SummaryCard, ProgressBar, Badge dst sesuai DESIGN.md
+│       ├── Layouts/
+│       │   ├── AuthenticatedLayout.jsx   # bawaan — di sinilah Sidebar+Topbar DESIGN.md §4 ditempatkan
+│       │   └── GuestLayout.jsx           # bawaan — dipakai halaman Auth/*
+│       ├── Pages/
+│       │   ├── Auth/            # bawaan Breeze (Login, Register, dll) — JANGAN dibongkar
+│       │   ├── Profile/         # bawaan Breeze
+│       │   ├── Dashboard.jsx    # bawaan (masih kosong) — halaman pertama yang diisi
+│       │   ├── Goals/           # BARU — Index.jsx, Show.jsx
+│       │   ├── Calculator/      # BARU — Index.jsx + sub-halaman per kategori tujuan
+│       │   └── News/            # BARU — Index.jsx
+│       └── app.jsx              # entry point Inertia — sudah ada, jangan diubah kecuali menambah provider
+├── routes/
+│   ├── web.php          # SEMUA route halaman (Inertia::render) didaftarkan di sini
+│   ├── auth.php         # bawaan Breeze
+│   └── (routes/api.php TIDAK ADA dan sengaja tidak dibuat — lihat D-9)
+├── tailwind.config.js
+└── claude/
+    ├── CLAUDE.md         # dokumen ini
+    ├── PRD.md
+    ├── DESIGN.md
+    ├── CONTRIBUTING.md
+    └── README.md
 ```
 
 ## 4. Tailwind Theme Mapping (dari DESIGN.md)
+
+Konfigurasi Tailwind sudah ada di root: `tailwind.config.js`, memakai Tailwind v3 (config-based, bukan CSS `@theme` v4) — pastikan tidak tercampur dengan paket `@tailwindcss/vite` v4 yang ikut ter-list di `package.json` devDependencies tapi **tidak dipakai** oleh `vite.config.js` saat ini; abaikan/boleh dihapus paket itu agar tidak membingungkan.
+
+Breeze memasang font default **Figtree** di `theme.extend.fontFamily.sans` — ganti ke `Plus Jakarta Sans`/`Inter` sesuai DESIGN.md sebelum mulai styling halaman FinGoal.
 
 Tambahkan token warna berikut ke `tailwind.config.js` (`theme.extend.colors`):
 
@@ -130,7 +142,7 @@ Dua aturan yang mudah dilanggar dan sulit diperbaiki belakangan:
 1. **Lime bukan warna "positif".** Ia warna aksi. Kenaikan nilai memakai `state.success` (mint). Karena lime dan hijau berada di keluarga yang sama, memakai lime untuk delta positif membuat tombol dan angka saling berebut perhatian.
 2. **`border.DEFAULT` tidak boleh jadi batas field.** Kontrasnya 1.26:1 — cukup untuk garis pemisah, tidak cukup untuk menandai di mana sebuah input berakhir. Pakai `border.strong`.
 
-Font: `Plus Jakarta Sans` atau `Inter`. Gunakan `font-variant-numeric: tabular-nums` untuk seluruh komponen angka (buat utility class `.num-tabular`); untuk angka hasil utama pertimbangkan font mono — di tema gelap angka mono terbaca lebih tegas.
+Gunakan `font-variant-numeric: tabular-nums` untuk seluruh komponen angka (buat utility class `.num-tabular`); untuk angka hasil utama pertimbangkan font mono — di tema gelap angka mono terbaca lebih tegas.
 
 ## 5. Domain Model / Skema Database Inti (PostgreSQL)
 
@@ -155,7 +167,7 @@ financial_goals
   created_at, updated_at, deleted_at
   INDEX (user_id, status)
 
-goal_contributions                            -- BARU, prasyarat FR-32..FR-36
+goal_contributions                            -- prasyarat FR-32..FR-36
   id, financial_goal_id (FK, on delete cascade),
   amount numeric(18,2), contributed_on date, note text NULL,
   created_at, updated_at
@@ -248,14 +260,14 @@ Memakai keduanya sekaligus adalah bug paling umum pada kalkulator jenis ini dan 
 ### 6.5 Aturan uang
 - **Jangan gunakan tipe floating point untuk kolom uang.** Pakai `numeric(18,2)` di PostgreSQL, dan `bcmath`/integer minor unit di PHP.
 - Perhitungan boleh memakai float di dalam service, tetapi hasil akhir dibulatkan **ke atas** ke rupiah penuh untuk setoran bulanan — membulatkan ke bawah membuat target meleset tipis.
-- Persentase (return, inflasi, alokasi) disimpan sebagai `numeric(5,2)` dalam satuan persen (mis. `7.50`), bukan desimal `0.075`. Tetapkan satu konvensi dan patuhi di API maupun DB.
+- Persentase (return, inflasi, alokasi) disimpan sebagai `numeric(5,2)` dalam satuan persen (mis. `7.50`), bukan desimal `0.075`. Tetapkan satu konvensi dan patuhi di seluruh sistem.
 
 ### 6.6 Sumber kebenaran & duplikasi rumus
 Implementasikan logika di `GoalCalculatorService.php` (backend) sebagai *source of truth*. Frontend boleh menduplikasi rumus untuk preview real-time (FR-8), dengan syarat:
 
 - Sediakan berkas **test vector bersama**, mis. `docs/fixtures/calculator-cases.json`, berisi pasangan input→output yang sudah diverifikasi manual.
 - Uji PHP dan JavaScript terhadap berkas yang sama. Bila keduanya bisa berbeda diam-diam, cepat atau lambat akan berbeda.
-- Nilai yang **disimpan** selalu hasil dari backend.
+- Nilai yang **disimpan** selalu hasil dari backend, dikirim lewat `useForm().post(route('goals.calculations.store', goal))` (Inertia form helper) — bukan `fetch`/`axios` manual ke endpoint JSON.
 
 ### 6.7 Mesin alokasi
 `InvestmentAllocationService.php` — pemetaan berbasis aturan dari jangka waktu & profil risiko → persentase alokasi instrumen (PRD FR-10). Catatan:
@@ -271,68 +283,96 @@ Kalkulator Pinjaman/KPR (FR-41) dan Investasi (FR-42) memakai keluarga rumus yan
 - **Kalkulator Investasi** adalah arah maju dari rumus yang sudah ada: `PMT` diketahui, `FV` dicari. `FV = PV×(1+i)^n + PMT × ((1+i)^n − 1) / i`. Kasus `i = 0` tetap wajib ditangani.
 - **Kalkulator Pinjaman** adalah anuitas juga, hanya berpindah sisi: `angsuran = P × i / (1 − (1+i)^−n)`. Tabel amortisasi dihitung iteratif per bulan (bunga = sisa pokok × i, pokok = angsuran − bunga), dan **saldo akhir harus tepat nol** — selisih pembulatan dibebankan ke angsuran terakhir. Ini kasus uji wajib.
 - Konvensi konversi rate (§6.2) dan aturan uang (§6.5) berlaku sama. Mockup awal sudah menampilkan "Sistem Perhitungan: Anuitas Efektif" — pertahankan, metode hitung yang terbuka adalah pembeda kepercayaan yang murah.
-- Endpoint kalkulator utilitas **tidak memerlukan autentikasi** (PRD FR-44), jadi pasang rate limit di sana. Endpoint publik tanpa batas laju adalah beban gratis bagi siapa pun yang ingin menyalahgunakannya.
+- **Route** kalkulator utilitas (`/kalkulator/pinjaman`, `/kalkulator/investasi` di `UtilityCalculatorController`) didaftarkan **di luar** grup middleware `auth` di `routes/web.php` — halaman Inertia biasa yang bisa diakses tanpa login (PRD FR-44), bukan endpoint JSON terpisah. Pasang middleware `throttle` Laravel di grup route ini: halaman publik tanpa batas laju tetap jadi beban gratis bagi siapa pun yang ingin menyalahgunakannya.
 
-### 6.9 Ringkasan Dashboard — agregasi di backend
+### 6.9 Ringkasan Dashboard — agregasi di backend, dikirim lewat props Inertia
 
-> **Diputuskan (D-8): agregasi dashboard dihitung di backend**, bukan frontend menjumlahkan hasil `GET /api/goals` sendiri. Frontend hanya menampilkan apa yang diterima.
+> **Diputuskan (D-8): agregasi dashboard dihitung di backend**, bukan frontend menjumlahkan sendiri daftar goals yang diterima. Frontend hanya menampilkan apa yang diterima sebagai props.
 
-Alasan:
+Alasan (tetap berlaku terlepas dari mekanisme pengiriman datanya):
 - **Satu sumber kebenaran.** Rumus "total aset" (`initial_amount + SUM(goal_contributions.amount)` per goal, lalu dijumlahkan lintas goal) sudah didefinisikan di §5 untuk `goal_contributions`. Menghitungnya ulang di JavaScript berarti dua implementasi dari rumus yang sama — persis masalah yang coba dihindari di §6.6 untuk kalkulator.
-- **Keamanan kepemilikan data.** Agregasi backend otomatis terikat ke `user_id` dari token yang login (lihat §10.1 soal kepemilikan). Kalau frontend menjumlahkan dari daftar goals, ia harus menarik *seluruh* baris goals dulu — boros payload dan membuka celah kalau paginasi berubah.
+- **Keamanan kepemilikan data.** Agregasi backend otomatis terikat ke `auth()->user()` dari sesi yang login (lihat §10.1). Kalau frontend menjumlahkan dari daftar goals, ia harus menerima *seluruh* baris goals dulu sebagai props — boros payload untuk sekadar angka ringkasan.
 - **Konsistensi dengan pola servis yang sudah ada.** `GoalCalculatorService` dan `InvestmentAllocationService` sama-sama backend-first (§6.6, §6.7); `DashboardSummaryService` mengikuti pola yang sama, bukan pengecualian.
 - Menghindari duplikasi agregasi *time-series* untuk grafik pertumbuhan aset (FR-14), yang butuh `GROUP BY` bulanan atas `goal_contributions` — lebih murah dilakukan satu kali sebagai query SQL daripada di-reduce dari array besar di client.
 
-**Endpoint:** `GET /api/dashboard/summary`
+**Bukan endpoint JSON terpisah** — `DashboardController@index` memanggil service lalu mengirim hasilnya sebagai props ke halaman Inertia:
 
-```jsonc
-// Sukses
+```php
+// app/Http/Controllers/DashboardController.php
+public function index(DashboardSummaryService $summary)
 {
-  "data": {
-    "total_assets": 15750000,              // Σ (initial_amount + SUM(contributions)) goals aktif
-    "total_target": 450000000,             // Σ target_amount goals aktif
-    "overall_progress_percentage": 3.50,
-    "active_goals_count": 3,
-    "goals": [                             // ringkasan per goal untuk GoalProgressList
-      {
-        "id": 12,
-        "name": "DP Rumah",
-        "type": "house",
-        "current_amount": 15000000,
-        "target_amount": 200000000,
-        "progress_percentage": 7.50,
-        "target_date": "2029-06-01"
-      }
-    ],
-    "asset_growth_series": [               // untuk AssetGrowthChart, sudah di-agregasi per bulan
-      { "month": "2026-06", "cumulative_amount": 5000000 },
-      { "month": "2026-07", "cumulative_amount": 9750000 }
-    ],
-    "recent_activity": [                   // FR-15, gabungan goal_calculations & goal_contributions terbaru
-      { "type": "contribution_recorded", "goal_name": "DP Rumah", "amount": 2500000, "occurred_at": "2026-08-20T09:00:00Z" },
-      { "type": "goal_calculation_completed", "goal_name": "Dana Darurat", "occurred_at": "2026-08-18T14:22:00Z" }
-    ]
-  }
+    return Inertia::render('Dashboard', [
+        'summary' => $summary->forUser(auth()->user()),
+    ]);
 }
 ```
 
-- Endpoint ini **wajib login** (berbeda dari kalkulator utilitas di §6.8) — hasilnya selalu milik satu user, diambil dari token bearer, tidak menerima parameter `user_id` dari client.
-- Bila `active_goals_count = 0`, kembalikan struktur yang sama dengan array/nilai kosong (bukan `404`) — frontend memakainya sebagai sinyal untuk menampilkan empty state (DESIGN.md §9.1), bukan error state (§9.3).
-- `asset_growth_series` dan `recent_activity` masing-masing dibatasi (mis. 12 bulan terakhir, 10 aktivitas terakhir) — ini bukan endpoint berpaginasi, jadi jangan biarkan tumbuh tanpa batas.
+Bentuk `summary` (dipakai langsung sebagai `props.summary` di `Dashboard.jsx`):
+
+```jsonc
+{
+  "total_assets": 15750000,              // Σ (initial_amount + SUM(contributions)) goals aktif
+  "total_target": 450000000,             // Σ target_amount goals aktif
+  "overall_progress_percentage": 3.50,
+  "active_goals_count": 3,
+  "goals": [                             // ringkasan per goal untuk GoalProgressList
+    {
+      "id": 12,
+      "name": "DP Rumah",
+      "type": "house",
+      "current_amount": 15000000,
+      "target_amount": 200000000,
+      "progress_percentage": 7.50,
+      "target_date": "2029-06-01"
+    }
+  ],
+  "asset_growth_series": [               // untuk AssetGrowthChart, sudah di-agregasi per bulan
+    { "month": "2026-06", "cumulative_amount": 5000000 },
+    { "month": "2026-07", "cumulative_amount": 9750000 }
+  ],
+  "recent_activity": [                   // FR-15, gabungan goal_calculations & goal_contributions terbaru
+    { "type": "contribution_recorded", "goal_name": "DP Rumah", "amount": 2500000, "occurred_at": "2026-08-20T09:00:00Z" },
+    { "type": "goal_calculation_completed", "goal_name": "Dana Darurat", "occurred_at": "2026-08-18T14:22:00Z" }
+  ]
+}
+```
+
+- Route `/dashboard` sudah ada dari Breeze di dalam grup middleware `auth` — **jangan** dikeluarkan dari grup itu. Karena Laravel yang menjaga akses (bukan pengecekan token di frontend), pengguna belum login otomatis diarahkan ke halaman login, bukan menerima 401 JSON.
+- Bila `active_goals_count = 0`, `DashboardSummaryService` tetap mengembalikan struktur yang sama dengan array/nilai kosong (bukan melempar exception atau `null`) — `Dashboard.jsx` memakainya sebagai sinyal untuk menampilkan empty state (DESIGN.md §9.1), bukan error state (§9.3).
+- `asset_growth_series` dan `recent_activity` masing-masing dibatasi (mis. 12 bulan terakhir, 10 aktivitas terakhir) di dalam service — props Inertia dikirim utuh setiap render halaman, jadi jangan biarkan array ini tumbuh tanpa batas.
 - Uji `DashboardSummaryService` dengan kasus: user tanpa goals, goals dengan `target_date` `NULL` (dana darurat, tidak masuk hitungan "progress ke tanggal"), dan goals lintas beberapa `status` (pastikan hanya `active` yang masuk agregasi utama, `achieved`/`archived` dikecualikan kecuali diminta eksplisit).
 
 ## 7. Integrasi Currents API
 
 - Endpoint: `https://api.currentsapi.services/v1/search` (free tier — perhatikan rate limit harian). **Verifikasi domain ini di dokumentasi resmi sebelum implementasi** — dokumen versi awal sempat menulis `api.currentsapi.io`, yang tidak sama dengan `currentsapi.services` yang disebut di tabel tech stack.
 - Currents adalah API **berita umum dunia**, bukan API keuangan Indonesia. Konsekuensi yang harus diantisipasi: cakupan berita finansial berbahasa Indonesia kemungkinan tipis, dan kategori pada FR-17 tidak tersedia dari sumber sehingga harus diklasifikasi sendiri saat ingest (FR-28). Uji kualitas hasil pencarian lebih dulu dengan beberapa kata kunci nyata sebelum modul News dianggap layak rilis; siapkan rencana cadangan (RSS media ekonomi lokal) bila hasilnya kurang.
-- Backend melakukan fetch berkala via `FetchLatestNewsJob` (Laravel Scheduler, misal tiap 30–60 menit) dan menyimpan ke tabel `news_article_cache`, bukan fetch langsung tiap request dari frontend.
-- Frontend selalu memanggil endpoint internal Laravel (`/api/news`), tidak pernah memanggil Currents API langsung, agar API key tidak terekspos di client.
-- Sediakan fallback: jika fetch job gagal (limit habis/error), endpoint tetap mengembalikan cache terakhir + flag `stale: true`.
+- Backend melakukan fetch berkala via `FetchLatestNewsJob` (Laravel Scheduler, misal tiap 30–60 menit) dan menyimpan ke tabel `news_article_cache`, bukan fetch langsung tiap request pengguna.
+- `NewsController@index` membaca dari `news_article_cache` dan mengirimkannya sebagai props Inertia ke halaman News — React **tidak pernah** memanggil Currents API atau endpoint `/api/news` sendiri lewat fetch/axios (tidak ada endpoint semacam itu). `CURRENTS_API_KEY` hanya pernah disentuh oleh job backend, tidak pernah terkirim ke browser dalam bentuk apa pun.
+- Sediakan fallback: jika fetch job gagal (limit habis/error), `NewsController` tetap mengirim props dari cache terakhir + `stale: true`, ditampilkan sebagai banner di halaman.
 
-## 8. Environment Variables (contoh)
+## 8. Environment Variables
 
-**Backend (`.env`)**
+Satu `.env` di root project — **tidak ada `.env` terpisah untuk frontend**, karena Vite hanya bertugas sebagai asset bundler yang diintegrasikan lewat `@vite` (Blade) dan `createInertiaApp` (JS), selalu satu origin dengan Laravel.
+
+> **Diputuskan (D-9, menggantikan D-5): auth pakai guard `web` (session/cookie) bawaan Breeze, bukan Sanctum bearer token.** Premis D-5 sebelumnya (frontend beda origin dari API, butuh CORS berkredensial) tidak berlaku lagi karena arsitektur berubah dari SPA+API terpisah menjadi Laravel+Inertia satu origin. CSRF ditangani otomatis oleh middleware Laravel standar bersama axios instance bawaan Inertia (otomatis mengirim header `X-XSRF-TOKEN` dari cookie `XSRF-TOKEN`).
+>
+> **Jangan pasang ulang** `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN` custom, `FRONTEND_URL`, atau konfigurasi CORS — semua itu penanda pola SPA terpisah yang sudah tidak dipakai dan hanya akan menyesatkan pembaca berikutnya. Paket `laravel/sanctum` tetap ada di `composer.json` (bawaan Breeze) tapi menganggur untuk saat ini; baru relevan kalau kelak dibutuhkan token API untuk klien non-browser (mis. app mobile native — di luar lingkup MVP per README).
+>
+> **Tindak lanjut:** baris keputusan **D-5 di `PRD.md` §13** mencatat keputusan lama ini dan perlu diperbarui juga supaya kedua dokumen tidak saling bertentangan — lihat catatan di bagian akhir dokumen ini.
+
+**Kondisi `.env` saat ini di repo (masih default scaffold Breeze, belum diubah):**
 ```
+APP_NAME=Laravel
+DB_CONNECTION=sqlite
+# tidak ada variabel CURRENTS_*, tidak ada FinGoal-specific config sama sekali
+```
+
+**`.env` yang seharusnya dipakai untuk development FinGoal:**
+```
+APP_NAME=FinGoal
+APP_ENV=local
+APP_URL=http://localhost:8000
+
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
@@ -345,79 +385,80 @@ CURRENTS_API_BASE_URL=https://api.currentsapi.services/v1
 CURRENTS_FETCH_INTERVAL_MINUTES=60
 NEWS_CACHE_RETENTION_DAYS=30
 
-# Mode auth: bearer token (lihat catatan di bawah)
-FRONTEND_URL=http://localhost:5173
+SESSION_DRIVER=database
+QUEUE_CONNECTION=database
+CACHE_STORE=database
 ```
 
-> **Diputuskan (D-5): Sanctum mode bearer token.** Frontend Vite berjalan di origin berbeda (`:5173` vs `:8000`), dan mode cookie SPA menuntut CORS berkredensial, kesamaan domain induk, serta penanganan CSRF — tidak sepadan untuk SPA ini.
->
-> Konsekuensi konfigurasi: `SANCTUM_STATEFUL_DOMAINS` dan `SESSION_DOMAIN` **tidak dipakai** dan jangan ditambahkan kembali — keduanya penanda mode cookie dan hanya akan menyesatkan. Cukup `FRONTEND_URL` untuk konfigurasi CORS. Token disimpan di memori aplikasi frontend (bukan `localStorage`, agar tidak terbaca skrip pihak ketiga); konsekuensinya sesi hilang saat refresh, jadi sediakan alur re-auth yang mulus atau refresh token bila terasa mengganggu.
-
-**Frontend (`.env`)**
-```
-VITE_API_BASE_URL=http://localhost:8000/api
-```
+Mengganti `.env` di atas (terutama `DB_CONNECTION`, `APP_NAME`, dan variabel `CURRENTS_*`) adalah hal pertama yang perlu dilakukan sebelum development sungguhan dimulai — bukan sekadar catatan referensi di dokumen ini.
 
 ## 9. Perintah Umum
 
-```bash
-# Backend
-cd backend
-composer install
-php artisan migrate --seed
-php artisan serve
-php artisan schedule:work   # untuk menjalankan job fetch berita secara berkala (dev)
+Satu project, satu perintah setup — tidak ada lagi dua terminal terpisah (backend & frontend):
 
-# Frontend
-cd frontend
+```bash
+composer install
 npm install
-npm run dev
+cp .env.example .env      # lalu edit sesuai §8: DB_*, APP_NAME, CURRENTS_*
+php artisan key:generate
+php artisan migrate --seed
+
+# Jalankan semuanya sekaligus — sudah disediakan lewat script "dev" di composer.json:
+composer run dev
 ```
+
+`composer run dev` menjalankan 4 proses bersamaan lewat `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, `php artisan pail` (log viewer), dan `npm run dev` (Vite). Ini pengganti langsung dari menjalankan backend dan frontend di dua terminal terpisah seperti yang didokumentasikan di versi arsitektur SPA sebelumnya.
+
+Untuk menjalankan job fetch berita terjadwal (`FetchLatestNewsJob`) selama development, jalankan `php artisan schedule:work` di terminal tambahan — belum termasuk di script `composer run dev` bawaan.
 
 ## 10. Konvensi Kode
 
-- **Backend:** ikuti konvensi Laravel standar (PSR-12), gunakan Form Request untuk validasi, Resource class untuk shaping response JSON.
-- **Frontend:** komponen fungsional React + hooks, satu komponen per file, styling murni via Tailwind utility classes (hindari inline style kecuali untuk nilai dinamis seperti progress bar width).
-- **Penamaan route API:** REST konsisten, contoh `GET /api/goals`, `POST /api/goals`, `POST /api/goals/{id}/calculate`, `GET /api/news`.
+- **Backend:** ikuti konvensi Laravel standar (PSR-12), gunakan Form Request untuk validasi. Kelas API Resource opsional — tetap berguna untuk merapikan bentuk props yang dikirim ke `Inertia::render`, terutama untuk data koleksi besar seperti daftar goals, tapi tidak wajib seperti pada arsitektur REST API murni.
+- **Frontend:** komponen fungsional React + hooks, satu komponen per file, styling murni via Tailwind utility classes (hindari inline style kecuali untuk nilai dinamis seperti progress bar width). Halaman di `resources/js/Pages/**` menerima data lewat **props dari controller**, bukan lewat pemanggilan API manual di `useEffect`/axios — kalau ada komponen halaman yang mem-fetch datanya sendiri, itu tanda arsitekturnya keliru arah (kembali ke pola SPA lama yang sudah tidak dipakai).
+- **Penamaan route:** route Laravel biasa di `routes/web.php`, konvensi resource controller standar, semua route diberi `->name(...)` karena frontend memanggilnya lewat `route()` (Ziggy, sudah terpasang via `tightenco/ziggy`), bukan hardcode string path. Contoh:
+  ```php
+  Route::middleware('auth')->group(function () {
+      Route::get('/goals', [FinancialGoalController::class, 'index'])->name('goals.index');
+      Route::get('/goals/create', [FinancialGoalController::class, 'create'])->name('goals.create');
+      Route::post('/goals', [FinancialGoalController::class, 'store'])->name('goals.store');
+      Route::get('/goals/{goal}', [FinancialGoalController::class, 'show'])->name('goals.show');
+  });
+
+  Route::get('/kalkulator/pinjaman', [UtilityCalculatorController::class, 'loan'])->name('calculator.loan');
+  ```
 - **Bahasa UI:** Bahasa Indonesia (mengikuti referensi produk), format angka menggunakan pemisah ribuan titik dan mata uang `Rp`.
 
-### 10.1 Kontrak API
-Sepakati bentuk response sebelum frontend dan backend dikerjakan paralel — ini sumber gesekan terbesar bila ditunda.
+### 10.1 Kontrak Props Inertia
 
-```jsonc
-// Sukses (koleksi)
-{ "data": [ ... ], "meta": { "page": 1, "per_page": 20, "total": 57 } }
+Karena hampir seluruh transfer data lewat **props Inertia** (bukan response JSON yang di-fetch terpisah oleh frontend), "kontrak" yang perlu disepakati di awal adalah **bentuk props tiap halaman**, bukan bentuk endpoint REST. Tulis daftar props sebuah halaman sebagai bagian dari perencanaan halaman itu (lihat §6.9 untuk contoh Dashboard) sebelum Controller dan `Page.jsx`-nya dikerjakan paralel — prinsipnya sama seperti kontrak API pada arsitektur lama, cuma lokasinya berpindah dari dokumen endpoint ke bentuk props.
 
-// Sukses (tunggal)
-{ "data": { ... } }
-
-// Gagal
-{ "message": "Data yang diberikan tidak valid.",
-  "errors": { "target_amount": ["Nominal target wajib diisi."] } }
-```
-
+Aturan yang tetap berlaku:
 - Uang dikirim sebagai **angka**, bukan string terformat. Pemformatan `Rp` adalah urusan frontend.
 - Tanggal memakai format ISO 8601.
 - Persentase dikirim dalam satuan persen (`7.5`), konsisten dengan penyimpanan di DB.
-- `GET /api/news` dan `GET /api/goals` wajib berpaginasi sejak awal. `GET /api/dashboard/summary` (§6.9) sengaja **tidak** berpaginasi — ia agregat terbatas, bukan daftar.
 - Response berita menyertakan `stale: true` beserta `fetched_at` bila cache tidak segar (PRD NFR-4).
-- Kode status: 422 validasi, 401 belum login, 403 bukan pemilik, 404 tidak ada. Selalu periksa kepemilikan tujuan terhadap user yang login — ini titik rawan kebocoran data antar pengguna.
+
+Yang berubah dari versi arsitektur lama:
+- **Paginasi** cukup lempar Laravel paginator langsung sebagai prop (`goals: $paginator`) — frontend membaca `.data`, `.links`, `.meta` dari situ. Bentuk ini datang otomatis dari Laravel, tidak perlu didesain manual seperti kontrak `{ data, meta }` versi API lama.
+- **Validasi gagal** ditangkap otomatis oleh Inertia lewat redirect-back + `errors` bag, dibaca lewat `useForm().errors` di komponen React. Ini **menggantikan** pola respons `422` + `{ message, errors }` yang didokumentasikan sebelumnya — kalau memakai `useForm()` dari `@inertiajs/react`, penanganan error sudah otomatis, jangan dibuat ulang manual.
+- **Kepemilikan data** tetap sama pentingnya — gunakan Policy Laravel (`Gate::authorize(...)` atau `authorize()` di Form Request) di tiap controller method. Kegagalan otorisasi otomatis menghasilkan halaman error 403 (ditangani Inertia), bukan body JSON `{ message: "..." }` yang perlu di-parse manual seperti sebelumnya. Selalu periksa kepemilikan tujuan terhadap user yang login — ini titik rawan kebocoran data antar pengguna, terlepas dari arsitekturnya.
 
 ### 10.2 Pengujian
 - `GoalCalculatorService` adalah fungsi matematis murni tanpa efek samping — cakupan pengujiannya harus paling tinggi di seluruh aplikasi. Uji terhadap `docs/fixtures/calculator-cases.json` (§6.6), termasuk semua kasus batas di §6.4.
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
 - `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
 - `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
-- Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B.
+- Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B. Pakai helper `assertInertia(fn (Assert $page) => $page->component('Goals/Show')->has('goal'))` bawaan `inertiajs/inertia-laravel` untuk memeriksa nama komponen halaman & props di test, **bukan** `assertJson` seperti pada arsitektur API murni.
 
 ### 10.3 Keamanan
-- Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di response API.
-- Rate limit pada endpoint auth (PRD FR-40) memakai `throttle` middleware Laravel.
+- Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun.
+- Rate limit pada endpoint auth (PRD FR-40) dan kalkulator utilitas publik (§6.8) memakai `throttle` middleware Laravel.
 - Jangan mencatat (log) nominal keuangan pengguna beserta identitasnya dalam log aplikasi.
+- CSRF ditangani otomatis lewat cookie `XSRF-TOKEN` + middleware bawaan Laravel/Inertia — jangan menonaktifkannya untuk "menyederhanakan" pemanggilan dari luar. Kalau kelak benar-benar butuh API stateless (mis. untuk app mobile native), itu pekerjaan terpisah yang memakai Sanctum sebagai **token guard tambahan**, bukan modifikasi terhadap guard `web` yang dipakai halaman-halaman Inertia.
 
 ## 11. Referensi Dokumen Terkait
 
-- `PRD.md` — requirement fungsional & non-fungsional lengkap, user stories, metrik sukses.
+- `PRD.md` — requirement fungsional & non-fungsional lengkap, user stories, metrik sukses, tabel keputusan §13 (**catatan:** baris D-5 di sana masih mencatat keputusan Sanctum bearer token yang sudah digantikan D-9 di dokumen ini — perlu diperbarui agar kedua dokumen konsisten).
 - `DESIGN.md` — palet warna, tipografi, spesifikasi komponen UI (sidebar, card, form kalkulator, panel rekomendasi, chart, news card).
 
 Saat mengimplementasikan fitur baru, selalu cek dua dokumen di atas terlebih dahulu agar konsisten dengan requirement produk dan design system yang sudah ditetapkan.
