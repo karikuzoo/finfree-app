@@ -11,27 +11,44 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
+/*
+ * Batas laju untuk seluruh endpoint tamu (PRD FR-40).
+ *
+ * Login sebenarnya sudah dibatasi di LoginRequest, tetapi penghitungnya
+ * berdasarkan kombinasi email + IP — penyerang yang mengganti-ganti alamat
+ * email dari satu IP tidak tertahan olehnya. Batas per-IP di lapisan route
+ * menutup celah itu.
+ *
+ * Register dan permintaan tautan reset sebelumnya tidak dibatasi sama sekali.
+ * Endpoint register tanpa batas adalah undangan membanjiri database dengan
+ * akun sampah, dan endpoint reset tanpa batas bisa dipakai membanjiri kotak
+ * masuk orang lain dengan email yang tidak diminta.
+ */
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:5,1');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware('throttle:10,1');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:5,1')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:5,1')
         ->name('password.store');
 });
 

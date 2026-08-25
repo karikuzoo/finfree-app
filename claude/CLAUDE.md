@@ -24,7 +24,7 @@ Dibangun sebagai **satu aplikasi Laravel + Inertia**, bukan dua project terpisah
 | Charting | Recharts atau Chart.js (belum terpasang, perlu `npm install`) |
 | Icon | lucide-react (belum terpasang, perlu `npm install`) |
 | Backend | Laravel 12, **PHP 8.4** (dikunci di `composer.json`: `"php": "^8.4"`) |
-| Auth | **Laravel Breeze, guard `web` (session/cookie)** — bukan Sanctum bearer token. Lihat D-9 di §8 |
+| Auth | **Laravel Breeze, guard `web` (session/cookie)** — bukan Sanctum bearer token. Lihat D-9 di §8. Verifikasi email **aktif** (`User implements MustVerifyEmail`); cara mencobanya di CONTRIBUTING.md §9.1 |
 | Database | **PostgreSQL 17** (`.env.example` sudah `pgsql`, ekstensi `ext-pdo_pgsql` diwajibkan di `composer.json`) |
 | Node | **22 LTS**, minimum 20.19 — dikunci di `package.json` → `engines` (syarat Vite 7) |
 | Cache (opsional) | Redis atau tabel cache di PostgreSQL |
@@ -50,8 +50,10 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   │   └── NewsController.php                  # BARU
 │   │   └── Middleware/
 │   │       └── HandleInertiaRequests.php           # bawaan Breeze — taruh shared props (user login dsb) di sini
+│   ├── Enums/
+│   │   └── RiskProfile.php         # sumber kebenaran nilai profil risiko — lihat §5
 │   ├── Models/
-│   │   ├── User.php                # bawaan, tambahkan kolom sesuai §5
+│   │   ├── User.php                # sudah punya kolom preferensi sesuai §5
 │   │   ├── FinancialGoal.php
 │   │   ├── GoalContribution.php
 │   │   ├── GoalCalculation.php
@@ -150,11 +152,22 @@ Gunakan `font-variant-numeric: tabular-nums` untuk seluruh komponen angka (buat 
 Tipe kolom ditulis eksplisit karena kolom uang yang tidak ditentukan tipenya hampir selalu berakhir sebagai `float` — lihat §6.5.
 
 ```
-users
+users                                          -- SUDAH DIIMPLEMENTASIKAN
   id, name, email (unique), email_verified_at, password,
-  risk_profile (enum: conservative|moderate|aggressive),
+  risk_profile (enum: conservative|moderate|aggressive, default 'moderate'),
+  currency_preference (char(3), default 'IDR'),
   prefers_syariah (boolean, default false),
-  currency_preference (char(3), default 'IDR'), created_at, updated_at, deleted_at
+  created_at, updated_at
+  -- TANPA deleted_at. Rancangan awal mencantumkannya, tetapi soft delete
+  -- berarti data pengguna tetap tersimpan setelah akun "dihapus" — dan itu
+  -- bertentangan dengan FR-37 yang menuntut penghapusan permanen sebagai
+  -- pemenuhan hak penghapusan UU 27/2022 PDP. Hapus akun = hard delete.
+  --
+  -- Nilai enum risk_profile TIDAK ditulis sebagai string di mana pun:
+  -- sumbernya App\Enums\RiskProfile, dipakai oleh definisi kolom migrasi,
+  -- aturan validasi, cast model, dan daftar pilihan di UI. Kolom
+  -- financial_goals.risk_profile_override (FR-24) WAJIB memakai enum yang
+  -- sama. ProfilePreferenceTest mengunci daftar nilainya.
 
 financial_goals
   id, user_id (FK, on delete cascade),
@@ -487,7 +500,18 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
 
 ### 10.4 Keamanan
 - Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun.
-- Rate limit pada endpoint auth (PRD FR-40) dan kalkulator utilitas publik (§6.8) memakai `throttle` middleware Laravel.
+- **Verifikasi email aktif.** `User` mengimplementasikan `MustVerifyEmail`, dan itulah satu-satunya hal yang membuat middleware `verified` berfungsi. Tanpa baris tersebut, middleware itu tetap terpasang tetapi meloloskan semua orang — gagal diam-diam, tanpa error. Dijaga `tests/Feature/Auth/AccessControlTest.php`.
+- **Batas laju endpoint tamu** (PRD FR-40), semuanya di `routes/auth.php`:
+
+  | Endpoint | Batas |
+  |---|---|
+  | `POST register` | 5 / menit per IP |
+  | `POST login` | 10 / menit per IP, **di samping** pembatas bawaan Breeze di `LoginRequest` (5 percobaan per email+IP) |
+  | `POST forgot-password` | 5 / menit per IP |
+  | `POST reset-password` | 5 / menit per IP |
+
+  Batas per-IP di lapisan route bukan duplikasi dari pembatas Breeze: pembatas Breeze dihitung per kombinasi email+IP, sehingga penyerang yang mengganti-ganti alamat email dari satu IP tidak tertahan olehnya.
+- Rate limit kalkulator utilitas publik ada di `routes/web.php` (§6.8).
 - Jangan mencatat (log) nominal keuangan pengguna beserta identitasnya dalam log aplikasi.
 - CSRF ditangani otomatis lewat cookie `XSRF-TOKEN` + middleware bawaan Laravel/Inertia — jangan menonaktifkannya untuk "menyederhanakan" pemanggilan dari luar. Kalau kelak benar-benar butuh API stateless (mis. untuk app mobile native), itu pekerjaan terpisah yang memakai Sanctum sebagai **token guard tambahan**, bukan modifikasi terhadap guard `web` yang dipakai halaman-halaman Inertia.
 

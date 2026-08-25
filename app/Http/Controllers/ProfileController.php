@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RiskProfile;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +22,9 @@ class ProfileController extends Controller
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            // Daftar pilihan dikirim dari backend, bukan ditulis ulang di
+            // React — supaya menambah profil risiko baru cukup di App\Enums.
+            'riskProfiles' => RiskProfile::options(),
         ]);
     }
 

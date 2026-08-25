@@ -20,16 +20,15 @@ export default function ConfirmPassword() {
 
     return (
         <GuestLayout>
-            <Head title="Confirm Password" />
+            <Head title="Konfirmasi Kata Sandi" />
 
             <div className="mb-4 text-sm text-text-secondary">
-                This is a secure area of the application. Please confirm your
-                password before continuing.
+                Ini bagian aplikasi yang dilindungi. Mohon konfirmasi kata sandi Anda sebelum melanjutkan.
             </div>
 
             <form onSubmit={submit}>
                 <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                    <InputLabel htmlFor="password" value="Kata Sandi" />
 
                     <TextInput
                         id="password"
@@ -46,7 +45,7 @@ export default function ConfirmPassword() {
 
                 <div className="mt-4 flex items-center justify-end">
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Confirm
+                        Konfirmasi
                     </PrimaryButton>
                 </div>
             </form>

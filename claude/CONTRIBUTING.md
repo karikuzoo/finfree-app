@@ -104,6 +104,17 @@ Berkas berikut disentuh hampir setiap fitur. Perlakukan sebagai **append-only** 
 
 Migrasi relatif aman karena bernama timestamp, tapi **jangan pernah mengubah migrasi yang sudah di-merge** — buat migrasi baru.
 
+### Nilai yang dipakai bersama dua fitur
+Beberapa nilai muncul di lebih dari satu fitur yang dikerjakan orang berbeda. Nilai semacam itu **tidak boleh ditulis sebagai string di masing-masing tempat** — cukup satu kelas, dipakai bersama.
+
+| Nilai | Sumber kebenaran | Dipakai oleh |
+|---|---|---|
+| Profil risiko | `app/Enums/RiskProfile.php` | `users.risk_profile` (Dev A) dan `financial_goals.risk_profile_override` FR-24 (Dev B) |
+
+Kalau satu orang mengetik `konservatif` dan yang lain `conservative`, keduanya tidak akan cocok — dan itu baru ketahuan saat kedua fitur disambungkan, ketika sudah ada data telanjur tersimpan. Memakai kelas enum yang sama membuat ketidakcocokan seperti itu mustahil terjadi.
+
+Bila nanti muncul nilai bersama lain (kategori tujuan, status tujuan, kategori instrumen), buat enum-nya dengan pola yang sama dan tambahkan barisnya ke tabel di atas.
+
 ### Identitas git
 Setelah clone, pastikan identitas commit benar (setel lokal di repo ini, bukan `--global`):
 
@@ -192,6 +203,86 @@ composer run dev
 ```
 
 Aplikasi ada di `http://localhost:8000`. Port 5173 adalah server aset Vite, bukan alamat aplikasi.
+
+### 9.1 Mencoba alur verifikasi email
+
+Verifikasi email **aktif** — pengguna yang belum memverifikasi alamatnya tidak bisa membuka dashboard. Tapi di development emailnya tidak benar-benar terkirim ke mana pun, dan ini yang biasanya membuat orang mengira fiturnya rusak.
+
+Penyebabnya ada di `.env`:
+
+```
+MAIL_MAILER=log
+```
+
+Dengan setelan itu, Laravel **menulis isi email ke berkas log** alih-alih mengirimkannya. Itu justru yang kita mau saat development: tidak perlu akun SMTP, tidak ada risiko email uji coba nyasar ke alamat orang sungguhan.
+
+**Langkah mencobanya:**
+
+1. Daftar akun baru di `http://localhost:8000/register`
+2. Anda akan diarahkan ke halaman "Verifikasi Email" — ini normal, bukan error
+3. Buka berkas `storage/logs/laravel.log`, gulir ke bagian paling bawah
+4. Cari baris berisi `verify-email`. Bentuknya kira-kira:
+
+   ```
+   http://localhost:8000/verify-email/1/abc123...?expires=...&signature=...
+   ```
+
+5. Salin **seluruh** URL itu — termasuk `?expires=` dan `&signature=`, karena tautannya bertanda tangan dan akan ditolak bila terpotong
+6. Tempel di browser. Anda akan diarahkan ke dashboard, dan akun itu kini terverifikasi
+
+Cara cepat mengambil tautannya tanpa membuka berkas log:
+
+```bash
+Select-String -Path storage\logs\laravel.log -Pattern "verify-email" | Select-Object -Last 1
+```
+
+**Melewati verifikasi saat mengembangkan fitur lain.** Kalau Anda sedang menggarap dashboard dan tidak ingin bolak-balik memverifikasi, buat akun yang langsung terverifikasi lewat tinker:
+
+```bash
+php artisan tinker --execute="App\Models\User::factory()->create(['email' => 'saya@contoh.test']);"
+```
+
+Factory bawaan membuat akun yang sudah terverifikasi, dengan kata sandi `password`.
+
+**Untuk produksi nanti**, `MAIL_MAILER` diganti ke SMTP sungguhan beserta kredensialnya. Selama masih `log`, tidak ada satu pun email yang benar-benar keluar.
+
+> **Jangan menonaktifkan verifikasi untuk "menyederhanakan" development.** Baris `implements MustVerifyEmail` di `app/Models/User.php` adalah satu-satunya hal yang membuat middleware `verified` berfungsi. Tanpa baris itu, middleware tersebut tetap terpasang di route tetapi meloloskan semua orang — tanpa error, tanpa peringatan. Repo ini sempat berada dalam keadaan tersebut. `tests/Feature/Auth/AccessControlTest.php` sekarang menjaganya; kalau baris itu hilang, testnya langsung merah.
+
+### 9.2 Mencoba alur reset kata sandi
+
+Prinsipnya sama dengan §9.1 — emailnya juga hanya ditulis ke log. Tetapi **tautannya berbeda**, dan ini yang paling sering tertukar:
+
+| | Bentuk tautan |
+|---|---|
+| Verifikasi email | `/verify-email/{id}/{hash}?expires=…&signature=…` |
+| Reset kata sandi | `/reset-password/{token}?email=…` |
+
+Keduanya email yang berbeda untuk keperluan yang berbeda. Verifikasi membuktikan alamat email itu benar milik Anda; reset menggantikan kata sandi yang terlupa.
+
+**Langkah mencobanya:**
+
+1. Buka `http://localhost:8000/forgot-password`
+2. Masukkan email akun yang terdaftar, tekan **Kirim Tautan Atur Ulang**
+3. Ambil tautannya dari log:
+
+   ```bash
+   Select-String -Path storage\logs\laravel.log -Pattern "reset-password" | Select-Object -Last 1
+   ```
+
+4. Tempel di browser — halaman pengaturan kata sandi baru akan terbuka dengan email sudah terisi
+5. Isi kata sandi baru, simpan. Anda langsung login dengan kata sandi itu
+
+**Tiga hal yang perlu diketahui:**
+
+- **Token berlaku 60 menit.** Diatur di `config/auth.php` (`passwords.users.expire`). Lewat dari itu, tautannya ditolak dan Anda perlu meminta yang baru.
+- **Permintaan berulang ditahan 60 detik.** Menekan tombolnya dua kali beruntun tidak menghasilkan email kedua — Laravel menahannya. Kalau tautan baru tidak muncul di log, kemungkinan besar ini penyebabnya, bukan kerusakan.
+- **Reset kata sandi tidak menuntut email terverifikasi.** Keduanya alur terpisah: pengguna yang belum memverifikasi email tetap boleh mengatur ulang kata sandinya. Ini memang disengaja — orang yang lupa kata sandi seringkali juga belum sempat memverifikasi.
+
+> **`APP_URL` harus menyertakan port.** Seluruh tautan di email dibangun dari nilai `APP_URL` di `.env`. Bila isinya `http://localhost` tanpa `:8000`, tautan yang tertulis di log tidak akan bisa dibuka — padahal aplikasinya berjalan normal. Nilai yang benar untuk development:
+>
+> ```
+> APP_URL=http://localhost:8000
+> ```
 
 ---
 
