@@ -157,6 +157,7 @@ users                                          -- SUDAH DIIMPLEMENTASIKAN
   risk_profile (enum: conservative|moderate|aggressive, default 'moderate'),
   currency_preference (char(3), default 'IDR'),
   prefers_syariah (boolean, default false),
+  avatar_path (string, nullable),              -- jalur berkas, BUKAN isi gambar
   created_at, updated_at
   -- TANPA deleted_at. Rancangan awal mencantumkannya, tetapi soft delete
   -- berarti data pengguna tetap tersimpan setelah akun "dihapus" — dan itu
@@ -513,6 +514,7 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
   Batas per-IP di lapisan route bukan duplikasi dari pembatas Breeze: pembatas Breeze dihitung per kombinasi email+IP, sehingga penyerang yang mengganti-ganti alamat email dari satu IP tidak tertahan olehnya.
 - Rate limit kalkulator utilitas publik ada di `routes/web.php` (§6.8).
 - Jangan mencatat (log) nominal keuangan pengguna beserta identitasnya dalam log aplikasi.
+- **Foto profil ditulis ulang, tidak disimpan apa adanya** (`app/Services/AvatarService.php`). Berkas yang diunggah dibaca ulang lalu ditulis kembali dari nol sebagai WebP 256×256. Dua alasannya: seluruh metadata ikut hilang — termasuk koordinat GPS yang sering tertanam di foto ponsel dan akan menjadi kebocoran lokasi rumah pengguna — dan berkas yang menyamar sebagai gambar gagal di tahap ini. Batas dimensi 3000×3000 ada demi memori: GD memakai 4 byte per piksel saat membuka gambar. Saat akun dihapus, berkasnya wajib ikut dihapus (FR-37); dijaga `ProfileAvatarTest`.
 - CSRF ditangani otomatis lewat cookie `XSRF-TOKEN` + middleware bawaan Laravel/Inertia — jangan menonaktifkannya untuk "menyederhanakan" pemanggilan dari luar. Kalau kelak benar-benar butuh API stateless (mis. untuk app mobile native), itu pekerjaan terpisah yang memakai Sanctum sebagai **token guard tambahan**, bukan modifikasi terhadap guard `web` yang dipakai halaman-halaman Inertia.
 
 ## 11. Referensi Dokumen Terkait

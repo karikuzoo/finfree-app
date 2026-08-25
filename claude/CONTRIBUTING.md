@@ -179,7 +179,10 @@ composer install
 npm install
 cp .env.example .env
 php artisan key:generate
+php artisan storage:link
 ```
+
+`storage:link` membuat pranala dari `public/storage` ke `storage/app/public`, tempat foto profil disimpan. **Tanpa perintah ini foto tidak akan tampil** — unggahannya berhasil, berkasnya tersimpan, tetapi setiap gambar muncul sebagai ikon rusak. Cukup dijalankan sekali per mesin; pranalanya sendiri tidak ikut masuk git.
 
 Buat **dua** database di PostgreSQL — satu untuk development, satu untuk test:
 

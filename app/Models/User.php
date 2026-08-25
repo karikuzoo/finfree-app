@@ -8,6 +8,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -69,5 +70,36 @@ class User extends Authenticatable implements MustVerifyEmail
             'risk_profile' => RiskProfile::class,
             'prefers_syariah' => 'boolean',
         ];
+    }
+
+    /**
+     * Ikut dikirim ke frontend setiap kali user diserialisasi.
+     *
+     * Frontend menerima URL siap pakai, bukan jalur mentah — supaya tidak ada
+     * halaman yang menyusun URL penyimpanan sendiri lalu ikut rusak bila kelak
+     * berpindah ke S3 atau CDN.
+     *
+     * @var list<string>
+     */
+    protected $appends = ['avatar_url', 'initials'];
+
+    /** URL foto profil, atau null bila pengguna belum mengunggah. */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar_path
+            ? Storage::disk('public')->url($this->avatar_path)
+            : null;
+    }
+
+    /**
+     * Inisial nama untuk avatar cadangan — "Muhammad Ihsan" menjadi "MI".
+     * Dihitung di backend agar seluruh tampilan memakai aturan yang sama.
+     */
+    public function getInitialsAttribute(): string
+    {
+        $parts = preg_split('/\s+/', trim($this->name)) ?: [];
+        $letters = array_map(fn (string $p) => mb_substr($p, 0, 1), array_slice($parts, 0, 2));
+
+        return mb_strtoupper(implode('', $letters)) ?: '?';
     }
 }

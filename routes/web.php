@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GoalCalculatorController;
+use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,13 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::patch('/profile/preferensi', [ProfilePreferenceController::class, 'update'])
         ->name('profile.preferences.update');
+
+    // POST, bukan PATCH: unggahan berkas dikirim sebagai multipart/form-data
+    // dan browser hanya bisa mengirimnya lewat POST.
+    Route::post('/profile/foto', [ProfileAvatarController::class, 'update'])
+        ->name('profile.avatar.update');
+    Route::delete('/profile/foto', [ProfileAvatarController::class, 'destroy'])
+        ->name('profile.avatar.destroy');
 });
 
 require __DIR__.'/auth.php';

@@ -1,4 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import Avatar from '@/Components/Avatar';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
@@ -52,8 +53,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <span className="inline-flex rounded-lg">
                                             <button
                                                 type="button"
-                                                className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium leading-4 text-text-secondary transition duration-150 ease-in-out hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
+                                                className="inline-flex items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium leading-4 text-text-secondary transition duration-150 ease-in-out hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
                                             >
+                                                <Avatar user={user} size={28} />
                                                 {user.name}
 
                                                 <svg
@@ -150,12 +152,15 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
 
                     <div className="border-t border-border pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-text-primary">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-text-muted">
-                                {user.email}
+                        <div className="flex items-center gap-3 px-4">
+                            <Avatar user={user} size={40} />
+                            <div className="min-w-0">
+                                <div className="truncate text-base font-medium text-text-primary">
+                                    {user.name}
+                                </div>
+                                <div className="truncate text-sm font-medium text-text-muted">
+                                    {user.email}
+                                </div>
                             </div>
                         </div>
 

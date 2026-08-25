@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\RiskProfile;
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\AvatarService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +48,7 @@ class ProfileController extends Controller
     /**
      * Delete the user's account.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, AvatarService $avatars): RedirectResponse
     {
         $request->validate([
             'password' => ['required', 'current_password'],
@@ -56,6 +57,12 @@ class ProfileController extends Controller
         $user = $request->user();
 
         Auth::logout();
+
+        // Berkas foto harus ikut dihapus. Menghapus barisnya saja meninggalkan
+        // gambar wajah pengguna di penyimpanan selamanya — bertentangan dengan
+        // FR-37 yang menuntut penghapusan menyeluruh, dan berkas itu tidak lagi
+        // dimiliki siapa pun sehingga tak akan pernah dibersihkan.
+        $avatars->deleteFile($user->avatar_path);
 
         $user->delete();
 
