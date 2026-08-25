@@ -1,22 +1,43 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+/*
+|--------------------------------------------------------------------------
+| Halaman publik
+|--------------------------------------------------------------------------
+|
+| Ketiganya sengaja berada di luar middleware `auth`. Kalkulator utilitas
+| adalah pintu masuk pengguna baru — orang mencari "simulasi cicilan KPR" di
+| mesin pencari, dan mengunci itu di balik pendaftaran membuang keunggulannya
+| (PRD FR-44). Menyimpan hasilnya baru menuntut akun.
+|
+| `throttle` dipasang karena halaman publik yang menghitung tanpa batas laju
+| adalah beban gratis bagi siapa pun yang ingin menyalahgunakannya
+| (CLAUDE.md §6.8).
+|
+*/
+
+Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
+
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/kalkulator', fn () => Inertia::render('Calculator/Index'))
+        ->name('calculator.index');
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/berita', fn () => Inertia::render('News/Index'))->name('news.index');
+
+/*
+|--------------------------------------------------------------------------
+| Halaman yang menuntut login
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/dashboard', fn () => Inertia::render('Dashboard'))
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
