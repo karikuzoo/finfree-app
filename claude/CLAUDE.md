@@ -465,5 +465,6 @@ Yang berubah dari versi arsitektur lama:
 
 - `PRD.md` — requirement fungsional & non-fungsional lengkap, user stories, metrik sukses, tabel keputusan §13 (**catatan:** baris D-5 di sana masih mencatat keputusan Sanctum bearer token yang sudah digantikan D-9 di dokumen ini — perlu diperbarui agar kedua dokumen konsisten).
 - `DESIGN.md` — palet warna, tipografi, spesifikasi komponen UI (sidebar, card, form kalkulator, panel rekomendasi, chart, news card).
+- `ORIENTASI.md` — panduan membaca kode untuk anggota tim yang baru masuk: peta folder, alur satu halaman dari URL sampai layar, urutan baca, dan pembedahan berkas baris per baris. Arahkan orang baru ke sini lebih dulu, bukan ke dokumen ini.
 
 Saat mengimplementasikan fitur baru, selalu cek dua dokumen di atas terlebih dahulu agar konsisten dengan requirement produk dan design system yang sudah ditetapkan.

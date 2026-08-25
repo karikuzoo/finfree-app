@@ -129,6 +129,7 @@ Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, d
 | [DESIGN.md](DESIGN.md) | Design system: palet, tipografi, komponen, state, aksesibilitas |
 | [CLAUDE.md](CLAUDE.md) | Konteks teknis: struktur repo, skema DB, rumus kalkulator, kontrak props Inertia, konvensi |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cara kerja tim: pembagian tugas, alur git, definition of done |
+| [ORIENTASI.md](ORIENTASI.md) | **Mulai dari sini kalau baru pertama membaca kode.** Peta folder, alur satu halaman dari URL sampai layar, urutan baca, dan pembedahan berkas baris per baris |
 
 ---
 
