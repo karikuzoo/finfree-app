@@ -1,0 +1,179 @@
+{
+  "$schema_note": "Test vector bersama untuk mesin kalkulator tujuan FinGoal. Dipakai oleh test PHP (backend, sumber kebenaran) DAN test JavaScript (preview real-time di frontend). Kedua implementasi WAJIB lolos berkas yang sama — lihat CLAUDE.md 6.6.",
+  "aturan": {
+    "D-1": "Inflasi MENAIKKAN nominal target: future_value_target = target_amount * (1+inflasi)^(months/12). Return yang dipakai adalah return NOMINAL. Dilarang memotong return dengan inflasi juga — itu perhitungan ganda.",
+    "D-2": "Ordinary annuity: setoran di AKHIR bulan.",
+    "konversi_rate": "Rate tahunan diperlakukan sebagai effective annual rate: i = (1+r)^(1/12) - 1. Bukan r/12.",
+    "pembulatan": "monthly_contribution_required dibulatkan KE ATAS ke rupiah penuh. Proyeksi dihitung memakai PMT yang sudah dibulatkan itu, bukan nilai desimalnya.",
+    "satuan_persen": "annual_return_rate dan annual_inflation_rate dinyatakan dalam persen (7.5 berarti 7,5%), bukan desimal.",
+    "kasus_batas": "i = 0 memakai PMT = (FV - PV) / months. Bila PV yang sudah bertumbuh >= FV target, PMT = 0 (tidak boleh negatif)."
+  },
+  "penjaga": {
+    "anti-perhitungan-ganda": "Kasus dasar-dengan-inflasi mengunci D-1. Bila suatu saat ada yang mengubah rumus jadi real-return, future_value_target akan turun menjadi 500000000 dan kasus ini gagal. Jangan perbaiki dengan mengubah angka harapannya — perbaiki rumusnya.",
+    "tenor-satu-bulan": "Mengunci D-2. Pada ordinary annuity dengan n=1, PMT harus PERSIS sama dengan target. Bila jadi lebih kecil, berarti rumusnya berubah menjadi annuity due."
+  },
+  "cases": [
+    {
+      "name": "dasar-tanpa-inflasi",
+      "input": {
+        "target_amount": 500000000,
+        "current_amount": 0,
+        "months": 120,
+        "annual_return_rate": 8,
+        "annual_inflation_rate": 0
+      },
+      "expected": {
+        "monthly_contribution_required": 2775862,
+        "future_value_target": 500000000,
+        "future_value_projection": 500000125,
+        "total_contribution_projection": 333103440,
+        "total_investment_growth_projection": 166896685,
+        "monthly_rate": 0.0064340301
+      }
+    },
+    {
+      "name": "dasar-dengan-inflasi",
+      "input": {
+        "target_amount": 500000000,
+        "current_amount": 50000000,
+        "months": 120,
+        "annual_return_rate": 8,
+        "annual_inflation_rate": 3.5
+      },
+      "expected": {
+        "monthly_contribution_required": 3316339,
+        "future_value_target": 705299380,
+        "future_value_projection": 705299402,
+        "total_contribution_projection": 397960680,
+        "total_investment_growth_projection": 257338722,
+        "monthly_rate": 0.0064340301
+      }
+    },
+    {
+      "name": "return-nol",
+      "input": {
+        "target_amount": 60000000,
+        "current_amount": 0,
+        "months": 12,
+        "annual_return_rate": 0,
+        "annual_inflation_rate": 0
+      },
+      "expected": {
+        "monthly_contribution_required": 5000000,
+        "future_value_target": 60000000,
+        "future_value_projection": 60000000,
+        "total_contribution_projection": 60000000,
+        "total_investment_growth_projection": 0,
+        "monthly_rate": 0
+      }
+    },
+    {
+      "name": "return-nol-dengan-inflasi",
+      "input": {
+        "target_amount": 60000000,
+        "current_amount": 0,
+        "months": 12,
+        "annual_return_rate": 0,
+        "annual_inflation_rate": 5
+      },
+      "expected": {
+        "monthly_contribution_required": 5250000,
+        "future_value_target": 63000000,
+        "future_value_projection": 63000000,
+        "total_contribution_projection": 63000000,
+        "total_investment_growth_projection": 0,
+        "monthly_rate": 0
+      }
+    },
+    {
+      "name": "dana-awal-sudah-melebihi",
+      "input": {
+        "target_amount": 100000000,
+        "current_amount": 150000000,
+        "months": 60,
+        "annual_return_rate": 6,
+        "annual_inflation_rate": 0
+      },
+      "expected": {
+        "monthly_contribution_required": 0,
+        "future_value_target": 100000000,
+        "future_value_projection": 200733837,
+        "total_contribution_projection": 0,
+        "total_investment_growth_projection": 50733837,
+        "monthly_rate": 0.0048675506
+      }
+    },
+    {
+      "name": "dana-awal-tumbuh-melebihi",
+      "input": {
+        "target_amount": 100000000,
+        "current_amount": 90000000,
+        "months": 60,
+        "annual_return_rate": 6,
+        "annual_inflation_rate": 0
+      },
+      "expected": {
+        "monthly_contribution_required": 0,
+        "future_value_target": 100000000,
+        "future_value_projection": 120440302,
+        "total_contribution_projection": 0,
+        "total_investment_growth_projection": 30440302,
+        "monthly_rate": 0.0048675506
+      }
+    },
+    {
+      "name": "tenor-satu-bulan",
+      "input": {
+        "target_amount": 10000000,
+        "current_amount": 0,
+        "months": 1,
+        "annual_return_rate": 12,
+        "annual_inflation_rate": 0
+      },
+      "expected": {
+        "monthly_contribution_required": 10000000,
+        "future_value_target": 10000000,
+        "future_value_projection": 10000000,
+        "total_contribution_projection": 10000000,
+        "total_investment_growth_projection": 0,
+        "monthly_rate": 0.0094887929
+      }
+    },
+    {
+      "name": "pensiun-jangka-panjang",
+      "input": {
+        "target_amount": 3000000000,
+        "current_amount": 100000000,
+        "months": 360,
+        "annual_return_rate": 10,
+        "annual_inflation_rate": 4
+      },
+      "expected": {
+        "monthly_contribution_required": 3870994,
+        "future_value_target": 9730192530,
+        "future_value_projection": 9730194318,
+        "total_contribution_projection": 1393557840,
+        "total_investment_growth_projection": 8236636478,
+        "monthly_rate": 0.0079741404
+      }
+    },
+    {
+      "name": "inflasi-tinggi-pendidikan",
+      "input": {
+        "target_amount": 250000000,
+        "current_amount": 0,
+        "months": 96,
+        "annual_return_rate": 7,
+        "annual_inflation_rate": 10
+      },
+      "expected": {
+        "monthly_contribution_required": 4219019,
+        "future_value_target": 535897203,
+        "future_value_projection": 535897281,
+        "total_contribution_projection": 405025824,
+        "total_investment_growth_projection": 130871457,
+        "monthly_rate": 0.0056541454
+      }
+    }
+  ]
+}
