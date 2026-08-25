@@ -280,8 +280,15 @@ Memakai keduanya sekaligus adalah bug paling umum pada kalkulator jenis ini dan 
 ### 6.6 Sumber kebenaran & duplikasi rumus
 Implementasikan logika di `GoalCalculatorService.php` (backend) sebagai *source of truth*. Frontend boleh menduplikasi rumus untuk preview real-time (FR-8), dengan syarat:
 
-- Sediakan berkas **test vector bersama**, mis. `docs/fixtures/calculator-cases.json`, berisi pasangan input→output yang sudah diverifikasi manual.
-- Uji PHP dan JavaScript terhadap berkas yang sama. Bila keduanya bisa berbeda diam-diam, cepat atau lambat akan berbeda.
+- Berkas **test vector bersama** ada di `docs/fixtures/calculator-cases.json`, berisi pasangan input→output yang sudah diverifikasi manual.
+- **Sudah diimplementasikan.** Salinan JS-nya di `resources/js/utils/goalCalculator.js`, diuji `resources/js/utils/goalCalculator.test.mjs` terhadap berkas yang sama:
+
+  ```bash
+  npm run test:js
+  ```
+
+  Memakai test runner bawaan Node (`node --test`), tanpa paket tambahan. **Jalankan bersama `php artisan test` setiap kali menyentuh rumus** — kalau hanya salah satu yang dijalankan, kedua implementasi bisa berbeda tanpa ada yang tahu.
+- Salinan JS juga menyediakan dua hal yang tidak ada di backend karena hanya dibutuhkan untuk interaksi: `solveMonths()` (arah sebaliknya — berapa lama bila setorannya sekian, diselesaikan dengan pencarian biner karena inflasi membuat `n` muncul di kedua sisi persamaan) dan `projectionSeries()` untuk grafik.
 - Nilai yang **disimpan** selalu hasil dari backend, dikirim lewat `useForm().post(route('goals.calculations.store', goal))` (Inertia form helper) — bukan `fetch`/`axios` manual ke endpoint JSON.
 
 ### 6.7 Mesin alokasi
@@ -494,6 +501,7 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
 **Test berjalan di PostgreSQL (`fingoal_test`), bukan SQLite in-memory.** `phpunit.xml` sudah diarahkan ke sana. Jangan mengembalikannya ke SQLite demi kecepatan: skema kita memakai `jsonb` dan `enum` yang tidak didukung SQLite dan akan diam-diam jatuh jadi `text`, sehingga migrasi bisa lolos seluruh test lalu gagal saat pertama dijalankan sungguhan. Lagipula tidak ada yang dihemat — pengukuran nyata menunjukkan suite berjalan ~4 detik di PostgreSQL.
 
 - `GoalCalculatorService` adalah fungsi matematis murni tanpa efek samping — cakupan pengujiannya harus paling tinggi di seluruh aplikasi. Uji terhadap `docs/fixtures/calculator-cases.json` (§6.6), termasuk semua kasus batas di §6.4. Kelas test ini meng-extend `PHPUnit\Framework\TestCase` (bukan `Tests\TestCase`) karena tidak menyentuh database sama sekali — pertahankan begitu agar tetap cepat.
+- **Rumus kalkulator punya dua implementasi** (PHP dan JS). Menjalankan `php artisan test` saja tidak cukup — sertakan `npm run test:js`. Lihat §6.6.
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
 - `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
 - `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.

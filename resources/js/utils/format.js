@@ -22,6 +22,24 @@ export function formatRupiah(value) {
     return `Rp ${formatNumber(value)}`;
 }
 
+/**
+ * Bentuk ringkas untuk sumbu grafik dan ruang sempit.
+ * 1500000 -> "Rp 1,5 jt" ; 2750000000 -> "Rp 2,75 M"
+ */
+export function formatCompactRupiah(value) {
+    const n = Number(value) || 0;
+    const abs = Math.abs(n);
+
+    const trim = (x, digits) =>
+        x.toFixed(digits).replace(/\.?0+$/, '').replace('.', ',');
+
+    if (abs >= 1_000_000_000) return `Rp ${trim(n / 1_000_000_000, 2)} M`;
+    if (abs >= 1_000_000) return `Rp ${trim(n / 1_000_000, 1)} jt`;
+    if (abs >= 1_000) return `Rp ${trim(n / 1_000, 0)} rb`;
+
+    return `Rp ${Math.round(n)}`;
+}
+
 /** "1.500.000" atau "Rp 1.500.000" -> 1500000 */
 export function parseNumber(text) {
     const digits = String(text).replace(/[^\d]/g, '');

@@ -131,7 +131,7 @@ Sebuah PR dianggap selesai bila:
 - [ ] Fitur berjalan end-to-end (bukan hanya backend, bukan hanya UI)
 - [ ] Validasi ada di **backend**, tidak hanya di frontend
 - [ ] Route/controller yang mengakses data tujuan memeriksa kepemilikan terhadap user yang login (Policy Laravel, bukan pengecekan di frontend)
-- [ ] Ada test untuk logika non-trivial; kode kalkulator wajib lolos `calculator-cases.json`
+- [ ] Ada test untuk logika non-trivial; kode kalkulator wajib lolos `calculator-cases.json` — `php artisan test` **dan** `npm run test:js`, karena rumusnya ada dua implementasi
 - [ ] Empty state, loading state, dan error state tertangani (DESIGN.md §9) — bukan hanya jalur sukses
 - [ ] Tidak ada nilai uang bertipe float, tidak ada rupiah diformat di backend
 - [ ] Dokumen terkait sudah diperbarui bila ada keputusan yang berubah

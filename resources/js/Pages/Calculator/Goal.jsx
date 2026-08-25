@@ -4,6 +4,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
+import WhatIfPanel from '@/Components/WhatIfPanel';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatDuration, formatRupiah } from '@/utils/format';
 import { Head, useForm } from '@inertiajs/react';
@@ -32,11 +33,19 @@ export default function CalculatorGoal({ input, result }) {
 
         // Field kosong dibuang, bukan dikirim sebagai string kosong — supaya
         // validasi "numeric" di backend tidak menolaknya padahal memang opsional.
+        //
+        // Perhatikan `transform()` dipanggil terpisah, TIDAK dirantai dengan
+        // `.get()`. Di Inertia v2 fungsi ini tidak mengembalikan objek form,
+        // sehingga `form.transform(...).get(...)` memanggil `.get()` pada
+        // undefined. Errornya tertelan React dan tombolnya sekadar tampak
+        // tidak melakukan apa-apa — tanpa pesan apa pun di layar.
         form.transform((data) =>
             Object.fromEntries(
                 Object.entries(data).filter(([, v]) => v !== '' && v !== null),
             ),
-        ).get(route('calculator.goal'), {
+        );
+
+        form.get(route('calculator.goal'), {
             preserveScroll: true,
             preserveState: true,
         });
@@ -259,6 +268,12 @@ export default function CalculatorGoal({ input, result }) {
                         )}
                     </div>
                 </div>
+
+                {result && !result.already_achieved && (
+                    <div className="mt-6">
+                        <WhatIfPanel input={input} baseline={result} />
+                    </div>
+                )}
             </div>
         </PublicLayout>
     );
