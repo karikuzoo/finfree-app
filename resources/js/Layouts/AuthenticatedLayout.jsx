@@ -5,6 +5,12 @@ import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
+/**
+ * Shell aplikasi. Untuk saat ini hanya berisi topbar — sidebar kategori
+ * kalkulator dan panel kanan menyusul bersama halaman-halamannya
+ * (DESIGN.md §4). Menu masih terbatas Dashboard karena route Tujuan,
+ * Kalkulator, dan News belum didaftarkan.
+ */
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
 
@@ -12,14 +18,20 @@ export default function AuthenticatedLayout({ header, children }) {
         useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <nav className="border-b border-gray-100 bg-white">
+        <div className="min-h-screen bg-bg-base">
+            <nav className="border-b border-border bg-bg-surface">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between">
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
+                                <Link
+                                    href="/"
+                                    className="flex items-center gap-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-surface"
+                                >
+                                    <ApplicationLogo className="h-8 w-8 text-lime-500" />
+                                    <span className="text-lg font-bold tracking-tight text-text-primary">
+                                        FinGoal
+                                    </span>
                                 </Link>
                             </div>
 
@@ -37,10 +49,10 @@ export default function AuthenticatedLayout({ header, children }) {
                             <div className="relative ms-3">
                                 <Dropdown>
                                     <Dropdown.Trigger>
-                                        <span className="inline-flex rounded-md">
+                                        <span className="inline-flex rounded-lg">
                                             <button
                                                 type="button"
-                                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
+                                                className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium leading-4 text-text-secondary transition duration-150 ease-in-out hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
                                             >
                                                 {user.name}
 
@@ -64,14 +76,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                         <Dropdown.Link
                                             href={route('profile.edit')}
                                         >
-                                            Profile
+                                            Profil
                                         </Dropdown.Link>
                                         <Dropdown.Link
                                             href={route('logout')}
                                             method="post"
                                             as="button"
                                         >
-                                            Log Out
+                                            Keluar
                                         </Dropdown.Link>
                                     </Dropdown.Content>
                                 </Dropdown>
@@ -85,7 +97,8 @@ export default function AuthenticatedLayout({ header, children }) {
                                         (previousState) => !previousState,
                                     )
                                 }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
+                                aria-label="Buka menu navigasi"
+                                className="inline-flex items-center justify-center rounded-lg p-2 text-text-secondary transition duration-150 ease-in-out hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
                             >
                                 <svg
                                     className="h-6 w-6"
@@ -136,26 +149,26 @@ export default function AuthenticatedLayout({ header, children }) {
                         </ResponsiveNavLink>
                     </div>
 
-                    <div className="border-t border-gray-200 pb-1 pt-4">
+                    <div className="border-t border-border pb-1 pt-4">
                         <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
+                            <div className="text-base font-medium text-text-primary">
                                 {user.name}
                             </div>
-                            <div className="text-sm font-medium text-gray-500">
+                            <div className="text-sm font-medium text-text-muted">
                                 {user.email}
                             </div>
                         </div>
 
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
+                                Profil
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 method="post"
                                 href={route('logout')}
                                 as="button"
                             >
-                                Log Out
+                                Keluar
                             </ResponsiveNavLink>
                         </div>
                     </div>
@@ -163,7 +176,7 @@ export default function AuthenticatedLayout({ header, children }) {
             </nav>
 
             {header && (
-                <header className="bg-white shadow">
+                <header className="border-b border-border bg-bg-surface">
                     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                         {header}
                     </div>

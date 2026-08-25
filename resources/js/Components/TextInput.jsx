@@ -21,7 +21,11 @@ export default forwardRef(function TextInput(
             {...props}
             type={type}
             className={
-                'rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ' +
+                // Latar field sengaja lebih gelap daripada card, supaya terbaca
+                // sebagai lubang, bukan tonjolan (DESIGN.md §5.3).
+                // border-strong wajib di sini — border DEFAULT hanya 1.26:1
+                // dan membuat batas field tidak terlihat.
+                'rounded-lg border-border-strong bg-bg-base text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500 ' +
                 className
             }
             ref={localRef}

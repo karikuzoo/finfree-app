@@ -12,8 +12,11 @@ export default function NavLink({
             className={
                 'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none ' +
                 (active
-                    ? 'border-indigo-400 text-gray-900 focus:border-indigo-700'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 focus:border-gray-300 focus:text-gray-700') +
+                    ? // Item aktif ditandai underline lime DAN warna teks —
+                      // bukan hanya warna, agar tidak bergantung pada persepsi
+                      // warna semata (DESIGN.md §8.2).
+                      'border-lime-500 text-text-primary'
+                    : 'border-transparent text-text-secondary hover:border-border-strong hover:text-text-primary focus:border-border-strong focus:text-text-primary') +
                 className
             }
         >

@@ -1,3 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        color-scheme: dark;
+    }
+
+    body {
+        @apply bg-bg-base text-text-primary;
+    }
+
+    /* Tema "Malam" gelap sepenuhnya — beri tahu browser agar scrollbar,
+       autofill, dan kontrol bawaan ikut gelap, bukan putih menyilaukan. */
+    ::selection {
+        @apply bg-lime-500 text-onPrimary;
+    }
+}
+
+@layer utilities {
+    /* Angka finansial wajib memakai ini agar digit sejajar antar baris —
+       lihat DESIGN.md §3. */
+    .num-tabular {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+    }
+}

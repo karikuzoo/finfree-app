@@ -6,9 +6,12 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
+        <meta name="color-scheme" content="dark">
+        <meta name="theme-color" content="#0B0C0B">
+
+        <!-- Fonts — Plus Jakarta Sans untuk teks, JetBrains Mono untuk angka finansial -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|jetbrains-mono:500,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @routes
@@ -16,7 +19,7 @@
         @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
         @inertiaHead
     </head>
-    <body class="font-sans antialiased">
+    <body class="bg-bg-base font-sans text-text-primary antialiased">
         @inertia
     </body>
 </html>
