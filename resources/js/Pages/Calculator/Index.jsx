@@ -1,5 +1,5 @@
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 /**
  * Kalkulator utilitas — dapat diakses tanpa login (PRD FR-44).
@@ -15,7 +15,7 @@ export default function CalculatorIndex() {
         {
             name: 'Tujuan Finansial',
             desc: 'Berapa yang harus disisihkan tiap bulan agar target tercapai pada tanggal tertentu.',
-            rilis: 'Rilis 1',
+            href: route('calculator.goal'),
         },
         {
             name: 'Pinjaman / KPR',
@@ -49,35 +49,67 @@ export default function CalculatorIndex() {
                 </p>
 
                 <div className="mt-10 space-y-3">
-                    {calculators.map((c) => (
-                        <div
-                            key={c.name}
-                            className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-border bg-bg-card p-5"
-                        >
-                            <div className="max-w-lg">
-                                <h2 className="text-base font-semibold text-text-primary">
-                                    {c.name}
-                                </h2>
-                                <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
-                                    {c.desc}
-                                </p>
+                    {calculators.map((c) => {
+                        const body = (
+                            <>
+                                <div className="max-w-lg">
+                                    <h2 className="text-base font-semibold text-text-primary">
+                                        {c.name}
+                                    </h2>
+                                    <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+                                        {c.desc}
+                                    </p>
+                                </div>
+                                {c.href ? (
+                                    <span className="shrink-0 rounded-full bg-lime-softBg px-3 py-1 text-xs font-semibold text-lime-500">
+                                        Buka →
+                                    </span>
+                                ) : (
+                                    <span className="shrink-0 rounded-full border border-border-strong px-3 py-1 text-xs font-medium text-text-muted">
+                                        {c.rilis}
+                                    </span>
+                                )}
+                            </>
+                        );
+
+                        const shell =
+                            'flex flex-wrap items-start justify-between gap-3 rounded-card border p-5 transition ';
+
+                        // Kalkulator yang sudah jadi bisa diklik; yang belum
+                        // tampil sebagai kartu biasa dengan penanda rilisnya.
+                        return c.href ? (
+                            <Link
+                                key={c.name}
+                                href={c.href}
+                                className={
+                                    shell +
+                                    'border-border-strong bg-bg-card hover:bg-bg-cardAlt focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base'
+                                }
+                            >
+                                {body}
+                            </Link>
+                        ) : (
+                            <div
+                                key={c.name}
+                                className={shell + 'border-border bg-bg-card'}
+                            >
+                                {body}
                             </div>
-                            <span className="shrink-0 rounded-full border border-border-strong px-3 py-1 text-xs font-medium text-text-muted">
-                                {c.rilis}
-                            </span>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="mt-10 rounded-card border-l-2 border-lime-500 bg-bg-cardAlt p-5">
                     <h2 className="text-sm font-semibold text-text-primary">
-                        Sedang dibangun
+                        Cara kami menghitung
                     </h2>
                     <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                        Mesin perhitungannya sudah selesai dan teruji — rumus
-                        anuitas efektif dengan penyesuaian inflasi, lengkap
-                        dengan penanganan kasus batas. Yang belum ada baru
-                        formulir dan tampilan hasilnya.
+                        Anuitas efektif dengan setoran di akhir bulan. Imbal
+                        hasil tahunan dikonversi menjadi bulanan secara majemuk,
+                        bukan sekadar dibagi dua belas — selisih keduanya
+                        membesar untuk jangka panjang. Inflasi menaikkan nominal
+                        target, bukan mengurangi imbal hasil, sehingga tidak ada
+                        perhitungan ganda.
                     </p>
                 </div>
             </div>

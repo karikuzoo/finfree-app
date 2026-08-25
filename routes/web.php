@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,6 +26,9 @@ Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('/kalkulator', fn () => Inertia::render('Calculator/Index'))
         ->name('calculator.index');
+
+    Route::get('/kalkulator/tujuan', [GoalCalculatorController::class, 'show'])
+        ->name('calculator.goal');
 });
 
 Route::get('/berita', fn () => Inertia::render('News/Index'))->name('news.index');
