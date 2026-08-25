@@ -32,7 +32,7 @@ Cakupan Fase 0:
 - [ ] Layout shell — Sidebar, Topbar, PageContainer, disusun **di dalam** `resources/js/Layouts/AuthenticatedLayout.jsx` yang sudah ada, bukan file baru terpisah
 - [x] Auth register/login/logout/reset password/verifikasi email/protected route (middleware `auth`) — **sudah ada** dari Breeze, session-based. Tidak perlu Sanctum bearer token maupun `AuthContext` — `auth.user` sudah otomatis dibagikan ke semua halaman lewat `HandleInertiaRequests` (props global, lihat `usePage().props.auth.user`)
 - [ ] Konvensi penanganan error form — Inertia `useForm().errors` sudah otomatis menangkap error validasi backend, tinggal disepakati pola pemakaiannya lintas fitur (lihat CLAUDE.md §10.1); **tidak perlu** pembungkus API/axios interceptor terpisah seperti rencana awal
-- [ ] **`docs/fixtures/calculator-cases.json`** — test vector kalkulator
+- [x] **`docs/fixtures/calculator-cases.json`** — test vector kalkulator, **sudah ada** (9 kasus) bersama `app/Services/GoalCalculatorService.php` dan `tests/Unit/GoalCalculatorServiceTest.php`. D-1 dan D-2 kini dijaga dua test khusus yang gagal bila rumusnya diubah diam-diam.
 
 Test vector ditulis **berdua**. Di berkas itulah keputusan D-1 (inflasi menaikkan target) dan D-2 (ordinary annuity) berubah dari kalimat di dokumen menjadi angka yang mengikat. Setelah disepakati, siapa pun yang menyentuh rumus tidak bisa menyimpang tanpa ketahuan.
 
@@ -127,12 +127,55 @@ Sebuah PR dianggap selesai bila:
 
 ---
 
-## 8. Menjalankan Project
+## 8. Prasyarat Lingkungan
 
-Satu project, satu perintah: lihat CLAUDE.md §9 (`composer install && npm install`, atur `.env`, lalu `composer run dev` menjalankan server+queue+log+vite sekaligus).
+Versi berikut **wajib sama** untuk semua anggota tim. Yang **tidak** perlu sama adalah cara memasangnya — Herd, Laragon, XAMPP, atau PHP mentah semuanya boleh, itu hanya alat pemasang.
+
+| Komponen | Versi | Dikunci di |
+|---|---|---|
+| PHP | **8.4.x** | `composer.json` → `require.php: ^8.4` |
+| Ekstensi PHP | `pdo_pgsql` wajib | `composer.json` → `require: ext-pdo_pgsql` |
+| PostgreSQL | **17.x** | hanya dokumen ini — tidak bisa dikunci manifest |
+| Node.js | **22 LTS** (min. 20.19) | `package.json` → `engines` |
+| Composer | 2.x | — |
+
+Versi *paket* tidak perlu didiskusikan: `composer.lock` dan `package-lock.json` sudah ada di repo, jadi `composer install` dan `npm install` menghasilkan dependensi yang identik di semua mesin. **Jangan** jalankan `composer update` atau `npm update` tanpa kesepakatan — itu mengubah lock untuk semua orang.
+
+Alasan versinya dikunci di manifest, bukan sekadar disepakati lisan: salah versi akan tertangkap saat `composer install` dengan pesan yang jelas, bukan muncul tiga minggu kemudian sebagai bug aneh yang hanya terjadi di satu mesin.
+
+### Catatan khusus Windows
+Dua hal ini sudah ditangani di repo, disebutkan agar tidak membingungkan saat dibaca:
+
+- `AppServiceProvider` mendaftarkan `SystemRoot` dan beberapa env var Windows lain ke `ServeCommand::$passthroughVariables`. Tanpa itu `php artisan serve` gagal bind dan melapor `Failed to listen ... (reason: ?)` di semua port. Kode ini hanya aktif saat `PHP_OS_FAMILY === 'Windows'`.
+- `laravel/pail` dikeluarkan dari skrip `dev` karena membutuhkan ekstensi `pcntl` yang tidak ada di Windows. Pengguna macOS/Linux tetap bisa menjalankan `php artisan pail` secara terpisah.
+
+## 9. Menjalankan Project
+
+Pertama kali:
+
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+```
+
+Buat database `fingoal` di PostgreSQL, sesuaikan `DB_USERNAME` dan `DB_PASSWORD` di `.env`, lalu:
+
+```bash
+php artisan migrate
+```
+
+Sehari-hari cukup satu perintah — menjalankan server, queue, dan Vite sekaligus:
+
+```bash
+composer run dev
+```
+
+Aplikasi ada di `http://localhost:8000`. Port 5173 adalah server aset Vite, bukan alamat aplikasi.
 
 ---
 
-## 9. Ketika Tidak Sepakat
+## 10. Ketika Tidak Sepakat
 
 Untuk keputusan teknis yang tidak selesai dalam 15 menit diskusi: tulis dua opsi beserta konsekuensinya di PR atau issue, pilih satu, catat alasannya di PRD §13. Keputusan yang tercatat dengan alasan bisa ditinjau ulang nanti; keputusan yang hanya diucapkan akan diperdebatkan lagi bulan depan.

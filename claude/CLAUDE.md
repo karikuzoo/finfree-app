@@ -23,9 +23,10 @@ Dibangun sebagai **satu aplikasi Laravel + Inertia**, bukan dua project terpisah
 | State management | State lokal React + Inertia shared props (`usePage().props`) untuk data user login & flash message. Context/Zustand hanya dipakai kalau benar-benar ada state lintas halaman yang tidak cocok dikirim sebagai props |
 | Charting | Recharts atau Chart.js (belum terpasang, perlu `npm install`) |
 | Icon | lucide-react (belum terpasang, perlu `npm install`) |
-| Backend | Laravel 12, PHP 8.2+ |
+| Backend | Laravel 12, **PHP 8.4** (dikunci di `composer.json`: `"php": "^8.4"`) |
 | Auth | **Laravel Breeze, guard `web` (session/cookie)** — bukan Sanctum bearer token. Lihat D-9 di §8 |
-| Database | PostgreSQL. **Repo saat ini masih default `sqlite` bawaan Breeze** — ganti sebelum development sungguhan dimulai, lihat §8 |
+| Database | **PostgreSQL 17** (`.env.example` sudah `pgsql`, ekstensi `ext-pdo_pgsql` diwajibkan di `composer.json`) |
+| Node | **22 LTS**, minimum 20.19 — dikunci di `package.json` → `engines` (syarat Vite 7) |
 | Cache (opsional) | Redis atau tabel cache di PostgreSQL |
 | API eksternal | Currents API (currentsapi.services) — free tier, untuk modul News |
 | Queue/Scheduler | Laravel Scheduler + Queue. `composer run dev` sudah menjalankan `queue:listen` — lihat §9 |
@@ -360,14 +361,9 @@ Satu `.env` di root project — **tidak ada `.env` terpisah untuk frontend**, ka
 >
 > **Tindak lanjut:** baris keputusan **D-5 di `PRD.md` §13** mencatat keputusan lama ini dan perlu diperbarui juga supaya kedua dokumen tidak saling bertentangan — lihat catatan di bagian akhir dokumen ini.
 
-**Kondisi `.env` saat ini di repo (masih default scaffold Breeze, belum diubah):**
-```
-APP_NAME=Laravel
-DB_CONNECTION=sqlite
-# tidak ada variabel CURRENTS_*, tidak ada FinGoal-specific config sama sekali
-```
+**Kondisi sekarang:** `.env.example` sudah diperbarui ke `APP_NAME=FinGoal` dan `DB_CONNECTION=pgsql` dengan kredensial PostgreSQL default. Variabel `CURRENTS_*` belum ditambahkan karena modul News baru dikerjakan di Rilis 3.
 
-**`.env` yang seharusnya dipakai untuk development FinGoal:**
+**`.env` lengkap untuk development FinGoal:**
 ```
 APP_NAME=FinGoal
 APP_ENV=local
@@ -407,7 +403,13 @@ php artisan migrate --seed
 composer run dev
 ```
 
-`composer run dev` menjalankan 4 proses bersamaan lewat `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, `php artisan pail` (log viewer), dan `npm run dev` (Vite). Ini pengganti langsung dari menjalankan backend dan frontend di dua terminal terpisah seperti yang didokumentasikan di versi arsitektur SPA sebelumnya.
+`composer run dev` menjalankan **3 proses** bersamaan lewat `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, dan `npm run dev` (Vite). Aplikasi ada di `http://localhost:8000`; port 5173 adalah server aset Vite, bukan alamat aplikasi.
+
+### Dua penyesuaian khusus Windows
+Keduanya sudah ada di repo — disebutkan agar tidak dikira kesalahan dan tidak dibatalkan tanpa sengaja:
+
+1. **`laravel/pail` dikeluarkan dari skrip `dev`.** Pail membutuhkan ekstensi `pcntl` yang tidak tersedia di Windows, dan karena `concurrently` memakai `--kill-others`, matinya Pail menyeret server, queue, dan Vite ikut berhenti. Pengguna macOS/Linux tetap bisa menjalankan `php artisan pail` di terminal terpisah.
+2. **`AppServiceProvider` mendaftarkan `SystemRoot` dkk ke `ServeCommand::$passthroughVariables`.** `ServeCommand` membuang env var yang tidak terdaftar, dan daftar bawaan Laravel menulis `SYSTEMROOT` huruf besar sementara Windows memakai `SystemRoot`; karena `in_array()` peka huruf besar-kecil, variabelnya terbuang. Tanpa `SystemRoot`, winsock gagal membuka socket dan `artisan serve` melapor `Failed to listen on 127.0.0.1:8000 (reason: ?)` di semua port. Kode ini dibungkus `PHP_OS_FAMILY === 'Windows'` sehingga tidak aktif di Linux/macOS.
 
 Untuk menjalankan job fetch berita terjadwal (`FetchLatestNewsJob`) selama development, jalankan `php artisan schedule:work` di terminal tambahan — belum termasuk di script `composer run dev` bawaan.
 
