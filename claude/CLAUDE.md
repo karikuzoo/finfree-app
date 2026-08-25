@@ -445,7 +445,37 @@ Yang berubah dari versi arsitektur lama:
 - **Validasi gagal** ditangkap otomatis oleh Inertia lewat redirect-back + `errors` bag, dibaca lewat `useForm().errors` di komponen React. Ini **menggantikan** pola respons `422` + `{ message, errors }` yang didokumentasikan sebelumnya — kalau memakai `useForm()` dari `@inertiajs/react`, penanganan error sudah otomatis, jangan dibuat ulang manual.
 - **Kepemilikan data** tetap sama pentingnya — gunakan Policy Laravel (`Gate::authorize(...)` atau `authorize()` di Form Request) di tiap controller method. Kegagalan otorisasi otomatis menghasilkan halaman error 403 (ditangani Inertia), bukan body JSON `{ message: "..." }` yang perlu di-parse manual seperti sebelumnya. Selalu periksa kepemilikan tujuan terhadap user yang login — ini titik rawan kebocoran data antar pengguna, terlepas dari arsitekturnya.
 
-### 10.2 Pengujian
+### 10.2 Konvensi Penanganan Error Form
+
+Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuannya ada di `resources/js/Pages/Calculator/Goal.jsx` dan `app/Http/Controllers/GoalCalculatorController.php` — tiru pola itu, jangan mengarang pola baru.
+
+**Di backend**
+
+1. Validasi **selalu** di backend, meskipun frontend sudah membatasi lewat `min`/`max` pada input. Batasan di frontend adalah kenyamanan, bukan pengamanan — siapa pun bisa mengirim request langsung tanpa lewat halaman.
+2. Tulis pesan error dalam **Bahasa Indonesia** secara eksplisit. Pesan bawaan Laravel berbahasa Inggris dan menyebut nama kolom mentah (`target_amount`), yang tidak berarti apa-apa bagi pengguna.
+3. Pesan menjelaskan **apa yang harus dilakukan**, bukan sekadar menyatakan yang salah. "Jangka waktu minimal 1 bulan" lebih berguna daripada "Jangka waktu tidak valid".
+4. Untuk form yang lebih dari beberapa field, pindahkan aturannya ke Form Request agar controller tetap ringkas.
+
+**Di frontend**
+
+1. Selalu pakai `useForm()` dari `@inertiajs/react`. **Jangan** membuat state error sendiri dengan `useState` — Inertia sudah mengisi `form.errors` otomatis dari redirect-back Laravel.
+2. Setiap field diikuti `<InputError message={form.errors.nama_field} />` tepat di bawahnya. Komponen itu tidak menampilkan apa pun bila tidak ada error, jadi aman ditulis selalu.
+3. Tombol submit memakai `disabled={form.processing}` dan teksnya berubah selama proses ("Menghitung…", "Menyimpan…"). Tanpa itu pengguna akan menekan tombolnya dua kali.
+4. **Jangan** menampilkan pesan error mentah dari server ke pengguna (DESIGN.md §9.3). Yang boleh tampil hanya pesan yang memang ditulis untuk dibaca manusia.
+
+```jsx
+<InputLabel htmlFor="target_amount" value="Nominal target" />
+<CurrencyInput
+    id="target_amount"
+    value={form.data.target_amount}
+    onChange={(v) => form.setData('target_amount', v)}
+/>
+<InputError className="mt-1.5" message={form.errors.target_amount} />
+```
+
+**Yang belum diputuskan:** error yang tidak terikat ke field mana pun — misalnya kegagalan koneksi ke layanan luar. Rencananya ditampilkan sebagai banner di atas form mengikuti DESIGN.md §9.3, tetapi belum ada komponennya karena belum ada kasus nyata. Buat saat dibutuhkan, lalu catat di sini.
+
+### 10.3 Pengujian
 
 **Test berjalan di PostgreSQL (`fingoal_test`), bukan SQLite in-memory.** `phpunit.xml` sudah diarahkan ke sana. Jangan mengembalikannya ke SQLite demi kecepatan: skema kita memakai `jsonb` dan `enum` yang tidak didukung SQLite dan akan diam-diam jatuh jadi `text`, sehingga migrasi bisa lolos seluruh test lalu gagal saat pertama dijalankan sungguhan. Lagipula tidak ada yang dihemat — pengukuran nyata menunjukkan suite berjalan ~4 detik di PostgreSQL.
 
@@ -455,7 +485,7 @@ Yang berubah dari versi arsitektur lama:
 - `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
 - Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B. Pakai helper `assertInertia(fn (Assert $page) => $page->component('Goals/Show')->has('goal'))` bawaan `inertiajs/inertia-laravel` untuk memeriksa nama komponen halaman & props di test, **bukan** `assertJson` seperti pada arsitektur API murni.
 
-### 10.3 Keamanan
+### 10.4 Keamanan
 - Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun.
 - Rate limit pada endpoint auth (PRD FR-40) dan kalkulator utilitas publik (§6.8) memakai `throttle` middleware Laravel.
 - Jangan mencatat (log) nominal keuangan pengguna beserta identitasnya dalam log aplikasi.

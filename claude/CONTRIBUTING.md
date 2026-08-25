@@ -27,14 +27,24 @@ Konsekuensinya: kedua anggota tim perlu bisa Laravel **dan** React pada tingkat 
 Cakupan Fase 0:
 
 - [x] Scaffolding satu project Laravel + Inertia (React) — **sudah ada** dari Breeze, bukan `backend/` + `frontend/` terpisah seperti rencana awal
-- [ ] `tailwind.config.js` (di root) dengan token warna dari CLAUDE.md §4 — font default Breeze (Figtree) perlu diganti
-- [ ] Komponen primitif `ui/` — Button, Input, Card, Badge, Slider. **Cek dulu `resources/js/Components/` bawaan Breeze** (PrimaryButton, Modal, Dropdown, dst) — perluas/gaya-ulang komponen itu daripada bikin duplikat
-- [ ] Layout shell — Sidebar, Topbar, PageContainer, disusun **di dalam** `resources/js/Layouts/AuthenticatedLayout.jsx` yang sudah ada, bukan file baru terpisah
+- [x] `tailwind.config.js` token warna tema Malam — **selesai**. Figtree diganti Plus Jakarta Sans, plus JetBrains Mono untuk angka finansial dan utility `.num-tabular`
+- [~] Komponen primitif — **sebagian**. 12 komponen Breeze sudah digayakan ulang (PrimaryButton, TextInput, Dropdown, Modal, dst) dan `CurrencyInput` ditambahkan. Card, Badge, dan Slider belum jadi komponen tersendiri, masih ditulis sebagai kelas berulang di halaman — **ini disengaja**, lihat catatan di bawah daftar
+- [~] Layout shell — **sebagian**. `PublicLayout` (halaman publik) dan `AuthenticatedLayout` (setelah login) sudah ada beserta topbar dan menunya. Sidebar kategori kalkulator dan PageContainer belum — juga disengaja, lihat catatan di bawah
 - [x] Auth register/login/logout/reset password/verifikasi email/protected route (middleware `auth`) — **sudah ada** dari Breeze, session-based. Tidak perlu Sanctum bearer token maupun `AuthContext` — `auth.user` sudah otomatis dibagikan ke semua halaman lewat `HandleInertiaRequests` (props global, lihat `usePage().props.auth.user`)
-- [ ] Konvensi penanganan error form — Inertia `useForm().errors` sudah otomatis menangkap error validasi backend, tinggal disepakati pola pemakaiannya lintas fitur (lihat CLAUDE.md §10.1); **tidak perlu** pembungkus API/axios interceptor terpisah seperti rencana awal
+- [x] Konvensi penanganan error form — **selesai**, ditulis di CLAUDE.md §10.2 dengan implementasi acuan di halaman kalkulator. Ringkasnya: validasi selalu di backend, pesan Bahasa Indonesia yang menyebut tindakan, `useForm().errors` + `<InputError>` di frontend, tombol disabled selama `form.processing`
 - [x] **`docs/fixtures/calculator-cases.json`** — test vector kalkulator, **sudah ada** (9 kasus) bersama `app/Services/GoalCalculatorService.php` dan `tests/Unit/GoalCalculatorServiceTest.php`. D-1 dan D-2 kini dijaga dua test khusus yang gagal bila rumusnya diubah diam-diam.
 
 Test vector ditulis **berdua**. Di berkas itulah keputusan D-1 (inflasi menaikkan target) dan D-2 (ordinary annuity) berubah dari kalimat di dokumen menjadi angka yang mengikat. Setelah disepakati, siapa pun yang menyentuh rumus tidak bisa menyimpang tanpa ketahuan.
+
+### Kenapa dua item sengaja dibiarkan setengah
+
+**Fase 0 dianggap selesai meski Card, Badge, Slider, dan Sidebar belum dibuat.** Ini keputusan, bukan kelalaian.
+
+Membuat komponen sebelum ada yang memakainya berarti menebak bentuk yang dibutuhkan — dan tebakan itu hampir selalu meleset, sehingga komponennya tetap harus dibongkar begitu bertemu kasus nyata yang kedua. Aturan praktis yang dipakai di repo ini: **jadikan komponen setelah pola yang sama muncul tiga kali**, bukan sebelumnya.
+
+Hal yang sama berlaku untuk Sidebar kategori kalkulator. Ia baru masuk akal setelah ada lebih dari satu kalkulator yang benar-benar jadi; sekarang baru satu.
+
+Yang **tidak** boleh ditunda adalah kesepakatan yang mempengaruhi cara dua orang menulis kode — token warna, konvensi error form, dan test vector. Ketiganya sudah selesai. Itulah sebabnya tugas sudah boleh dipecah.
 
 ---
 
