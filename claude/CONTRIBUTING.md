@@ -160,11 +160,20 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Buat database `fingoal` di PostgreSQL, sesuaikan `DB_USERNAME` dan `DB_PASSWORD` di `.env`, lalu:
+Buat **dua** database di PostgreSQL — satu untuk development, satu untuk test:
+
+```bash
+createdb -U postgres fingoal
+createdb -U postgres fingoal_test
+```
+
+Sesuaikan `DB_USERNAME` dan `DB_PASSWORD` di `.env`, lalu:
 
 ```bash
 php artisan migrate
 ```
+
+`fingoal_test` wajib ada karena test berjalan di PostgreSQL, bukan SQLite in-memory bawaan Laravel (lihat `phpunit.xml`). Alasannya: skema kita memakai `jsonb` dan `enum` yang tidak didukung SQLite dan akan diam-diam jatuh jadi `text` — migrasi bisa lolos semua test lalu gagal saat dijalankan sungguhan. Isinya dibuat ulang otomatis tiap kali test berjalan, jadi tidak perlu dimigrasi manual.
 
 Sehari-hari cukup satu perintah — menjalankan server, queue, dan Vite sekaligus:
 

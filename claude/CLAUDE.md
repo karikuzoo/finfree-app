@@ -446,7 +446,10 @@ Yang berubah dari versi arsitektur lama:
 - **Kepemilikan data** tetap sama pentingnya — gunakan Policy Laravel (`Gate::authorize(...)` atau `authorize()` di Form Request) di tiap controller method. Kegagalan otorisasi otomatis menghasilkan halaman error 403 (ditangani Inertia), bukan body JSON `{ message: "..." }` yang perlu di-parse manual seperti sebelumnya. Selalu periksa kepemilikan tujuan terhadap user yang login — ini titik rawan kebocoran data antar pengguna, terlepas dari arsitekturnya.
 
 ### 10.2 Pengujian
-- `GoalCalculatorService` adalah fungsi matematis murni tanpa efek samping — cakupan pengujiannya harus paling tinggi di seluruh aplikasi. Uji terhadap `docs/fixtures/calculator-cases.json` (§6.6), termasuk semua kasus batas di §6.4.
+
+**Test berjalan di PostgreSQL (`fingoal_test`), bukan SQLite in-memory.** `phpunit.xml` sudah diarahkan ke sana. Jangan mengembalikannya ke SQLite demi kecepatan: skema kita memakai `jsonb` dan `enum` yang tidak didukung SQLite dan akan diam-diam jatuh jadi `text`, sehingga migrasi bisa lolos seluruh test lalu gagal saat pertama dijalankan sungguhan. Lagipula tidak ada yang dihemat — pengukuran nyata menunjukkan suite berjalan ~4 detik di PostgreSQL.
+
+- `GoalCalculatorService` adalah fungsi matematis murni tanpa efek samping — cakupan pengujiannya harus paling tinggi di seluruh aplikasi. Uji terhadap `docs/fixtures/calculator-cases.json` (§6.6), termasuk semua kasus batas di §6.4. Kelas test ini meng-extend `PHPUnit\Framework\TestCase` (bukan `Tests\TestCase`) karena tidak menyentuh database sama sekali — pertahankan begitu agar tetap cepat.
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
 - `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
 - `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.

@@ -23,8 +23,20 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!--
+            Test berjalan di PostgreSQL, bukan SQLite in-memory bawaan Laravel.
+            Alasannya: skema FinGoal memakai jsonb (calculation_snapshot) dan
+            tipe enum, yang tidak didukung SQLite dan diam-diam jatuh jadi text.
+            Kalau test berjalan di SQLite, migrasi bisa lolos semua test lalu
+            gagal saat pertama dijalankan sungguhan — persis kegagalan yang
+            membuat kita memilih PostgreSQL sejak awal.
+
+            Konsekuensinya database fingoal_test harus dibuat sekali di tiap
+            mesin (lihat CONTRIBUTING.md §9). Host, port, user, dan password
+            diambil dari .env.
+        -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="fingoal_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
