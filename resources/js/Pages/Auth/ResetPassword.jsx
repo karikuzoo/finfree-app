@@ -1,3 +1,5 @@
+import PasswordInput from '@/Components/PasswordInput';
+import PasswordRequirements from '@/Components/PasswordRequirements';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -45,9 +47,8 @@ export default function ResetPassword({ token, email }) {
                 <div className="mt-4">
                     <InputLabel htmlFor="password" value="Kata Sandi" />
 
-                    <TextInput
+                    <PasswordInput
                         id="password"
-                        type="password"
                         name="password"
                         value={data.password}
                         className="mt-1 block w-full"
@@ -57,6 +58,15 @@ export default function ResetPassword({ token, email }) {
                     />
 
                     <InputError message={errors.password} className="mt-2" />
+
+
+                    <PasswordRequirements
+
+                        className="mt-2"
+
+                        value={data.password}
+
+                    />
                 </div>
 
                 <div className="mt-4">
@@ -65,8 +75,7 @@ export default function ResetPassword({ token, email }) {
                         value="Konfirmasi Kata Sandi"
                     />
 
-                    <TextInput
-                        type="password"
+                    <PasswordInput
                         id="password_confirmation"
                         name="password_confirmation"
                         value={data.password_confirmation}

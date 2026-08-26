@@ -1,7 +1,8 @@
+import PasswordInput from '@/Components/PasswordInput';
+import PasswordRequirements from '@/Components/PasswordRequirements';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
 import { useRef } from 'react';
@@ -63,14 +64,13 @@ export default function UpdatePasswordForm({ className = '' }) {
                         value="Kata Sandi Saat Ini"
                     />
 
-                    <TextInput
+                    <PasswordInput
                         id="current_password"
                         ref={currentPasswordInput}
                         value={data.current_password}
                         onChange={(e) =>
                             setData('current_password', e.target.value)
                         }
-                        type="password"
                         className="mt-1 block w-full"
                         autoComplete="current-password"
                     />
@@ -84,17 +84,25 @@ export default function UpdatePasswordForm({ className = '' }) {
                 <div>
                     <InputLabel htmlFor="password" value="Kata Sandi Baru" />
 
-                    <TextInput
+                    <PasswordInput
                         id="password"
                         ref={passwordInput}
                         value={data.password}
                         onChange={(e) => setData('password', e.target.value)}
-                        type="password"
                         className="mt-1 block w-full"
                         autoComplete="new-password"
                     />
 
                     <InputError message={errors.password} className="mt-2" />
+
+
+                    <PasswordRequirements
+
+                        className="mt-2"
+
+                        value={data.password}
+
+                    />
                 </div>
 
                 <div>
@@ -103,13 +111,12 @@ export default function UpdatePasswordForm({ className = '' }) {
                         value="Konfirmasi Kata Sandi"
                     />
 
-                    <TextInput
+                    <PasswordInput
                         id="password_confirmation"
                         value={data.password_confirmation}
                         onChange={(e) =>
                             setData('password_confirmation', e.target.value)
                         }
-                        type="password"
                         className="mt-1 block w-full"
                         autoComplete="new-password"
                     />

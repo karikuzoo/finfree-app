@@ -32,9 +32,18 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            // \pL mencakup huruf beraksen, bukan hanya A–Z. Spasi, apostrof,
+            // titik, dan tanda hubung ikut diizinkan karena nama sungguhan
+            // memuatnya — "Siti Nur'aini", "H. Ahmad", "Anne-Marie". Membatasi
+            // ke huruf saja terdengar rapi di atas kertas, tetapi berarti
+            // menolak orang yang namanya memang begitu.
+            'name' => ['required', 'string', 'max:255', "regex:/^[\pL\s.'-]+$/u"],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ], [
+            // Hanya pesan yang perlu lebih spesifik daripada versi umum di
+            // lang/id/validation.php. Sisanya sudah otomatis Bahasa Indonesia.
+            'name.regex' => 'Nama hanya boleh berisi huruf, spasi, titik, apostrof, dan tanda hubung.',
         ]);
 
         $user = User::create([

@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,7 +24,26 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
+        $this->definePasswordRules();
         $this->allowWindowsEnvironmentVariablesThroughServeCommand();
+    }
+
+    /**
+     * Aturan kata sandi untuk seluruh aplikasi.
+     *
+     * Disetel sekali di sini karena ketiga tempat yang memvalidasi kata sandi —
+     * pendaftaran, reset lewat email, dan ubah kata sandi di halaman profil —
+     * sama-sama memakai `Password::defaults()`. Menuliskan aturannya di
+     * masing-masing controller berarti membuka celah: cukup satu tempat
+     * tertinggal saat aturannya diperketat, dan pengguna bisa memakai jalur itu
+     * untuk memasang kata sandi lemah.
+     */
+    private function definePasswordRules(): void
+    {
+        Password::defaults(fn () => Password::min(6)
+            ->mixedCase()
+            ->numbers()
+            ->symbols());
     }
 
     /**
