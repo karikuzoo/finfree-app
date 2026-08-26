@@ -27,6 +27,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'risk_profile',
         'currency_preference',
         'prefers_syariah',
+        'birth_date',
+        'nationality',
+        'phone',
+        'occupation',
     ];
 
     /**
@@ -69,6 +73,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'risk_profile' => RiskProfile::class,
             'prefers_syariah' => 'boolean',
+            // 'date' (bukan 'datetime') supaya diserialisasi sebagai
+            // "1995-08-17", format yang langsung diterima <input type="date">
+            // tanpa perlu dipotong di frontend.
+            'birth_date' => 'date:Y-m-d',
         ];
     }
 

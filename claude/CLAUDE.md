@@ -158,7 +158,16 @@ users                                          -- SUDAH DIIMPLEMENTASIKAN
   currency_preference (char(3), default 'IDR'),
   prefers_syariah (boolean, default false),
   avatar_path (string, nullable),              -- jalur berkas, BUKAN isi gambar
+  birth_date (date, nullable),                 -- FR-20: menurunkan jangka waktu dana pensiun
+  nationality (string(100), nullable),         -- FR-10: syarat instrumen berbeda per kewarganegaraan
+  phone (string(20), nullable),                -- Fase 2: pengingat setoran
+  occupation (string(100), nullable),          -- FR-10: stabilitas penghasilan -> profil risiko
   created_at, updated_at
+  -- Keempat kolom identitas di atas OPSIONAL dan harus tetap begitu. UU 27/2022
+  -- PDP menganut minimasi data: kolom yang dikumpulkan tanpa keperluan jelas
+  -- adalah beban, bukan aset. Tiap kolom sudah punya kegunaannya sendiri, dan
+  -- kegunaan itu ditampilkan ke pengguna di form profil. ProfileIdentityTest
+  -- menjaga sifat opsionalnya.
   -- TANPA deleted_at. Rancangan awal mencantumkannya, tetapi soft delete
   -- berarti data pengguna tetap tersimpan setelah akun "dihapus" — dan itu
   -- bertentangan dengan FR-37 yang menuntut penghapusan permanen sebagai
