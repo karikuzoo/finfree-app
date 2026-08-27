@@ -211,7 +211,18 @@ Sesuaikan `DB_USERNAME` dan `DB_PASSWORD` di `.env`, lalu:
 
 ```bash
 php artisan migrate
+php artisan db:seed
 ```
+
+`db:seed` membuat **akun demo beserta datanya**:
+
+```
+demo@fingoal.test  /  Demo123!
+```
+
+Emailnya sudah terverifikasi, profilnya terisi, dan ia punya tiga tujuan finansial dengan riwayat setoran 12 bulan — sehingga dashboard, grafik pertumbuhan aset, dan daftar progres langsung ada isinya.
+
+Ini perlu karena **isi database tidak pernah ikut git**, hanya skemanya lewat migrasi. Tanpa seeder, orang yang baru clone melihat empty state di semua halaman dan tidak bisa menilai apakah fiturnya bekerja. Aman dijalankan berulang: akunnya dicari berdasarkan email dan tujuan lamanya diganti, bukan ditumpuk.
 
 `fingoal_test` wajib ada karena test berjalan di PostgreSQL, bukan SQLite in-memory bawaan Laravel (lihat `phpunit.xml`). Alasannya: skema kita memakai `jsonb` dan `enum` yang tidak didukung SQLite dan akan diam-diam jatuh jadi `text` — migrasi bisa lolos semua test lalu gagal saat dijalankan sungguhan. Isinya dibuat ulang otomatis tiap kali test berjalan, jadi tidak perlu dimigrasi manual.
 
