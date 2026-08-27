@@ -184,6 +184,22 @@ php artisan storage:link
 
 `storage:link` membuat pranala dari `public/storage` ke `storage/app/public`, tempat foto profil disimpan. **Tanpa perintah ini foto tidak akan tampil** — unggahannya berhasil, berkasnya tersimpan, tetapi setiap gambar muncul sebagai ikon rusak. Cukup dijalankan sekali per mesin; pranalanya sendiri tidak ikut masuk git.
 
+> **`.env` tidak pernah ikut `git pull`.** Berkas itu diabaikan git dan memang seharusnya begitu — isinya kredensial masing-masing orang. Konsekuensinya: perubahan pada `.env.example` **tidak** otomatis sampai ke `.env` yang sudah terlanjur dibuat.
+>
+> Kalau setelah pull ada yang berperilaku aneh — database salah, tautan email tanpa port, pesan validasi berbahasa Inggris — bandingkan dulu kedua berkas itu:
+>
+> ```bash
+> git diff HEAD~5 -- .env.example
+> ```
+>
+> lalu salin baris yang berubah ke `.env` Anda secara manual. Setelah itu:
+>
+> ```bash
+> php artisan config:clear
+> ```
+>
+> `config:clear` perlu dijalankan karena `php artisan config:cache` membekukan seluruh nilai `.env` ke dalam `bootstrap/cache/config.php`; selama berkas itu ada, mengubah `.env` tidak berpengaruh apa pun.
+
 Buat **dua** database di PostgreSQL — satu untuk development, satu untuk test:
 
 ```bash

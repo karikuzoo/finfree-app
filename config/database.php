@@ -17,7 +17,20 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    /*
+     * Nilai cadangan sengaja diubah dari 'sqlite' (bawaan Laravel) ke 'pgsql'.
+     *
+     * Alasannya: kalau DB_CONNECTION hilang atau kosong di .env, Laravel diam
+     * -diam beralih ke SQLite tanpa peringatan apa pun. Aplikasinya tetap
+     * jalan, tetapi berjalan di atas mesin database yang berbeda dari yang
+     * dipakai anggota tim lain — dan skema FinGoal memakai jsonb serta enum
+     * yang tidak didukung SQLite, sehingga masalahnya baru muncul jauh
+     * belakangan sebagai perilaku yang aneh.
+     *
+     * Dengan 'pgsql' sebagai cadangan, konfigurasi yang kurang gagal dengan
+     * jelas ("connection refused") alih-alih berhasil secara menyesatkan.
+     */
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
