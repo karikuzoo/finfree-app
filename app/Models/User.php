@@ -6,6 +6,7 @@ use App\Enums\RiskProfile;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
@@ -109,5 +110,10 @@ class User extends Authenticatable implements MustVerifyEmail
         $letters = array_map(fn (string $p) => mb_substr($p, 0, 1), array_slice($parts, 0, 2));
 
         return mb_strtoupper(implode('', $letters)) ?: '?';
+    }
+
+    public function goals(): HasMany
+    {
+        return $this->hasMany(FinancialGoal::class);
     }
 }

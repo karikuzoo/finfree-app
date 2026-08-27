@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
@@ -41,7 +42,7 @@ Route::get('/berita', fn () => Inertia::render('News/Index'))->name('news.index'
 |--------------------------------------------------------------------------
 */
 
-Route::get('/dashboard', fn () => Inertia::render('Dashboard'))
+Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
