@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
+use App\Http\Controllers\GoalContributionController;
 use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
@@ -63,6 +64,9 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/tujuan/{financialGoal}/target-harian', [GoalDailySavingsTargetController::class, 'update'])
         ->name('goals.daily-savings-target.update');
+
+    Route::post('/tujuan/{financialGoal}/setoran', [GoalContributionController::class, 'store'])
+        ->name('goals.contributions.store');
 });
 
 require __DIR__.'/auth.php';

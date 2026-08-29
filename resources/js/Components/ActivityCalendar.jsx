@@ -1,11 +1,20 @@
 import { formatCompactRupiah } from "@/utils/format";
 
-const DAY_LABELS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+// Indeks sesuai Date.getDay() bawaan JS (0 = Minggu ... 6 = Sabtu) —
+// dipakai langsung tanpa perlu menukar urutan, beda dari leadingBlanks
+// di bawah yang memang perlu penukaran karena grid dimulai dari Senin.
+const SHORT_DAY_BY_INDEX = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 /**
  * Kalender "Aktivitas Bulan Ini" — grid harian bulan berjalan, tiap sel
  * menampilkan total setoran (`goal_contributions.amount`) di tanggal itu
  * dari `summary.contribution_calendar` (DashboardSummaryService).
+ *
+ * Nama hari ditampilkan DI DALAM tiap sel, di sebelah angka tanggal
+ * (bukan baris header terpisah seperti sebelumnya) — supaya tidak
+ * bergantung pada lebar layar (`sm:` Tailwind itu breakpoint viewport,
+ * bukan lebar kartu, jadi gampang salah ukuran begitu kalender ini
+ * ditaruh sebaris dengan kartu lain lewat grid, seperti sekarang).
  *
  * Grid bulan (jumlah hari, hari pertama jatuh di kolom mana) dihitung di
  * sini pakai Date bawaan JS, bukan dikirim backend — datanya sendiri
@@ -34,7 +43,12 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
 
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        cells.push({ day, dateStr, amount: amountByDate[dateStr] ?? 0 });
+        cells.push({
+            day,
+            dateStr,
+            dayLabel: SHORT_DAY_BY_INDEX[new Date(year, month, day).getDay()],
+            amount: amountByDate[dateStr] ?? 0,
+        });
     }
 
     const monthLabel = firstDay.toLocaleDateString("id-ID", {
@@ -43,7 +57,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
     });
 
     return (
-        <div className="rounded-card border border-border bg-bg-card p-5">
+        <div>
             <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-text-primary">
                     Aktivitas Bulan Ini
@@ -58,13 +72,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                 </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[11px] font-medium uppercase text-text-muted">
-                {DAY_LABELS.map((label) => (
-                    <div key={label}>{label}</div>
-                ))}
-            </div>
-
-            <div className="mt-1.5 grid grid-cols-7 gap-1.5">
+            <div className="mt-4 grid grid-cols-7 gap-1.5">
                 {cells.map((cell, index) =>
                     cell === null ? (
                         <div key={`blank-${index}`} />
@@ -82,8 +90,11 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                                     : "bg-bg-cardAlt")
                             }
                         >
-                            <span className="text-[11px] text-text-secondary">
-                                {cell.day}
+                            <span className="flex items-baseline gap-1 text-[11px] text-text-secondary">
+                                <span>{cell.day}</span>
+                                <span className="text-[9px] uppercase text-text-muted">
+                                    {cell.dayLabel}
+                                </span>
                             </span>
                             {cell.amount > 0 && (
                                 <span className="truncate text-[10px] font-semibold text-lime-500">

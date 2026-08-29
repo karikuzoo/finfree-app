@@ -1,0 +1,148 @@
+import { useState } from 'react';
+import { useForm } from '@inertiajs/react';
+
+function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Form kecil untuk mencatat setoran (PRD FR-32..FR-35) langsung dari
+ * GoalHeroCard, tanpa pindah halaman — POST ke
+ * goals.contributions.store (GoalContributionController).
+ *
+ * Disembunyikan di balik tombol "Catat Setoran" (bukan selalu terbuka)
+ * supaya kartu utama Dashboard tidak penuh form saat pengguna cuma mau
+ * melihat progres.
+ */
+export default function GoalContributionForm({ goalId }) {
+    const [open, setOpen] = useState(false);
+    const { data, setData, post, processing, recentlySuccessful, errors, reset } =
+        useForm({
+            amount: '',
+            contributed_on: todayStr(),
+            note: '',
+        });
+
+    const submit = (e) => {
+        e.preventDefault();
+        post(route('goals.contributions.store', goalId), {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset('amount', 'note');
+                setOpen(false);
+            },
+        });
+    };
+
+    if (!open) {
+        return (
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="rounded-lg border border-border-strong px-3 py-1.5 text-sm font-medium text-text-primary transition hover:bg-bg-cardAlt"
+            >
+                + Catat Setoran
+            </button>
+        );
+    }
+
+    return (
+        <form
+            onSubmit={submit}
+            className="w-full rounded-lg border border-border bg-bg-cardAlt p-4"
+        >
+            <div className="flex flex-wrap items-end gap-3">
+                <div>
+                    <label
+                        htmlFor="contribution_amount"
+                        className="block text-xs text-text-secondary"
+                    >
+                        Nominal
+                    </label>
+                    <div className="mt-1 flex items-center gap-1.5">
+                        <span className="text-sm text-text-muted">Rp</span>
+                        <input
+                            id="contribution_amount"
+                            type="number"
+                            min="1"
+                            step="1000"
+                            autoFocus
+                            value={data.amount}
+                            onChange={(e) => setData('amount', e.target.value)}
+                            className="w-32 rounded-lg border border-border bg-bg-card px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        />
+                    </div>
+                    {errors.amount && (
+                        <p className="mt-1 text-xs text-state-danger">
+                            {errors.amount}
+                        </p>
+                    )}
+                </div>
+
+                <div>
+                    <label
+                        htmlFor="contribution_date"
+                        className="block text-xs text-text-secondary"
+                    >
+                        Tanggal
+                    </label>
+                    <input
+                        id="contribution_date"
+                        type="date"
+                        max={todayStr()}
+                        value={data.contributed_on}
+                        onChange={(e) =>
+                            setData('contributed_on', e.target.value)
+                        }
+                        className="mt-1 rounded-lg border border-border bg-bg-card px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                    />
+                    {errors.contributed_on && (
+                        <p className="mt-1 text-xs text-state-danger">
+                            {errors.contributed_on}
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex-1 basis-40">
+                    <label
+                        htmlFor="contribution_note"
+                        className="block text-xs text-text-secondary"
+                    >
+                        Catatan (opsional)
+                    </label>
+                    <input
+                        id="contribution_note"
+                        type="text"
+                        maxLength={500}
+                        value={data.note}
+                        onChange={(e) => setData('note', e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-border bg-bg-card px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                    />
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        className="rounded-lg bg-lime-500 px-3 py-1.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 disabled:opacity-60"
+                    >
+                        Simpan
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="rounded-lg px-3 py-1.5 text-sm text-text-secondary transition hover:bg-bg-card"
+                    >
+                        Batal
+                    </button>
+                </div>
+            </div>
+
+            {recentlySuccessful && (
+                <p className="mt-2 text-xs text-lime-500">
+                    Setoran tersimpan.
+                </p>
+            )}
+        </form>
+    );
+}

@@ -1,12 +1,14 @@
-import SummaryCard from '@/Components/SummaryCard';
-import GoalHeroCard from '@/Components/GoalHeroCard';
-import ActivityCalendar from '@/Components/ActivityCalendar';
-import GoalProgressList from '@/Components/GoalProgressList';
-import RecentActivityList from '@/Components/RecentActivityList';
-import AssetGrowthChart from '@/Components/AssetGrowthChart';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { formatRupiah } from '@/utils/format';
-import { Head, usePage } from '@inertiajs/react';
+import SummaryCard from "@/Components/SummaryCard";
+import GoalHeroCard from "@/Components/GoalHeroCard";
+import ActivityCalendar from "@/Components/ActivityCalendar";
+import DailyReminderBanner from "@/Components/DailyReminderBanner";
+import AllocationBreakdownChart from "@/Components/AllocationBreakdownChart";
+import GoalProgressList from "@/Components/GoalProgressList";
+import RecentActivityList from "@/Components/RecentActivityList";
+import AssetGrowthChart from "@/Components/AssetGrowthChart";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import { formatRupiah } from "@/utils/format";
+import { Head, usePage } from "@inertiajs/react";
 
 /**
  * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
@@ -21,8 +23,13 @@ import { Head, usePage } from '@inertiajs/react';
  *   belum ada — DESIGN.md §9.1), tapi sengaja diberi warna solid
  *   (sama seperti CTA "Coba kalkulatornya" di Welcome) supaya lebih
  *   terlihat, bukan warna redup seperti versi sebelumnya.
- * - Terisi: kartu utama (target goal tertua + progres, GoalHeroCard),
- *   kalender aktivitas bulan berjalan, grafik pertumbuhan aset, daftar
+ * - Terisi: kartu utama (target goal tertua + progres, badge on-track,
+ *   hitung mundur, streak, dan form catat setoran — semuanya di
+ *   GoalHeroCard), banner pengingat harian (DailyReminderBanner, murni
+ *   in-app, hitung dari data yang sama, bukan notifikasi push/email),
+ *   kalender aktivitas bulan berjalan dan pie chart breakdown alokasi
+ *   instrumen (ActivityCalendar & AllocationBreakdownChart) — dua kartu
+ *   terpisah tapi sebaris lewat grid, grafik pertumbuhan aset, daftar
  *   progress tujuan, dan aktivitas terbaru — semuanya murni menampilkan
  *   apa yang sudah diagregasi backend, tidak menghitung ulang apa pun
  *   di sini.
@@ -31,21 +38,30 @@ export default function Dashboard() {
     const { auth, summary } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
 
-    // Data contoh untuk GoalHeroCard & ActivityCalendar saat pengguna
-    // belum punya goal sama sekali — angka target 500 juta dipakai
-    // supaya konsisten dengan ilustrasi "Contoh perhitungan" di halaman
-    // Welcome (docs/fixtures/calculator-cases.json, kasus
+    // Data contoh untuk GoalHeroCard, ActivityCalendar, & donut alokasi
+    // saat pengguna belum punya goal sama sekali — angka target 500 juta
+    // dipakai supaya konsisten dengan ilustrasi "Contoh perhitungan" di
+    // halaman Welcome (docs/fixtures/calculator-cases.json, kasus
     // "dasar-tanpa-inflasi"), bukan angka karangan baru.
     const placeholderGoal = {
-        name: 'DP Rumah Pertama',
+        id: null,
+        name: "DP Rumah Pertama",
         target_amount: 500000000,
         current_amount: 150000000,
         daily_savings_target: 50000,
         projected_progress_percentage: 30,
+        days_remaining: 320,
+        on_track: { status: "on_track", gap_amount: 0 },
+        suggested_allocation: [
+            { instrument: "Saham", percentage: 30 },
+            { instrument: "Obligasi/SBN", percentage: 30 },
+            { instrument: "Deposito", percentage: 25 },
+            { instrument: "Emas", percentage: 15 },
+        ],
     };
 
     const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
+    const pad = (n) => String(n).padStart(2, "0");
     const dateStr = (day) =>
         `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(day)}`;
     const placeholderCalendar = [3, 8, 12, 17, 21]
@@ -60,7 +76,7 @@ export default function Dashboard() {
             header={
                 <div>
                     <h1 className="text-2xl font-bold leading-tight text-text-primary">
-                        Halo, {auth.user.name.split(' ')[0]}
+                        Halo, {auth.user.name.split(" ")[0]}
                     </h1>
                     <p className="mt-1 text-sm text-text-secondary">
                         Ringkasan perencanaan keuangan Anda.
@@ -75,10 +91,23 @@ export default function Dashboard() {
                     <div className="space-y-6">
                         <GoalHeroCard goal={placeholderGoal} placeholder />
 
-                        <ActivityCalendar
-                            calendar={placeholderCalendar}
-                            placeholder
-                        />
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            <div className="rounded-card border border-border bg-bg-card p-5">
+                                <ActivityCalendar
+                                    calendar={placeholderCalendar}
+                                    placeholder
+                                />
+                            </div>
+
+                            <div className="rounded-card border border-border bg-bg-card p-5">
+                                <AllocationBreakdownChart
+                                    allocation={
+                                        placeholderGoal.suggested_allocation
+                                    }
+                                    placeholder
+                                />
+                            </div>
+                        </div>
 
                         <div className="rounded-card border border-border bg-bg-card px-6 py-12 text-center">
                             <svg
@@ -123,11 +152,40 @@ export default function Dashboard() {
                 ) : (
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
                         <div className="space-y-6">
-                            <GoalHeroCard goal={summary.primary_goal} />
-
-                            <ActivityCalendar
-                                calendar={summary.contribution_calendar}
+                            <DailyReminderBanner
+                                goal={summary.primary_goal}
+                                streakDays={summary.streak_days}
+                                contributedToday={summary.contribution_calendar.some(
+                                    (item) =>
+                                        item.date ===
+                                            new Date()
+                                                .toISOString()
+                                                .slice(0, 10) &&
+                                        item.amount > 0,
+                                )}
                             />
+
+                            <GoalHeroCard
+                                goal={summary.primary_goal}
+                                streakDays={summary.streak_days}
+                            />
+
+                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                                <div className="rounded-card border border-border bg-bg-card p-5">
+                                    <ActivityCalendar
+                                        calendar={summary.contribution_calendar}
+                                    />
+                                </div>
+
+                                <div className="rounded-card border border-border bg-bg-card p-5">
+                                    <AllocationBreakdownChart
+                                        allocation={
+                                            summary.primary_goal
+                                                .suggested_allocation
+                                        }
+                                    />
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 <SummaryCard
@@ -149,10 +207,13 @@ export default function Dashboard() {
                                     Pertumbuhan Aset (12 Bulan Terakhir)
                                 </h2>
                                 <p className="mt-1 text-sm text-text-secondary">
-                                    Nilai akumulasi aset bersih dari seluruh tujuan aktif.
+                                    Nilai akumulasi aset bersih dari seluruh
+                                    tujuan aktif.
                                 </p>
                                 <div className="mt-4">
-                                    <AssetGrowthChart series={summary.asset_growth_series} />
+                                    <AssetGrowthChart
+                                        series={summary.asset_growth_series}
+                                    />
                                 </div>
                             </div>
 
@@ -169,7 +230,9 @@ export default function Dashboard() {
                                 <h2 className="text-sm font-semibold text-text-primary">
                                     Aktivitas Terbaru
                                 </h2>
-                                <RecentActivityList activities={summary.recent_activity} />
+                                <RecentActivityList
+                                    activities={summary.recent_activity}
+                                />
                             </div>
                         </div>
                     </div>
