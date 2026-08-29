@@ -1,5 +1,6 @@
-import PrimaryButton from '@/Components/PrimaryButton';
 import SummaryCard from '@/Components/SummaryCard';
+import GoalHeroCard from '@/Components/GoalHeroCard';
+import ActivityCalendar from '@/Components/ActivityCalendar';
 import GoalProgressList from '@/Components/GoalProgressList';
 import RecentActivityList from '@/Components/RecentActivityList';
 import AssetGrowthChart from '@/Components/AssetGrowthChart';
@@ -11,16 +12,48 @@ import { Head, usePage } from '@inertiajs/react';
  * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
  * yang dikirim DashboardController lewat DashboardSummaryService (CLAUDE.md §6.9):
  *
- * - Kosong (0 goal): empty state — layar pertama pengguna baru, DESIGN.md §9.1
- *   menyebutnya layar terpenting untuk konversi. Markup ini TIDAK diubah dari
- *   versi sebelumnya, hanya dipindah ke cabang kondisional.
- * - Terisi: kartu ringkasan, grafik pertumbuhan aset, daftar progress tujuan,
- *   dan aktivitas terbaru — semuanya murni menampilkan apa yang sudah
- *   diagregasi backend, tidak menghitung ulang apa pun di sini.
+ * - Kosong (0 goal): GoalHeroCard & ActivityCalendar tetap dirender, tapi
+ *   dengan data contoh/dummy (placeholderGoal, placeholderCalendar) —
+ *   bukan dari backend — supaya pengguna baru langsung melihat bentuk
+ *   tampilannya sebelum membuat goal sungguhan. Diberi label "Contoh" di
+ *   tiap kartu (lihat prop `placeholder`) agar tidak disangka data asli.
+ *   Tombol "Buat Tujuan Pertama" masih non-fungsional (fitur CRUD Goal
+ *   belum ada — DESIGN.md §9.1), tapi sengaja diberi warna solid
+ *   (sama seperti CTA "Coba kalkulatornya" di Welcome) supaya lebih
+ *   terlihat, bukan warna redup seperti versi sebelumnya.
+ * - Terisi: kartu utama (target goal tertua + progres, GoalHeroCard),
+ *   kalender aktivitas bulan berjalan, grafik pertumbuhan aset, daftar
+ *   progress tujuan, dan aktivitas terbaru — semuanya murni menampilkan
+ *   apa yang sudah diagregasi backend, tidak menghitung ulang apa pun
+ *   di sini.
  */
 export default function Dashboard() {
     const { auth, summary } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
+
+    // Data contoh untuk GoalHeroCard & ActivityCalendar saat pengguna
+    // belum punya goal sama sekali — angka target 500 juta dipakai
+    // supaya konsisten dengan ilustrasi "Contoh perhitungan" di halaman
+    // Welcome (docs/fixtures/calculator-cases.json, kasus
+    // "dasar-tanpa-inflasi"), bukan angka karangan baru.
+    const placeholderGoal = {
+        name: 'DP Rumah Pertama',
+        target_amount: 500000000,
+        current_amount: 150000000,
+        daily_savings_target: 50000,
+        projected_progress_percentage: 30,
+    };
+
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = (day) =>
+        `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(day)}`;
+    const placeholderCalendar = [3, 8, 12, 17, 21]
+        .filter((day) => day <= today.getDate())
+        .map((day, index) => ({
+            date: dateStr(day),
+            amount: [50000, 75000, 50000, 100000, 50000][index],
+        }));
 
     return (
         <AuthenticatedLayout
@@ -39,48 +72,64 @@ export default function Dashboard() {
 
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {!hasGoals ? (
-                    <div className="rounded-card border border-border bg-bg-card px-6 py-16 text-center">
-                        <svg
-                            className="mx-auto h-16 w-16 text-text-muted"
-                            viewBox="0 0 32 32"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                        >
-                            <circle cx="16" cy="16" r="12" />
-                            <circle cx="16" cy="16" r="6.5" />
-                            <circle cx="16" cy="16" r="1.5" />
-                        </svg>
+                    <div className="space-y-6">
+                        <GoalHeroCard goal={placeholderGoal} placeholder />
 
-                        <h2 className="mt-6 text-lg font-semibold text-text-primary">
-                            Belum ada tujuan finansial
-                        </h2>
-                        <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
-                            Tentukan target Anda — dana darurat, DP rumah, atau
-                            pensiun — lalu FinGoal menghitung berapa yang perlu
-                            disisihkan tiap bulan.
-                        </p>
+                        <ActivityCalendar
+                            calendar={placeholderCalendar}
+                            placeholder
+                        />
 
-                        <div className="mt-7">
-                            <PrimaryButton disabled>
-                                Buat Tujuan Pertama
-                            </PrimaryButton>
-                            <p className="mt-3 text-xs text-text-muted">
-                                Tersedia di Rilis 1 — fitur Tujuan sedang dibangun.
+                        <div className="rounded-card border border-border bg-bg-card px-6 py-12 text-center">
+                            <svg
+                                className="mx-auto h-12 w-12 text-text-muted"
+                                viewBox="0 0 32 32"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <circle cx="16" cy="16" r="12" />
+                                <circle cx="16" cy="16" r="6.5" />
+                                <circle cx="16" cy="16" r="1.5" />
+                            </svg>
+
+                            <h2 className="mt-5 text-lg font-semibold text-text-primary">
+                                Belum ada tujuan finansial
+                            </h2>
+                            <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
+                                Kartu di atas hanyalah contoh. Tentukan target
+                                Anda sendiri — dana darurat, DP rumah, atau
+                                pensiun — lalu FinGoal menghitung berapa yang
+                                perlu disisihkan tiap bulan.
                             </p>
+
+                            <div className="mt-7">
+                                <button
+                                    type="button"
+                                    className="rounded-lg bg-lime-500 px-5 py-3 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
+                                >
+                                    Buat Tujuan Pertama
+                                </button>
+                                <p className="mt-3 text-xs text-text-muted">
+                                    Tersedia di Rilis 1 — fitur Tujuan sedang
+                                    dibangun.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
                         <div className="space-y-6">
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                                <SummaryCard
-                                    label="Total Aset Terkumpul"
-                                    value={formatRupiah(summary.total_assets)}
-                                />
+                            <GoalHeroCard goal={summary.primary_goal} />
+
+                            <ActivityCalendar
+                                calendar={summary.contribution_calendar}
+                            />
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 <SummaryCard
                                     label="Target Keseluruhan"
                                     value={formatRupiah(summary.total_target)}

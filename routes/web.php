@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
+use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
@@ -59,6 +60,9 @@ Route::middleware('auth')->group(function () {
         ->name('profile.avatar.update');
     Route::delete('/profile/foto', [ProfileAvatarController::class, 'destroy'])
         ->name('profile.avatar.destroy');
+
+    Route::patch('/tujuan/{financialGoal}/target-harian', [GoalDailySavingsTargetController::class, 'update'])
+        ->name('goals.daily-savings-target.update');
 });
 
 require __DIR__.'/auth.php';

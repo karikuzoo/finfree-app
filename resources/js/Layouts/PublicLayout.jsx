@@ -4,23 +4,45 @@ import Dropdown from "@/Components/Dropdown";
 import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
-const menu = [
-    { label: "Dashboard", route: "dashboard" },
-    { label: "Kalkulator", route: "calculator.index" },
-    { label: "Berita", route: "news.index" },
-];
-
 /**
  * Shell halaman publik — dipakai Beranda, Kalkulator, dan Berita.
  *
  * Ketiganya bisa diakses tanpa login (PRD FR-44), jadi headernya
- * menawarkan Masuk/Daftar untuk tamu. Begitu pengguna sudah login,
- * sisi kanan berganti menjadi dropdown akun (Profil, Keluar) yang
- * sama seperti di AuthenticatedLayout, bukan sekadar tombol Dashboard.
+ * menawarkan Masuk/Daftar untuk tamu. Begitu pengguna sudah login:
+ * - menu pertama otomatis berubah dari "Beranda" menjadi "Dashboard"
+ *   (mengarah ke /dashboard), jadi tidak perlu tombol Dashboard
+ *   terpisah di sisi kanan.
+ * - sisi kanan menampilkan dropdown akun (Profil, Keluar) yang sama
+ *   seperti di AuthenticatedLayout.
+ *
+ * `match` tiap item memakai pola wildcard Ziggy (`route().current()`
+ * menerima "calculator.*"), bukan nama route persis — supaya menu
+ * "Kalkulator" tetap menyala di /kalkulator/tujuan (route name-nya
+ * `calculator.goal`, beda dari link-nya sendiri `calculator.index`).
  */
 export default function PublicLayout({ children }) {
     const user = usePage().props.auth?.user;
     const [openMobileNav, setOpenMobileNav] = useState(false);
+
+    const menu = user
+        ? [
+              { label: "Dashboard", route: "dashboard", match: "dashboard" },
+              {
+                  label: "Kalkulator",
+                  route: "calculator.index",
+                  match: "calculator.*",
+              },
+              { label: "Berita", route: "news.index", match: "news.*" },
+          ]
+        : [
+              { label: "Beranda", route: "home", match: "home" },
+              {
+                  label: "Kalkulator",
+                  route: "calculator.index",
+                  match: "calculator.*",
+              },
+              { label: "Berita", route: "news.index", match: "news.*" },
+          ];
 
     const linkClass = (isActive) =>
         "rounded-lg px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-surface " +
@@ -48,10 +70,10 @@ export default function PublicLayout({ children }) {
                                 key={item.route}
                                 href={route(item.route)}
                                 className={linkClass(
-                                    route().current(item.route),
+                                    route().current(item.match),
                                 )}
                                 aria-current={
-                                    route().current(item.route)
+                                    route().current(item.match)
                                         ? "page"
                                         : undefined
                                 }
@@ -156,7 +178,7 @@ export default function PublicLayout({ children }) {
                                 href={route(item.route)}
                                 className={
                                     "block " +
-                                    linkClass(route().current(item.route))
+                                    linkClass(route().current(item.match))
                                 }
                             >
                                 {item.label}
