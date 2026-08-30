@@ -1,5 +1,5 @@
-import PublicLayout from '@/Layouts/PublicLayout';
-import { Head, Link, usePage } from '@inertiajs/react';
+import PublicLayout from "@/Layouts/PublicLayout";
+import { Head, Link, usePage } from "@inertiajs/react";
 
 /**
  * Halaman depan. Menggantikan halaman marketing Laravel bawaan Breeze.
@@ -37,16 +37,16 @@ export default function Welcome() {
 
                         <div className="mt-8 flex flex-wrap gap-3">
                             <Link
-                                href={route('calculator.index')}
+                                href={route("calculator.index")}
                                 className="rounded-lg bg-lime-500 px-5 py-3 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
                             >
                                 Coba kalkulatornya — tanpa daftar
                             </Link>
                             <Link
-                                href={user ? route('dashboard') : route('register')}
+                                href={route("register")}
                                 className="rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
                             >
-                                {user ? 'Buka dashboard' : 'Buat akun'}
+                                {"Buat akun"}
                             </Link>
                         </div>
 
@@ -106,16 +106,16 @@ export default function Welcome() {
                 <section className="grid gap-4 border-t border-border py-14 sm:grid-cols-3">
                     {[
                         {
-                            title: 'Hitung, bukan menebak',
-                            body: 'Rumus anuitas dengan penyesuaian inflasi, bukan pembagian kasar target dibagi jumlah bulan.',
+                            title: "Hitung, bukan menebak",
+                            body: "Rumus anuitas dengan penyesuaian inflasi, bukan pembagian kasar target dibagi jumlah bulan.",
                         },
                         {
-                            title: 'Alokasi sesuai jangka waktu',
-                            body: 'Tujuan dua tahun dan dua puluh tahun tidak layak diisi instrumen yang sama.',
+                            title: "Alokasi sesuai jangka waktu",
+                            body: "Tujuan dua tahun dan dua puluh tahun tidak layak diisi instrumen yang sama.",
                         },
                         {
-                            title: 'Pantau realisasinya',
-                            body: 'Catat setoran tiap bulan dan lihat apakah Anda tertinggal atau di depan rencana.',
+                            title: "Pantau realisasinya",
+                            body: "Catat setoran tiap bulan dan lihat apakah Anda tertinggal atau di depan rencana.",
                         },
                     ].map((item) => (
                         <div

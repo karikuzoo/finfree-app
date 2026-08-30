@@ -1,6 +1,5 @@
 import ApplicationLogo from "@/Components/ApplicationLogo";
 import Avatar from "@/Components/Avatar";
-import Dropdown from "@/Components/Dropdown";
 import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
@@ -8,6 +7,8 @@ const menu = [
     { label: "Dashboard", route: "dashboard", match: "dashboard" },
     { label: "Kalkulator", route: "calculator.index", match: "calculator.*" },
     { label: "Berita", route: "news.index", match: "news.*" },
+    { label: "Profil", route: "profile.edit", match: "profile.edit" },
+    { label: "Keluar", route: "logout", match: "logout" },
 ];
 
 function sidebarLinkClass(isActive) {
@@ -36,23 +37,42 @@ export default function AuthenticatedLayout({ header, children }) {
     const [mobileOpen, setMobileOpen] = useState(false);
 
     const navLinks = (onNavigate) =>
-        menu.map((item) => (
-            <Link
-                key={item.route}
-                href={route(item.route)}
-                onClick={onNavigate}
-                className={sidebarLinkClass(route().current(item.match))}
-            >
-                {item.label}
-            </Link>
-        ));
+        menu.map((item) => {
+            if (item.route === "logout") {
+                return (
+                    <Link
+                        key={item.route}
+                        href={route("logout")}
+                        method="post"
+                        as="button"
+                        onClick={onNavigate}
+                        className={
+                            "w-full text-left " + sidebarLinkClass(false)
+                        }
+                    >
+                        {item.label}
+                    </Link>
+                );
+            }
+
+            return (
+                <Link
+                    key={item.route}
+                    href={route(item.route)}
+                    onClick={onNavigate}
+                    className={sidebarLinkClass(route().current(item.match))}
+                >
+                    {item.label}
+                </Link>
+            );
+        });
 
     return (
         <div className="flex min-h-screen bg-bg-base">
             {/* Sidebar — desktop */}
             <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-bg-surface">
                 <Link
-                    href="/"
+                    href={route("dashboard")}
                     className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border px-6 focus:outline-none focus:ring-2 focus:ring-lime-500"
                 >
                     <ApplicationLogo className="h-8 w-8 text-lime-500" />
@@ -61,55 +81,23 @@ export default function AuthenticatedLayout({ header, children }) {
                     </span>
                 </Link>
 
-                <nav className="flex-1 space-y-1 px-3 py-4">{navLinks()}</nav>
-
-                <div className="border-t border-border p-3">
-                    <Dropdown>
-                        <Dropdown.Trigger>
-                            <button
-                                type="button"
-                                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
-                            >
-                                <Avatar user={user} size={32} />
-                                <span className="min-w-0 flex-1 truncate">
-                                    {user.name}
-                                </span>
-                                <svg
-                                    className="h-4 w-4 shrink-0"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </button>
-                        </Dropdown.Trigger>
-
-                        <Dropdown.Content align="left">
-                            <Dropdown.Link href={route("profile.edit")}>
-                                Profil
-                            </Dropdown.Link>
-                            <Dropdown.Link
-                                href={route("logout")}
-                                method="post"
-                                as="button"
-                            >
-                                Keluar
-                            </Dropdown.Link>
-                        </Dropdown.Content>
-                    </Dropdown>
+                <div className="space-y-1 border-t border-border p-3">
+                    <div className="flex items-center gap-2.5 px-2 py-2">
+                        <Avatar user={user} size={32} />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+                            {user.name}
+                        </span>
+                    </div>
                 </div>
+
+                <nav className="flex-1 space-y-1 px-3 py-4">{navLinks()}</nav>
             </aside>
 
             <div className="flex min-w-0 flex-1 flex-col">
                 {/* Topbar tipis — mobile saja, cuma logo + tombol drawer */}
                 <div className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-bg-surface px-4 md:hidden">
                     <Link
-                        href="/"
+                        href={route("dashboard")}
                         className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-lime-500"
                     >
                         <ApplicationLogo className="h-8 w-8 text-lime-500" />
@@ -169,25 +157,6 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </div>
                                 </div>
                             </div>
-
-                            <Link
-                                href={route("profile.edit")}
-                                onClick={() => setMobileOpen(false)}
-                                className={"block " + sidebarLinkClass(false)}
-                            >
-                                Profil
-                            </Link>
-                            <Link
-                                href={route("logout")}
-                                method="post"
-                                as="button"
-                                className={
-                                    "block w-full text-left " +
-                                    sidebarLinkClass(false)
-                                }
-                            >
-                                Keluar
-                            </Link>
                         </div>
                     </div>
                 )}

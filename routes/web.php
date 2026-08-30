@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AvatarFileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
@@ -7,6 +8,7 @@ use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -26,7 +28,16 @@ use Inertia\Inertia;
 |
 */
 
-Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
+Route::get('/', function () {
+    // Sesuai permintaan: kalau sudah login, "/" (dan tombol logo yang
+    // mengarah ke sini) selalu dialihkan ke Dashboard — Welcome hanya
+    // untuk tamu yang belum punya akun/sesi.
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return Inertia::render('Welcome');
+})->name('home');
 
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('/kalkulator', fn () => Inertia::render('Calculator/Index'))
@@ -37,6 +48,11 @@ Route::middleware('throttle:60,1')->group(function () {
 });
 
 Route::get('/berita', fn () => Inertia::render('News/Index'))->name('news.index');
+
+// Lihat komentar panjang di AvatarFileController — ini pengganti
+// Storage::disk('public')->url(), bukan duplikat symlink /storage.
+Route::get('/media/avatars/{filename}', [AvatarFileController::class, 'show'])
+    ->name('avatars.show');
 
 /*
 |--------------------------------------------------------------------------

@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -92,11 +91,18 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected $appends = ['avatar_url', 'initials'];
 
-    /** URL foto profil, atau null bila pengguna belum mengunggah. */
+    /**
+     * URL foto profil, atau null bila pengguna belum mengunggah.
+     *
+     * Sengaja LEWAT route avatars.show (AvatarFileController), BUKAN
+     * Storage::disk('public')->url() (yang mengarah ke symlink
+     * public/storage) — lihat komentar panjang di AvatarFileController
+     * soal kenapa symlink itu tidak diandalkan lagi di Windows.
+     */
     public function getAvatarUrlAttribute(): ?string
     {
         return $this->avatar_path
-            ? Storage::disk('public')->url($this->avatar_path)
+            ? route('avatars.show', ['filename' => basename($this->avatar_path)])
             : null;
     }
 
