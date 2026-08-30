@@ -5,39 +5,112 @@ import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
 const menu = [
-    { label: "Dashboard", route: "dashboard" },
-    { label: "Kalkulator", route: "calculator.index" },
-    { label: "Berita", route: "news.index" },
+    { label: "Dashboard", route: "dashboard", match: "dashboard" },
+    { label: "Kalkulator", route: "calculator.index", match: "calculator.*" },
+    { label: "Berita", route: "news.index", match: "news.*" },
 ];
 
+function sidebarLinkClass(isActive) {
+    return (
+        "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-lime-500 " +
+        (isActive
+            ? "bg-lime-softBg text-lime-500"
+            : "text-text-secondary hover:bg-bg-cardAlt hover:text-text-primary")
+    );
+}
+
 /**
- * Shell aplikasi. Untuk saat ini hanya berisi topbar — sidebar kategori
- * kalkulator dan panel kanan menyusul bersama halaman-halamannya
- * (DESIGN.md §4).
+ * Shell aplikasi untuk pengguna yang sudah login — SIDEBAR kiri, bukan
+ * navbar atas seperti sebelumnya. PublicLayout (dipakai Welcome/
+ * Kalkulator/Berita) mendelegasikan ke komponen ini begitu ada user
+ * yang login, jadi sidebar ini satu-satunya tempat markup navigasi
+ * "sudah login" didefinisikan — Kalkulator dan Berita otomatis ikut
+ * memakai sidebar yang sama, bukan salinan terpisah.
  *
- * Posisi dan tipografi navbar disamakan dengan PublicLayout (Welcome)
- * agar konsisten antara halaman publik dan halaman yang butuh login;
- * dropdown avatar user tetap dipertahankan karena hanya relevan untuk
- * pengguna yang sudah login.
+ * Di layar sempit (< md), sidebar disembunyikan dan diganti topbar tipis
+ * + drawer yang dibuka lewat tombol hamburger — sidebar selebar penuh
+ * butuh terlalu banyak ruang di layar HP.
  */
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    const [mobileOpen, setMobileOpen] = useState(false);
 
-    const [openMobileNav, setOpenMobileNav] = useState(false);
-
-    const linkClass = (isActive) =>
-        "rounded-lg px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-surface " +
-        (isActive
-            ? "bg-lime-softBg text-lime-500"
-            : "text-text-secondary hover:bg-bg-cardAlt hover:text-text-primary");
+    const navLinks = (onNavigate) =>
+        menu.map((item) => (
+            <Link
+                key={item.route}
+                href={route(item.route)}
+                onClick={onNavigate}
+                className={sidebarLinkClass(route().current(item.match))}
+            >
+                {item.label}
+            </Link>
+        ));
 
     return (
-        <div className="min-h-screen bg-bg-base">
-            <header className="border-b border-border bg-bg-surface">
-                <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex min-h-screen bg-bg-base">
+            {/* Sidebar — desktop */}
+            <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-bg-surface">
+                <Link
+                    href="/"
+                    className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border px-6 focus:outline-none focus:ring-2 focus:ring-lime-500"
+                >
+                    <ApplicationLogo className="h-8 w-8 text-lime-500" />
+                    <span className="text-lg font-bold tracking-tight text-text-primary">
+                        FinGoal
+                    </span>
+                </Link>
+
+                <nav className="flex-1 space-y-1 px-3 py-4">{navLinks()}</nav>
+
+                <div className="border-t border-border p-3">
+                    <Dropdown>
+                        <Dropdown.Trigger>
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
+                            >
+                                <Avatar user={user} size={32} />
+                                <span className="min-w-0 flex-1 truncate">
+                                    {user.name}
+                                </span>
+                                <svg
+                                    className="h-4 w-4 shrink-0"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </button>
+                        </Dropdown.Trigger>
+
+                        <Dropdown.Content align="left">
+                            <Dropdown.Link href={route("profile.edit")}>
+                                Profil
+                            </Dropdown.Link>
+                            <Dropdown.Link
+                                href={route("logout")}
+                                method="post"
+                                as="button"
+                            >
+                                Keluar
+                            </Dropdown.Link>
+                        </Dropdown.Content>
+                    </Dropdown>
+                </div>
+            </aside>
+
+            <div className="flex min-w-0 flex-1 flex-col">
+                {/* Topbar tipis — mobile saja, cuma logo + tombol drawer */}
+                <div className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-bg-surface px-4 md:hidden">
                     <Link
                         href="/"
-                        className="flex shrink-0 items-center gap-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-surface"
+                        className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-lime-500"
                     >
                         <ApplicationLogo className="h-8 w-8 text-lime-500" />
                         <span className="text-lg font-bold tracking-tight text-text-primary">
@@ -45,109 +118,46 @@ export default function AuthenticatedLayout({ header, children }) {
                         </span>
                     </Link>
 
-                    <div className="hidden items-center gap-1 md:flex">
-                        {menu.map((item) => (
-                            <Link
-                                key={item.route}
-                                href={route(item.route)}
-                                className={linkClass(
-                                    route().current(item.route),
-                                )}
-                                aria-current={
-                                    route().current(item.route)
-                                        ? "page"
-                                        : undefined
-                                }
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setMobileOpen((v) => !v)}
+                        aria-label="Buka menu navigasi"
+                        aria-expanded={mobileOpen}
+                        className="rounded-lg p-2 text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                    >
+                        <svg
+                            className="h-6 w-6"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            {mobileOpen ? (
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                />
+                            ) : (
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M4 6h16M4 12h16M4 18h16"
+                                />
+                            )}
+                        </svg>
+                    </button>
+                </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                        <div className="hidden md:block">
-                            <Dropdown>
-                                <Dropdown.Trigger>
-                                    <span className="inline-flex rounded-lg">
-                                        <button
-                                            type="button"
-                                            className="inline-flex items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium leading-4 text-text-secondary transition duration-150 ease-in-out hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none"
-                                        >
-                                            <Avatar user={user} size={28} />
-                                            {user.name}
-
-                                            <svg
-                                                className="-me-0.5 ms-2 h-4 w-4"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
-                                            >
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                    clipRule="evenodd"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </span>
-                                </Dropdown.Trigger>
-
-                                <Dropdown.Content>
-                                    <Dropdown.Link href={route("profile.edit")}>
-                                        Profil
-                                    </Dropdown.Link>
-                                    <Dropdown.Link
-                                        href={route("logout")}
-                                        method="post"
-                                        as="button"
-                                    >
-                                        Keluar
-                                    </Dropdown.Link>
-                                </Dropdown.Content>
-                            </Dropdown>
+                {/* Drawer — mobile saja */}
+                {mobileOpen && (
+                    <div className="border-b border-border bg-bg-surface px-3 py-3 md:hidden">
+                        <div className="space-y-1">
+                            {navLinks(() => setMobileOpen(false))}
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => setOpenMobileNav((v) => !v)}
-                            aria-label="Buka menu"
-                            aria-expanded={openMobileNav}
-                            className="rounded-lg p-2 text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500 md:hidden"
-                        >
-                            <svg
-                                className="h-5 w-5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            >
-                                {openMobileNav ? (
-                                    <path d="M6 18L18 6M6 6l12 12" />
-                                ) : (
-                                    <path d="M4 6h16M4 12h16M4 18h16" />
-                                )}
-                            </svg>
-                        </button>
-                    </div>
-                </nav>
-
-                {openMobileNav && (
-                    <div className="border-t border-border px-4 py-2 md:hidden">
-                        {menu.map((item) => (
-                            <Link
-                                key={item.route}
-                                href={route(item.route)}
-                                className={
-                                    "block " +
-                                    linkClass(route().current(item.route))
-                                }
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
-
-                        <div className="mt-2 border-t border-border pt-2">
+                        <div className="mt-3 border-t border-border pt-3">
                             <div className="flex items-center gap-3 px-3 py-2">
                                 <Avatar user={user} size={36} />
                                 <div className="min-w-0">
@@ -162,7 +172,8 @@ export default function AuthenticatedLayout({ header, children }) {
 
                             <Link
                                 href={route("profile.edit")}
-                                className={"block " + linkClass(false)}
+                                onClick={() => setMobileOpen(false)}
+                                className={"block " + sidebarLinkClass(false)}
                             >
                                 Profil
                             </Link>
@@ -171,7 +182,8 @@ export default function AuthenticatedLayout({ header, children }) {
                                 method="post"
                                 as="button"
                                 className={
-                                    "block w-full text-left " + linkClass(false)
+                                    "block w-full text-left " +
+                                    sidebarLinkClass(false)
                                 }
                             >
                                 Keluar
@@ -179,17 +191,17 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
                     </div>
                 )}
-            </header>
 
-            {header && (
-                <header className="border-b border-border bg-bg-surface">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
-            )}
+                {header && (
+                    <header className="border-b border-border bg-bg-surface">
+                        <div className="px-4 py-6 sm:px-6 lg:px-8">
+                            {header}
+                        </div>
+                    </header>
+                )}
 
-            <main>{children}</main>
+                <main className="flex-1">{children}</main>
+            </div>
         </div>
     );
 }
