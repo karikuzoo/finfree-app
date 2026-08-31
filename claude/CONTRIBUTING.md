@@ -302,8 +302,9 @@ Keduanya email yang berbeda untuk keperluan yang berbeda. Verifikasi membuktikan
 4. Tempel di browser — halaman pengaturan kata sandi baru akan terbuka dengan email sudah terisi
 5. Isi kata sandi baru, simpan. Anda langsung login dengan kata sandi itu
 
-**Tiga hal yang perlu diketahui:**
+**Empat hal yang perlu diketahui:**
 
+- **Meminta tautan baru langsung mematikan tautan lama.** Satu email hanya boleh punya satu tautan aktif, jadi permintaan kedua menghapus token yang pertama. Ini disengaja demi keamanan, tetapi gampang menjebak saat development: log itu bersifat menumpuk, sehingga tautan yang sudah mati tetap terbaca di sana selamanya. **Selalu ambil yang paling bawah** — itulah gunanya `-Last 1` pada perintah di atas. Gejalanya khas: pesan "Tautan ini sudah tidak berlaku" padahal tautannya baru saja Anda ambil dari log.
 - **Token berlaku 60 menit.** Diatur di `config/auth.php` (`passwords.users.expire`). Lewat dari itu, tautannya ditolak dan Anda perlu meminta yang baru.
 - **Permintaan berulang ditahan 60 detik.** Menekan tombolnya dua kali beruntun tidak menghasilkan email kedua — Laravel menahannya. Kalau tautan baru tidak muncul di log, kemungkinan besar ini penyebabnya, bukan kerusakan.
 - **Reset kata sandi tidak menuntut email terverifikasi.** Keduanya alur terpisah: pengguna yang belum memverifikasi email tetap boleh mengatur ulang kata sandinya. Ini memang disengaja — orang yang lupa kata sandi seringkali juga belum sempat memverifikasi.

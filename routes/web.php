@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AvatarFileController;
+use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
@@ -65,6 +66,12 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    // Catatan pengguna pada tanggal tertentu di kalender aktivitas dashboard.
+    Route::post('/kalender/catatan', [CalendarNoteController::class, 'store'])
+        ->name('calendar-notes.store');
+    Route::delete('/kalender/catatan/{calendarNote}', [CalendarNoteController::class, 'destroy'])
+        ->name('calendar-notes.destroy');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

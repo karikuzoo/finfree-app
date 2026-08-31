@@ -7,7 +7,26 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
-const COLORS = ["#CFF04A", "#7CB8E8", "#F2B950", "#A3A99E"];
+/**
+ * Palet kategorikal untuk potongan pie.
+ *
+ * Versi sebelumnya memakai warna state aplikasi (info biru pucat, warning
+ * kuning tua, dan abu netral) — terbaca pastel dan potongan keempat nyaris
+ * hilang karena abu-abu punya bobot visual paling rendah di latar gelap.
+ *
+ * Palet ini dipilih dengan tiga syarat: setiap warna cukup terang untuk
+ * menampung label teks gelap di atasnya, hue-nya berjauhan supaya tetap
+ * terbedakan berdampingan, dan tidak ada satu pun yang abu-abu. Lime tetap
+ * di urutan pertama agar potongan terbesar selaras dengan warna merek.
+ */
+const COLORS = [
+    "#CFF04A", // lime — warna merek
+    "#38BDF8", // biru langit
+    "#FB923C", // oranye
+    "#C084FC", // ungu
+    "#2DD4BF", // toska
+    "#FB7185", // merah muda
+];
 
 const RADIAN = Math.PI / 180;
 

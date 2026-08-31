@@ -35,7 +35,7 @@ import { Head, usePage } from "@inertiajs/react";
  *   di sini.
  */
 export default function Dashboard() {
-    const { auth, summary } = usePage().props;
+    const { auth, summary, calendar } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
 
     // Data contoh untuk GoalHeroCard, ActivityCalendar, & donut alokasi
@@ -172,9 +172,7 @@ export default function Dashboard() {
 
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                                 <div className="rounded-card border border-border bg-bg-card p-5">
-                                    <ActivityCalendar
-                                        calendar={summary.contribution_calendar}
-                                    />
+                                    <ActivityCalendar calendar={calendar} />
                                 </div>
 
                                 <div className="rounded-card border border-border bg-bg-card p-5">

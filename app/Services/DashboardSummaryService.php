@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\GoalStatus;
 use App\Enums\RiskProfile;
+use App\Models\CalendarNote;
 use App\Models\FinancialGoal;
 use App\Models\GoalCalculation;
 use App\Models\GoalContribution;
@@ -230,7 +231,15 @@ class DashboardSummaryService
     private function assetGrowthSeries(User $user): array
     {
         $months = self::ASSET_GROWTH_MONTHS;
-        $since = Carbon::now()->subMonths($months - 1)->startOfMonth();
+
+        // startOfMonth() DULU, baru subMonths() — urutannya menentukan.
+        //
+        // Dibalik, hasilnya salah di akhir bulan: dari 31 Agustus,
+        // subMonths(11) menghasilkan "31 September" yang tidak ada, lalu
+        // meluber ke 1 Oktober. Jendela 12 bulannya jadi mulai sebulan
+        // terlambat dan setoran bulan pertama hilang dari total kumulatif.
+        // Tanggal 1 tidak pernah bisa meluber, jadi urutan ini aman.
+        $since = Carbon::now()->startOfMonth()->subMonths($months - 1);
 
         $baseline = (float) FinancialGoal::query()
             ->where('user_id', $user->id)
@@ -270,6 +279,84 @@ class DashboardSummaryService
      * Digabung dari seluruh goal aktif milik user, bukan cuma primary
      * goal, supaya kalender tetap benar begitu goal kedua/ketiga ada.
      */
+    /**
+     * Data kalender untuk SATU bulan tertentu — setoran beserta catatan
+     * pengguna di tanggal-tanggal bulan itu.
+     *
+     * Terpisah dari `forUser()` dan dikirim sebagai prop Inertia tersendiri
+     * (`calendar`), bukan bagian dari `summary`. Alasannya: kalender bisa
+     * digeser ke bulan lain, dan dengan prop terpisah pergeseran itu cukup
+     * memuat ulang prop ini saja (`router.get(..., { only: ['calendar'] })`)
+     * tanpa menghitung ulang seluruh agregasi dashboard — yang jauh lebih
+     * mahal dan tidak berubah sama sekali saat pengguna sekadar melihat bulan
+     * lalu.
+     *
+     * Tiap tanggal membawa `entries` — rincian setoran satu per satu beserta
+     * catatan dan nama tujuannya. Tanpa itu, catatan yang ditulis pengguna di
+     * form "Catat Setoran" tidak pernah terlihat lagi di mana pun: kalender
+     * hanya menampilkan totalnya, dan halaman riwayat setoran belum ada.
+     *
+     * @return array{
+     *     month: string,
+     *     label: string,
+     *     contributions: array<int, array{
+     *         date: string,
+     *         amount: float,
+     *         entries: array<int, array{amount: float, note: string|null, goal: string}>
+     *     }>,
+     *     notes: array<int, array{id: int, date: string, body: string}>
+     * }
+     */
+    public function calendarForMonth(User $user, Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+
+        $contributions = GoalContribution::query()
+            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
+            ->where('financial_goals.user_id', $user->id)
+            ->whereBetween('goal_contributions.contributed_on', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('goal_contributions.contributed_on')
+            ->orderBy('goal_contributions.id')
+            ->get([
+                'goal_contributions.contributed_on',
+                'goal_contributions.amount',
+                'goal_contributions.note',
+                'financial_goals.name as goal_name',
+            ])
+            ->groupBy(fn ($row) => Carbon::parse($row->contributed_on)->toDateString())
+            ->map(fn (Collection $rows, string $date) => [
+                'date' => $date,
+                'amount' => round((float) $rows->sum('amount'), 2),
+                'entries' => $rows->map(fn ($row) => [
+                    'amount' => round((float) $row->amount, 2),
+                    'note' => $row->note,
+                    'goal' => $row->goal_name,
+                ])->values()->all(),
+            ])
+            ->values()
+            ->all();
+
+        $notes = CalendarNote::query()
+            ->where('user_id', $user->id)
+            ->whereBetween('note_date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('note_date')
+            ->get()
+            ->map(fn (CalendarNote $note) => [
+                'id' => $note->id,
+                'date' => $note->note_date->toDateString(),
+                'body' => $note->body,
+            ])
+            ->all();
+
+        return [
+            'month' => $start->format('Y-m'),
+            'label' => $start->translatedFormat('F Y'),
+            'contributions' => $contributions,
+            'notes' => $notes,
+        ];
+    }
+
     private function contributionCalendar(User $user): array
     {
         $start = Carbon::now()->startOfMonth()->toDateString();

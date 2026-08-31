@@ -45,11 +45,28 @@ class AccessControlTest extends TestCase
     {
         // Kalkulator adalah pintu masuk pengguna baru (FR-44). Verifikasi email
         // tidak boleh ikut menutupnya.
+        //
+        // Route '/' sengaja TIDAK ikut diuji di sini: sejak dashboard dibuat,
+        // '/' mengalihkan pengguna yang sudah login ke dashboard — perilaku
+        // yang diinginkan dan tidak ada hubungannya dengan verifikasi email.
+        // Diuji terpisah di bawah.
         $user = User::factory()->unverified()->create();
 
-        $this->actingAs($user)->get(route('home'))->assertOk();
+        $this->actingAs($user)->get(route('calculator.index'))->assertOk();
         $this->actingAs($user)->get(route('calculator.goal'))->assertOk();
         $this->actingAs($user)->get(route('news.index'))->assertOk();
+    }
+
+    public function test_beranda_mengalihkan_pengguna_yang_sudah_login_ke_dashboard(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('home'))
+            ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_beranda_tetap_tampil_untuk_tamu(): void
+    {
+        $this->get(route('home'))->assertOk();
     }
 
     public function test_register_dibatasi_laju(): void
