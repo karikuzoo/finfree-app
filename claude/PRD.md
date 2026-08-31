@@ -232,8 +232,10 @@ MVP dipecah jadi tiga rilis. Alasannya: dana pensiun terlihat seperti fitur ungg
 
 | Fase | Fokus |
 |---|---|
-| Fase 2 | Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
+| Fase 2 | **Dompet Tujuan (FR-47..FR-53)**, Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
 | Fase 3 | Multi-currency, family sharing, integrasi data pasar real-time (sekaligus membuka kembali Panel Indeks Pasar, lihat D-4) |
+
+> **Kenapa Dompet ditaruh di Fase 2, bukan Rilis 1.** Dompet membandingkan realisasi terhadap alokasi yang disarankan — jadi ia bergantung pada mesin rekomendasi instrumen (FR-23..27) yang baru hadir di Rilis 2. Membangunnya lebih dulu berarti membandingkan sesuatu dengan saran yang belum ada.
 
 ## 13. Keputusan yang Sudah Diambil
 
