@@ -149,33 +149,31 @@ Alat hitung sekali pakai, terpisah dari Tujuan. Daftar di bawah **bukan** salina
 
 **Reuse:** FR-41 dan FR-42 memakai keluarga rumus yang sama dengan kalkulator tujuan (anuitas). Keduanya dibangun di atas `GoalCalculatorService` yang sudah teruji, bukan sebagai mesin hitung terpisah — lihat CLAUDE.md §6.
 
-### 6.10 Dompet Tujuan — realisasi alokasi
+### 6.10 Dompet — sumber dana
 
-Hari ini kartu "Alokasi Instrumen yang Disarankan" (FR-23..27) memberi saran lalu berhenti di situ: tidak ada tempat bagi pengguna mencatat apa yang **benar-benar** ia pegang, dan tidak ada cara mengetahui apakah portofolio nyatanya sudah mendekati saran itu atau melenceng jauh. Saran tanpa tindak lanjut adalah nasihat yang tidak pernah diperiksa.
+Dompet menjawab satu pertanyaan: **uang pengguna sekarang ada di mana.** Ia berdiri sendiri, tidak menempel pada tujuan mana pun, dan satu daftar dipakai bersama oleh seluruh tujuan.
 
-"Dompet" menutup lingkaran itu: satu tujuan punya satu dompet, isinya rincian aset nyata per instrumen, disandingkan dengan alokasi yang disarankan.
-
-- FR-47: Pengguna dapat mencatat aset yang dipegang untuk sebuah tujuan — instrumen, nilai rupiah saat ini, dan tanggal penilaian.
-- FR-48: Dompet menampilkan perbandingan **saran vs realisasi** per instrumen, dalam persen sekaligus rupiah.
-- FR-49: Sistem menandai penyimpangan alokasi yang melewati ambang batas (usulan awal: ±10 poin persen), lengkap dengan arahnya — kelebihan atau kekurangan.
-- FR-50: Pengguna dapat **memperbarui nilai** sebuah aset tanpa mencatatnya sebagai setoran baru. Emas yang naik harga bukan uang yang baru disisihkan; menyamakan keduanya akan merusak riwayat setoran dan grafik kedisiplinan menabung.
+- FR-47: Pengguna dapat mencatat dompet — nama, **jenis instrumen**, dan saldo saat ini. Contoh: "BCA" (deposito/kas), "Emas" (emas), "Reksa Dana" (reksa dana pasar uang).
+- FR-48: Saat mencatat setoran ke sebuah tujuan, pengguna memilih **dari dompet mana** uang itu diambil.
+- FR-49: Pengguna dapat memperbarui saldo sebuah dompet tanpa mencatatnya sebagai setoran. Emas yang naik harga bukan uang yang baru disisihkan; menyamakan keduanya merusak riwayat setoran dan grafik kedisiplinan menabung.
+- FR-50: Dashboard menampilkan total kekayaan lintas dompet, terpisah dari progres tujuan.
 - FR-51: Untuk aset bersatuan (emas dalam gram, saham dalam lot), pengguna dapat mencatat jumlah satuannya. Nilai rupiah tetap menjadi sumber perhitungan — satuan bersifat informasi pelengkap.
-- FR-52: Dashboard menampilkan ringkasan dompet tujuan utama: komposisi nyata dan penyimpangan terbesarnya.
-- FR-53: Selisih antara total dompet dan `current_amount` **ditampilkan terang-terangan**, tidak disembunyikan atau diam-diam disamakan salah satunya.
 
-**Pertanyaan terbuka — wajib diputuskan sebelum menulis kode.**
+**Jenis instrumen pada dompet bukan hiasan.** Ia yang membuat §6.11 bekerja tanpa input tambahan. Tanpa kolom itu, komposisi tujuan tidak bisa diturunkan dan pengguna terpaksa mencatat aset yang sama dua kali.
 
-Fitur ini memperkenalkan angka kedua untuk uang yang sama. `current_amount` sudah didefinisikan sebagai turunan (`initial_amount` + jumlah setoran, FR-34) dan tidak pernah disimpan sebagai kolom. Total dompet adalah angka yang berbeda dan **akan** berbeda nilainya, karena FR-50 membuat nilai aset ikut bergerak mengikuti pasar sementara setoran tidak.
+### 6.11 Detail Alokasi Tujuan — saran vs nyata
 
-Dua angka untuk satu hal adalah sumber bug yang klasik dan sulit dilacak. Tiga jalan yang mungkin:
+Hari ini kartu "Alokasi Instrumen yang Disarankan" (FR-23..27) memberi saran lalu berhenti di situ: tidak ada cara mengetahui apakah portofolio nyata pengguna sudah mendekati saran itu atau melenceng jauh. Saran tanpa tindak lanjut adalah nasihat yang tidak pernah diperiksa. Bagian ini adalah tampilan rinci dari donut alokasi tersebut.
 
-| Pilihan | Cara kerja | Konsekuensi |
-|---|---|---|
-| **A. Dompet diturunkan dari setoran** | Tiap setoran diberi label instrumen; dompet = penjumlahan setoran berlabel | Satu sumber kebenaran, konsisten dengan FR-34. Tetapi tidak bisa menyatakan kenaikan harga pasar sama sekali — FR-50 gugur |
-| **B. Dompet berdiri sendiri** | Tabel terpisah dengan nilai yang bisa diperbarui | FR-50 berjalan penuh. Tetapi total dompet dan `current_amount` bisa menyimpang tanpa ada yang menyadarinya |
-| **C. Berdiri sendiri + rekonsiliasi terbuka** | Seperti B, tetapi selisihnya dihitung dan ditampilkan sebagai "selisih penilaian" | FR-50 berjalan, dan penyimpangan menjadi informasi yang berguna — bukan bug diam. Perlu UI tambahan untuk menjelaskan selisihnya |
+- FR-52: Donut alokasi dapat dibuka menjadi tampilan rinci berisi perbandingan **saran vs nyata** per instrumen, dalam persen **sekaligus nominal rupiah**.
+- FR-53: Komposisi nyata **diturunkan** dari setoran tujuan itu, dikelompokkan menurut jenis instrumen dompet asalnya (FR-48). Bukan angka yang diisi ulang secara terpisah.
+- FR-54: Sistem menandai penyimpangan yang melewati ambang batas (usulan awal: ±10 poin persen), lengkap dengan arahnya — kelebihan atau kekurangan.
+- FR-55: Penyimpangan disertai penjelasan yang bermakna, bukan sekadar angka. Contoh: "emas 20 poin di atas saran — dana darurat butuh dana yang mudah dicairkan, dan emas lebih lambat dijual daripada deposito."
+- FR-56: Dashboard menampilkan ringkasan untuk tujuan utama: komposisi nyata dan penyimpangan terbesarnya.
 
-Usulan: **pilihan C**. Selisih antara "uang yang saya setorkan" dan "nilai aset saya sekarang" bukan kesalahan yang perlu disembunyikan — justru itulah imbal hasil investasinya, dan menampilkannya adalah inti dari aplikasi perencanaan keuangan. Keputusan final dicatat di §13 setelah disepakati berdua.
+**Kenapa diturunkan, bukan dicatat ulang.** Ini keputusan rancangan yang paling menentukan di dua bagian ini. Bila pengguna mencatat asetnya di Dompet *dan* mencatat komposisi tujuan secara terpisah, aset yang sama masuk dua kali dan kedua angka itu **akan** menyimpang tanpa ada yang menyadarinya — persoalan klasik yang sulit dilacak. Dengan menurunkannya dari setoran, hanya ada satu tempat memasukkan data, dan detail alokasi mustahil berbeda dari Dompet karena sumbernya memang sama. Sejalan dengan FR-34, yang sudah menetapkan `current_amount` sebagai nilai turunan, bukan kolom yang diedit langsung.
+
+**Batas yang diterima secara sadar.** Komposisi dihitung dari nilai **saat menyetor**, bukan harga pasar hari ini. Emas yang dibeli Rp 300.000 lalu naik menjadi Rp 350.000 tetap terbaca Rp 300.000 pada detail tujuan, meski saldo dompetnya sendiri boleh diperbarui (FR-49). Untuk aplikasi perencana ini dinilai wajar; menampilkan nilai pasar per tujuan menuntut riwayat harga per aset dan ditunda sampai ada kebutuhan nyata.
 ## 7. Requirement Non-Fungsional
 
 - **NFR-1 Performa:** Waktu hitung kalkulator < 200ms di sisi backend; halaman utama first load < 2.5s pada koneksi 4G.
@@ -232,10 +230,12 @@ MVP dipecah jadi tiga rilis. Alasannya: dana pensiun terlihat seperti fitur ungg
 
 | Fase | Fokus |
 |---|---|
-| Fase 2 | **Dompet Tujuan (FR-47..FR-53)**, Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
+| Fase 2 | **Dompet (FR-47..FR-51)** lalu **Detail Alokasi Tujuan (FR-52..FR-56)**, Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
 | Fase 3 | Multi-currency, family sharing, integrasi data pasar real-time (sekaligus membuka kembali Panel Indeks Pasar, lihat D-4) |
 
-> **Kenapa Dompet ditaruh di Fase 2, bukan Rilis 1.** Dompet membandingkan realisasi terhadap alokasi yang disarankan — jadi ia bergantung pada mesin rekomendasi instrumen (FR-23..27) yang baru hadir di Rilis 2. Membangunnya lebih dulu berarti membandingkan sesuatu dengan saran yang belum ada.
+> **Urutannya mengikat: Dompet dulu, Detail Alokasi menyusul.** Detail alokasi menurunkan komposisinya dari `wallets.instrument_type` (FR-53), jadi tanpa Dompet ia tidak punya bahan sama sekali. Ia juga membandingkan realisasi terhadap alokasi yang disarankan, sehingga ikut menunggu mesin rekomendasi instrumen (FR-23..27) di Rilis 2.
+>
+> Dompet sendiri **tidak menunggu apa pun** dan secara teknis bisa dimajukan ke Rilis 1 — nilainya bagi pengguna baru terasa penuh setelah Detail Alokasi ada, tetapi memajukannya berarti setoran mulai mencatat asal dompet lebih awal, sehingga saat Detail Alokasi menyala datanya sudah terkumpul, bukan kosong.
 
 ## 13. Keputusan yang Sudah Diambil
 

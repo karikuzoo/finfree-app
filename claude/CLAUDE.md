@@ -191,36 +191,38 @@ financial_goals
   created_at, updated_at, deleted_at
   INDEX (user_id, status)
 
+wallets                                       -- FR-47..FR-51, "Dompet"
+  id, user_id (FK, on delete cascade),
+  name,                                       -- "BCA", "Emas", "GoPay"
+  instrument_type (enum: cash|deposit|bond|mutual_fund|stock|gold),
+  balance numeric(18,2),
+  units numeric(18,4) NULL,                   -- gram emas / lot saham; pelengkap saja
+  balance_updated_on date,
+  created_at, updated_at
+  INDEX (user_id)
+  -- instrument_type BUKAN sekadar label tampilan. Ia yang membuat detail
+  -- alokasi (FR-52..FR-56) bisa diturunkan tanpa input tambahan: komposisi
+  -- nyata sebuah tujuan = setorannya dikelompokkan menurut instrument_type
+  -- dompet asalnya. Tanpa kolom ini, pengguna terpaksa mencatat aset yang
+  -- sama dua kali dan kedua angkanya akan menyimpang diam-diam.
+  --
+  -- balance boleh diperbarui mengikuti harga pasar (FR-49) dan itu TIDAK
+  -- membuat setoran baru. Konsekuensinya SUM(balance) sengaja tidak sama
+  -- dengan total setoran mana pun — keduanya menjawab pertanyaan berbeda.
+
 goal_contributions                            -- prasyarat FR-32..FR-36
   id, financial_goal_id (FK, on delete cascade),
   amount numeric(18,2), contributed_on date, note text NULL,
+  wallet_id (FK, on delete set null) NULL,    -- FR-48: uangnya diambil dari dompet mana
   created_at, updated_at
   INDEX (financial_goal_id, contributed_on)
+  -- wallet_id nullable & ON DELETE SET NULL: setoran lama (sebelum fitur
+  -- Dompet ada) tidak punya asal, dan menghapus dompet tidak boleh ikut
+  -- menghapus riwayat setoran. Setoran tanpa wallet_id masuk kelompok
+  -- "belum dikategorikan" di detail alokasi — ditampilkan apa adanya,
+  -- bukan diam-diam dibagi rata ke instrumen lain.
   -- current_amount TIDAK disimpan sebagai kolom: ia = initial_amount + SUM(amount).
   -- Bila agregasi jadi lambat, barulah tambahkan kolom cache yang di-update via event.
-
-goal_holdings                                 -- FR-47..FR-53, "Dompet Tujuan"
-  id, financial_goal_id (FK, on delete cascade),
-  investment_instrument_id (FK),
-  current_value numeric(18,2),                -- nilai rupiah, SUMBER perhitungan
-  units numeric(18,4) NULL,                   -- gram emas / lot saham; pelengkap saja
-  valued_on date,                             -- kapan nilai itu terakhir diperbarui
-  created_at, updated_at
-  UNIQUE (financial_goal_id, investment_instrument_id)
-  INDEX (financial_goal_id)
-  -- Satu baris per instrumen per tujuan, BUKAN satu baris per transaksi.
-  -- Dompet menjawab "sekarang saya pegang apa", bukan "apa saja yang pernah
-  -- saya beli" — riwayat pembelian sudah dijawab goal_contributions.
-  --
-  -- PERHATIAN — dua angka untuk uang yang sama:
-  -- SUM(current_value) di sini TIDAK akan sama dengan current_amount milik
-  -- goal (= initial_amount + SUM(goal_contributions.amount)), dan itu memang
-  -- disengaja: nilai aset bergerak mengikuti pasar (FR-50) sementara setoran
-  -- tidak. Selisihnya adalah imbal hasil investasi, dan FR-53 menuntut ia
-  -- DITAMPILKAN, bukan disembunyikan atau dipaksa sama.
-  -- Jangan pernah memakai salah satunya untuk menimpa yang lain.
-  -- Pilihan rancangan ini masih terbuka — lihat PRD §6.10 "Pertanyaan terbuka"
-  -- dan pastikan sudah disepakati sebelum menulis migrasinya.
 
 goal_calculations
   id, financial_goal_id (FK, on delete cascade),
