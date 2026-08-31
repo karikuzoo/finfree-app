@@ -160,6 +160,14 @@ export default function AllocationBreakdownChart({
                             />
                         </PieChart>
                     </ResponsiveContainer>
+                    <div className="mt-4 flex justify-center">
+                        <button
+                            type="button"
+                            className="rounded-lg bg-lime-500 px-5 py-3 text-sm font-semibold text-onPrimary items-center transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
+                        >
+                            Details
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
