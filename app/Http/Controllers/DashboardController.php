@@ -40,6 +40,11 @@ class DashboardController extends Controller
             // dan kalender ini murah dihitung, jadi tidak ada yang dihemat
             // dengan menundanya.
             'calendar' => $summary->calendarForMonth($request->user(), $bulan),
+
+            // Pengingat hari ini ditampilkan terpisah dari kalender: kalender
+            // mengikuti bulan yang sedang dilihat, sedangkan panel ini selalu
+            // soal hari ini — meski pengguna sedang menengok bulan lalu.
+            'todayReminders' => $summary->remindersForToday($request->user()),
         ]);
     }
 }

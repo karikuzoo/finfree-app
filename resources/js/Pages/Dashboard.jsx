@@ -5,10 +5,11 @@ import DailyReminderBanner from "@/Components/DailyReminderBanner";
 import AllocationBreakdownChart from "@/Components/AllocationBreakdownChart";
 import GoalProgressList from "@/Components/GoalProgressList";
 import RecentActivityList from "@/Components/RecentActivityList";
+import TodayReminders from "@/Components/TodayReminders";
 import AssetGrowthChart from "@/Components/AssetGrowthChart";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatRupiah } from "@/utils/format";
-import { Head, usePage } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 
 /**
  * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
@@ -35,7 +36,7 @@ import { Head, usePage } from "@inertiajs/react";
  *   di sini.
  */
 export default function Dashboard() {
-    const { auth, summary, calendar } = usePage().props;
+    const { auth, summary, calendar, todayReminders } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
 
     // Data contoh untuk GoalHeroCard, ActivityCalendar, & donut alokasi
@@ -136,16 +137,12 @@ export default function Dashboard() {
                             </p>
 
                             <div className="mt-7">
-                                <button
-                                    type="button"
-                                    className="rounded-lg bg-lime-500 px-5 py-3 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
+                                <Link
+                                    href={route("goals.create")}
+                                    className="inline-block rounded-lg bg-lime-500 px-5 py-3 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
                                 >
                                     Buat Tujuan Pertama
-                                </button>
-                                <p className="mt-3 text-xs text-text-muted">
-                                    Tersedia di Rilis 1 — fitur Tujuan sedang
-                                    dibangun.
-                                </p>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -224,6 +221,11 @@ export default function Dashboard() {
                         </div>
 
                         <div className="space-y-6">
+                            {/* Di atas Aktivitas Terbaru: pengingat menuntut
+                                tindakan hari ini, sedangkan aktivitas terbaru
+                                hanya catatan apa yang sudah lewat. */}
+                            <TodayReminders reminders={todayReminders} />
+
                             <div className="rounded-card border border-border bg-bg-card p-5">
                                 <h2 className="text-sm font-semibold text-text-primary">
                                     Aktivitas Terbaru

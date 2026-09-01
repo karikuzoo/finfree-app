@@ -53,6 +53,18 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
         [data.notes],
     );
 
+    // Berbeda dari catatan yang satu per tanggal, satu tanggal boleh punya
+    // banyak pengingat — jadi dikelompokkan, bukan dipetakan satu-satu.
+    const pengingatPerTanggal = useMemo(() => {
+        const peta = {};
+
+        for (const p of data.reminders ?? []) {
+            (peta[p.date] ??= []).push(p);
+        }
+
+        return peta;
+    }, [data.reminders]);
+
     const hariIni = new Date();
     const hariIniStr = iso(
         hariIni.getFullYear(),
@@ -103,6 +115,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                 adaCatatan:
                     Boolean(catatanPerTanggal[tgl]) ||
                     entries.some((e) => e.note),
+                pengingat: pengingatPerTanggal[tgl] ?? [],
                 key: tgl,
             });
         }
@@ -114,7 +127,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
         }
 
         return hasil;
-    }, [tahun, bulanIndex, setoranPerTanggal, catatanPerTanggal]);
+    }, [tahun, bulanIndex, setoranPerTanggal, catatanPerTanggal, pengingatPerTanggal]);
 
     const geserBulan = (arah) => {
         const target = new Date(tahun, bulanIndex + arah, 1);
@@ -251,11 +264,14 @@ function TombolGeser({ arah, onClick }) {
 function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
     const adaSetoran = sel.nominal > 0;
     const adaCatatan = Boolean(sel.adaCatatan);
+    const pengingat = sel.pengingat ?? [];
+    const belumSelesai = pengingat.filter((p) => !p.completed).length;
 
     const keterangan = [
         `Tanggal ${sel.tanggal}`,
         adaSetoran ? `setoran ${formatRupiah(sel.nominal)}` : null,
         adaCatatan ? "ada catatan" : null,
+        pengingat.length ? `${pengingat.length} pengingat` : null,
     ]
         .filter(Boolean)
         .join(", ");
@@ -304,6 +320,21 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
                 {adaCatatan && (
                     <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 )}
+                {/*
+                    Pengingat yang SUDAH selesai tetap diberi penanda, hanya
+                    lebih redup — menghilangkannya membuat kalender bulan lalu
+                    tampak kosong padahal ada yang dikerjakan.
+                */}
+                {pengingat.length > 0 && (
+                    <span
+                        className={
+                            "block h-1 w-2.5 rounded-full " +
+                            (belumSelesai > 0
+                                ? "bg-state-warning"
+                                : "bg-text-disabled")
+                        }
+                    />
+                )}
             </span>
 
             {adaSetoran ? (
@@ -328,7 +359,11 @@ function Keterangan() {
                 <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 Ada catatan
             </span>
-            <span className="ml-auto">Klik tanggal untuk menulis catatan</span>
+            <span className="flex items-center gap-1.5">
+                <span className="block h-1 w-2.5 rounded-full bg-state-warning" />
+                Ada pengingat
+            </span>
+            <span className="ml-auto">Klik tanggal untuk catatan &amp; pengingat</span>
         </div>
     );
 }
@@ -363,7 +398,7 @@ function DialogCatatan({ sel, onClose }) {
 
     return (
         <Modal show onClose={onClose} maxWidth="md">
-            <form onSubmit={simpan} className="p-6">
+            <div className="p-6">
                 <h3 className="text-base font-semibold text-text-primary">
                     {tanggalPanjang}
                 </h3>
@@ -407,6 +442,7 @@ function DialogCatatan({ sel, onClose }) {
                     </div>
                 )}
 
+                <form onSubmit={simpan}>
                 <label
                     htmlFor="catatan"
                     className="mt-4 block text-sm font-medium text-text-secondary"
@@ -452,7 +488,139 @@ function DialogCatatan({ sel, onClose }) {
                         {form.processing ? "Menyimpan…" : "Simpan"}
                     </PrimaryButton>
                 </div>
-            </form>
+                </form>
+
+                <SeksiPengingat tgl={sel.tgl} pengingat={sel.pengingat ?? []} />
+            </div>
         </Modal>
+    );
+}
+
+/**
+ * Pengingat pada satu tanggal — daftar yang sudah ada, plus form menambah.
+ *
+ * Berdiri sebagai saudara dari form catatan, bukan anaknya: HTML melarang
+ * form bersarang, dan menempatkannya di dalam akan membuat tombol Enter di
+ * kolom judul justru menyimpan catatan.
+ *
+ * Pengingat ini murni di dalam aplikasi — ia tampil saat pengguna membuka
+ * FinGoal, dan tidak mengirim notifikasi ke perangkat.
+ */
+function SeksiPengingat({ tgl, pengingat }) {
+    const form = useForm({
+        title: "",
+        remind_date: tgl,
+        remind_time: "09:00",
+    });
+
+    const tambah = (e) => {
+        e.preventDefault();
+        form.post(route("reminders.store"), {
+            preserveScroll: true,
+            onSuccess: () => form.reset("title"),
+        });
+    };
+
+    const toggle = (id) =>
+        router.patch(route("reminders.toggle", id), {}, { preserveScroll: true });
+
+    const hapus = (id) =>
+        router.delete(route("reminders.destroy", id), { preserveScroll: true });
+
+    return (
+        <div className="mt-6 border-t border-border pt-5">
+            <h4 className="text-sm font-medium text-text-secondary">
+                Pengingat
+            </h4>
+            <p className="mt-0.5 text-xs text-text-muted">
+                Muncul di Dashboard saat Anda membuka FinGoal pada hari itu.
+            </p>
+
+            {pengingat.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                    {pengingat.map((p) => (
+                        <li
+                            key={p.id}
+                            className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-cardAlt px-3 py-2"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={p.completed}
+                                onChange={() => toggle(p.id)}
+                                aria-label={`Tandai selesai: ${p.title}`}
+                                className="h-4 w-4 shrink-0 rounded border-border-strong bg-bg-base text-lime-500 focus:ring-lime-500 focus:ring-offset-bg-cardAlt"
+                            />
+
+                            <span className="num-tabular shrink-0 text-xs font-semibold text-state-warning">
+                                {p.time}
+                            </span>
+
+                            <span
+                                className={
+                                    "min-w-0 flex-1 truncate text-sm " +
+                                    (p.completed
+                                        ? "text-text-muted line-through"
+                                        : "text-text-primary")
+                                }
+                            >
+                                {p.title}
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={() => hapus(p.id)}
+                                aria-label={`Hapus pengingat: ${p.title}`}
+                                className="shrink-0 rounded p-1 text-text-muted transition hover:text-state-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+                            >
+                                <svg
+                                    className="h-4 w-4"
+                                    viewBox="0 0 16 16"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M4 4l8 8M12 4l-8 8" />
+                                </svg>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            <form onSubmit={tambah} className="mt-3 flex flex-wrap items-start gap-2">
+                <div className="min-w-0 flex-1">
+                    <input
+                        type="text"
+                        maxLength={200}
+                        value={form.data.title}
+                        onChange={(e) => form.setData("title", e.target.value)}
+                        placeholder="Setor rutin Dana Darurat"
+                        aria-label="Judul pengingat"
+                        className="block w-full rounded-lg border-border-strong bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
+                    />
+                    <InputError message={form.errors.title} className="mt-1" />
+                </div>
+
+                <div>
+                    <input
+                        type="time"
+                        value={form.data.remind_time}
+                        onChange={(e) => form.setData("remind_time", e.target.value)}
+                        aria-label="Jam pengingat"
+                        className="num-tabular block w-28 rounded-lg border-border-strong bg-bg-base text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                    />
+                    <InputError message={form.errors.remind_time} className="mt-1" />
+                </div>
+
+                <SecondaryButton
+                    type="submit"
+                    disabled={form.processing || form.data.title.trim() === ""}
+                >
+                    Tambah
+                </SecondaryButton>
+            </form>
+        </div>
     );
 }

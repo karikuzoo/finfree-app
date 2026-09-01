@@ -8,6 +8,7 @@ use App\Models\CalendarNote;
 use App\Models\FinancialGoal;
 use App\Models\GoalCalculation;
 use App\Models\GoalContribution;
+use App\Models\Reminder;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -349,12 +350,57 @@ class DashboardSummaryService
             ])
             ->all();
 
+        $reminders = Reminder::query()
+            ->where('user_id', $user->id)
+            ->inMonth($start)
+            ->orderBy('remind_at')
+            ->get()
+            ->map(fn (Reminder $reminder) => [
+                'id' => $reminder->id,
+                'date' => $reminder->remind_at->toDateString(),
+                'time' => $reminder->remind_at->format('H:i'),
+                'title' => $reminder->title,
+                'completed' => $reminder->isCompleted(),
+            ])
+            ->all();
+
         return [
             'month' => $start->format('Y-m'),
             'label' => $start->translatedFormat('F Y'),
             'contributions' => $contributions,
             'notes' => $notes,
+            'reminders' => $reminders,
         ];
+    }
+
+    /**
+     * Pengingat untuk HARI INI saja — dipakai panel ringkas di Dashboard.
+     *
+     * Yang sudah ditandai selesai tetap ikut, supaya pengguna melihat apa yang
+     * sudah dikerjakan hari ini, bukan hanya sisa pekerjaannya. Frontend yang
+     * menampilkannya berbeda.
+     *
+     * @return array<int, array{id:int, time:string, title:string, completed:bool, past:bool}>
+     */
+    public function remindersForToday(User $user): array
+    {
+        $sekarang = Carbon::now();
+
+        return Reminder::query()
+            ->where('user_id', $user->id)
+            ->onDate($sekarang)
+            ->orderBy('remind_at')
+            ->get()
+            ->map(fn (Reminder $reminder) => [
+                'id' => $reminder->id,
+                'time' => $reminder->remind_at->format('H:i'),
+                'title' => $reminder->title,
+                'completed' => $reminder->isCompleted(),
+                // Jamnya sudah lewat tapi belum ditandai selesai — frontend
+                // memakai ini untuk menonjolkannya, bukan menyembunyikannya.
+                'past' => $reminder->remind_at->lessThan($sekarang),
+            ])
+            ->all();
     }
 
     private function contributionCalendar(User $user): array
