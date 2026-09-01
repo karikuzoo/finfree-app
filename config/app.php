@@ -59,13 +59,24 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | Zona waktu aplikasi. FinGoal melayani pengguna Indonesia, dan seluruh
+    | tanggalnya bermakna waktu setempat — bukan waktu server.
+    |
+    | Bawaan Laravel adalah UTC, dan itu keliru di sini: UTC tertinggal 7 jam
+    | dari WIB, sehingga setiap hari antara pukul 00.00 dan 07.00 WIB aplikasi
+    | masih menganggap "hari ini" adalah kemarin. Akibatnya lingkaran hari ini
+    | di kalender meleset, hitungan hari beruntun bisa putus padahal pengguna
+    | menyetor, tanggal bawaan form setoran salah, dan pengingat pukul 20.00
+    | terbaca "belum lewat" padahal di jam dinding sudah lewat.
+    |
+    | Nilainya ditaruh sebagai DEFAULT di berkas ini, bukan hanya di `.env`.
+    | Alasannya: `.env` tidak ikut `git pull`, jadi menaruhnya di sana saja
+    | membuat anggota tim lain diam-diam tetap berjalan di UTC. Tetap bisa
+    | ditimpa lewat env bila suatu saat dibutuhkan.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'),
 
     /*
     |--------------------------------------------------------------------------
