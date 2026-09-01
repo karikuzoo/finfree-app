@@ -5,7 +5,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import InputError from "@/Components/InputError";
 import { formatCompactRupiah, formatRupiah } from "@/utils/format";
 import { router, useForm } from "@inertiajs/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Kalender aktivitas bulanan bergaya kalender ponsel: minggu dimulai hari
@@ -603,13 +603,10 @@ function SeksiPengingat({ tgl, pengingat }) {
                     <InputError message={form.errors.title} className="mt-1" />
                 </div>
 
-                <div>
-                    <input
-                        type="time"
+                <div className="shrink-0">
+                    <PilihJam
                         value={form.data.remind_time}
-                        onChange={(e) => form.setData("remind_time", e.target.value)}
-                        aria-label="Jam pengingat"
-                        className="num-tabular block w-28 rounded-lg border-border-strong bg-bg-base text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                        onChange={(v) => form.setData("remind_time", v)}
                     />
                     <InputError message={form.errors.remind_time} className="mt-1" />
                 </div>
@@ -621,6 +618,169 @@ function SeksiPengingat({ tgl, pengingat }) {
                     Tambah
                 </SecondaryButton>
             </form>
+        </div>
+    );
+}
+
+
+const JAM = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+// Kelipatan lima menit. Enam puluh pilihan membuat kolomnya melelahkan digulir,
+// sementara pengingat hampir selalu disetel pada menit bulat. Bila suatu saat
+// perlu setiap menit, ubah panjangnya jadi 60 dan pengalinya jadi 1.
+const MENIT = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+
+/**
+ * Pemilih jam ringkas: satu tombol yang membuka panel dua kolom.
+ *
+ * Sengaja BUKAN <input type="time">: input bawaan menampilkan format mengikuti
+ * bahasa BROWSER, bukan bahasa halaman — pengguna dengan browser berbahasa
+ * Inggris melihat "09:00 AM" meski seluruh aplikasi berbahasa Indonesia, dan
+ * Chromium mengabaikan lang="id" untuk hal itu.
+ *
+ * Sengaja juga BUKAN dua <select>: tinggi dropdown bawaan ditentukan browser
+ * dan tidak bisa dibatasi lewat CSS, sehingga 24 pilihan jam membuka panel
+ * setinggi hampir seluruh dialog.
+ *
+ * Panel ini membuka ke ATAS karena tempatnya di dasar dialog — dibuka ke bawah,
+ * ia akan terpotong tepi layar.
+ *
+ * Nilai yang dipertukarkan tetap "HH:MM" 24 jam, jadi validasi di server tidak
+ * berubah.
+ */
+function PilihJam({ value, onChange }) {
+    const [buka, setBuka] = useState(false);
+    const bungkus = useRef(null);
+
+    // Nilai kosong TIDAK boleh diandalkan diselamatkan nilai bawaan
+    // destructuring: "".split(":") menghasilkan [""], dan string kosong itu
+    // dianggap "ada" sehingga bawaannya justru tidak dipakai.
+    const [jamMentah, menitMentah] = (value || "").split(":");
+    const jam = jamMentah || "09";
+    const menit = menitMentah || "00";
+
+    // Menit di luar kelipatan lima bisa datang dari data lama. Ditampilkan apa
+    // adanya supaya nilainya tidak diam-diam bergeser saat panel dibuka.
+    const daftarMenit = MENIT.includes(menit) ? MENIT : [...MENIT, menit].sort();
+
+    useEffect(() => {
+        if (!buka) return;
+
+        const klikLuar = (e) => {
+            if (!bungkus.current?.contains(e.target)) setBuka(false);
+        };
+        const tekanEsc = (e) => {
+            if (e.key === "Escape") {
+                e.stopPropagation(); // Jangan sampai ikut menutup dialog tanggal.
+                setBuka(false);
+            }
+        };
+
+        document.addEventListener("mousedown", klikLuar);
+        document.addEventListener("keydown", tekanEsc, true);
+
+        return () => {
+            document.removeEventListener("mousedown", klikLuar);
+            document.removeEventListener("keydown", tekanEsc, true);
+        };
+    }, [buka]);
+
+    return (
+        <div ref={bungkus} className="relative">
+            <button
+                type="button"
+                onClick={() => setBuka((s) => !s)}
+                aria-haspopup="dialog"
+                aria-expanded={buka}
+                aria-label={`Jam pengingat: ${jam}:${menit}`}
+                className={
+                    "num-tabular flex w-[5.5rem] items-center justify-between gap-1 rounded-lg border px-2.5 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-lime-500 " +
+                    (buka
+                        ? "border-lime-500 bg-bg-base text-text-primary"
+                        : "border-border-strong bg-bg-base text-text-primary hover:border-text-muted")
+                }
+            >
+                {jam}:{menit}
+                <svg
+                    className="h-3.5 w-3.5 shrink-0 text-text-muted"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                >
+                    <path d="M3 7.5 6 4.5l3 3" />
+                </svg>
+            </button>
+
+            {buka && (
+                <div
+                    role="dialog"
+                    aria-label="Pilih jam"
+                    className="absolute bottom-full right-0 z-20 mb-2 flex overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-xl"
+                >
+                    <KolomWaktu
+                        judul="Jam"
+                        pilihan={JAM}
+                        terpilih={jam}
+                        onPilih={(v) => onChange(`${v}:${menit}`)}
+                    />
+                    <div className="w-px bg-border" />
+                    <KolomWaktu
+                        judul="Menit"
+                        pilihan={daftarMenit}
+                        terpilih={menit}
+                        onPilih={(v) => {
+                            onChange(`${jam}:${v}`);
+                            setBuka(false); // Menit adalah pilihan terakhir.
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function KolomWaktu({ judul, pilihan, terpilih, onPilih }) {
+    const aktif = useRef(null);
+
+    // Gulirkan ke nilai yang sedang terpilih saat panel dibuka — tanpa ini,
+    // pukul 21.00 mengharuskan pengguna menggulir dari 00 setiap kali.
+    useEffect(() => {
+        aktif.current?.scrollIntoView({ block: "center" });
+    }, []);
+
+    return (
+        <div className="w-16">
+            <p className="border-b border-border px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                {judul}
+            </p>
+
+            <div className="max-h-40 overflow-y-auto py-1">
+                {pilihan.map((v) => {
+                    const dipilih = v === terpilih;
+
+                    return (
+                        <button
+                            key={v}
+                            ref={dipilih ? aktif : null}
+                            type="button"
+                            onClick={() => onPilih(v)}
+                            aria-current={dipilih}
+                            className={
+                                "num-tabular block w-full px-2 py-1.5 text-center text-sm transition " +
+                                (dipilih
+                                    ? "bg-lime-500 font-bold text-onPrimary"
+                                    : "text-text-secondary hover:bg-bg-cardAlt hover:text-text-primary")
+                            }
+                        >
+                            {v}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
