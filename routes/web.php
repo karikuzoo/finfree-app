@@ -72,6 +72,24 @@ Route::middleware('auth')->group(function () {
     Route::delete('/kalender/catatan/{calendarNote}', [CalendarNoteController::class, 'destroy'])
         ->name('calendar-notes.destroy');
 
+    // Goal, Dompet & Riwayat masih kerangka (page dummy) — lihat
+    // komentar di masing-masing file Page-nya. Sengaja di dalam grup
+    // `auth`, beda dari Kalkulator/Berita yang publik, karena
+    // ketiganya menampilkan data milik satu akun, tidak ada gunanya
+    // diakses tanpa login.
+    //
+    // Path "/tujuan" dipilih supaya konsisten dengan prefix yang dipakai
+    // dua route di bawah (target-harian, setoran) untuk aksi per-goal —
+    // /tujuan sebagai index, /tujuan/{id}/... sebagai aksi. Urutan
+    // definisinya tidak masalah karena jumlah segmen path beda, Laravel
+    // tidak menganggapnya bentrok.
+    Route::get('/tujuan', fn () => Inertia::render('Goal/Index'))
+        ->name('goals.index');
+    Route::get('/dompet', fn () => Inertia::render('Wallet/Index'))
+        ->name('wallet.index');
+    Route::get('/riwayat', fn () => Inertia::render('History/Index'))
+        ->name('history.index');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

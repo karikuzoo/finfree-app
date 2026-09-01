@@ -2,13 +2,56 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import Avatar from "@/Components/Avatar";
 import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
+import {
+    DashboardIcon,
+    GoalIcon,
+    WalletIcon,
+    HistoryIcon,
+    CalculatorIcon,
+    NewsIcon,
+    UserIcon,
+    LogoutIcon,
+} from "@/Components/Icons";
 
 const menu = [
-    { label: "Dashboard", route: "dashboard", match: "dashboard" },
-    { label: "Kalkulator", route: "calculator.index", match: "calculator.*" },
-    { label: "Berita", route: "news.index", match: "news.*" },
-    { label: "Profil", route: "profile.edit", match: "profile.edit" },
-    { label: "Keluar", route: "logout", match: "logout" },
+    {
+        label: "Dashboard",
+        route: "dashboard",
+        match: "dashboard",
+        icon: DashboardIcon,
+    },
+    {
+        label: "Goal",
+        route: "goals.index",
+        match: "goals.index",
+        icon: GoalIcon,
+    },
+    {
+        label: "Dompet",
+        route: "wallet.index",
+        match: "wallet.*",
+        icon: WalletIcon,
+    },
+    {
+        label: "Riwayat",
+        route: "history.index",
+        match: "history.*",
+        icon: HistoryIcon,
+    },
+    {
+        label: "Kalkulator",
+        route: "calculator.index",
+        match: "calculator.*",
+        icon: CalculatorIcon,
+    },
+    { label: "Berita", route: "news.index", match: "news.*", icon: NewsIcon },
+    {
+        label: "Profil",
+        route: "profile.edit",
+        match: "profile.edit",
+        icon: UserIcon,
+    },
+    { label: "Keluar", route: "logout", match: "logout", icon: LogoutIcon },
 ];
 
 function sidebarLinkClass(isActive) {
@@ -38,6 +81,8 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const navLinks = (onNavigate) =>
         menu.map((item) => {
+            const Icon = item.icon;
+
             if (item.route === "logout") {
                 return (
                     <Link
@@ -50,7 +95,8 @@ export default function AuthenticatedLayout({ header, children }) {
                             "w-full text-left " + sidebarLinkClass(false)
                         }
                     >
-                        {item.label}
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="ml-3">{item.label}</span>
                     </Link>
                 );
             }
@@ -62,7 +108,8 @@ export default function AuthenticatedLayout({ header, children }) {
                     onClick={onNavigate}
                     className={sidebarLinkClass(route().current(item.match))}
                 >
-                    {item.label}
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span className="ml-3">{item.label}</span>
                 </Link>
             );
         });

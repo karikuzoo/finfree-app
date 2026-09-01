@@ -74,7 +74,7 @@ export default function Dashboard() {
     return (
         <AuthenticatedLayout
             header={
-                <div>
+                <div className="py-3">
                     <h1 className="text-2xl font-bold leading-tight text-text-primary">
                         Halo, {auth.user.name.split(" ")[0]}
                     </h1>
