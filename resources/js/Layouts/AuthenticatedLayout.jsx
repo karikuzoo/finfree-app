@@ -95,7 +95,7 @@ export default function AuthenticatedLayout({ header, children }) {
                             "w-full text-left " + sidebarLinkClass(false)
                         }
                     >
-                        <Icon className="h-5 w-5 shrink-0" />
+                        <Icon className="h-7 w-7 shrink-0" />
                         <span className="ml-3">{item.label}</span>
                     </Link>
                 );
@@ -108,7 +108,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     onClick={onNavigate}
                     className={sidebarLinkClass(route().current(item.match))}
                 >
-                    <Icon className="h-5 w-5 shrink-0" />
+                    <Icon className="h-7 w-7 shrink-0" />
                     <span className="ml-3">{item.label}</span>
                 </Link>
             );
