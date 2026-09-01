@@ -5,10 +5,12 @@ use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
+use App\Http\Controllers\GoalController;
 use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
+use App\Http\Controllers\ReminderController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -72,6 +74,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/kalender/catatan/{calendarNote}', [CalendarNoteController::class, 'destroy'])
         ->name('calendar-notes.destroy');
 
+    // Pengingat kalender. Beda dari catatan: satu tanggal boleh punya banyak
+    // pengingat, masing-masing dengan jamnya sendiri.
+    Route::post('/kalender/pengingat', [ReminderController::class, 'store'])
+        ->name('reminders.store');
+    Route::patch('/kalender/pengingat/{reminder}', [ReminderController::class, 'toggle'])
+        ->name('reminders.toggle');
+    Route::delete('/kalender/pengingat/{reminder}', [ReminderController::class, 'destroy'])
+        ->name('reminders.destroy');
+
     // Goal, Dompet & Riwayat masih kerangka (page dummy) — lihat
     // komentar di masing-masing file Page-nya. Sengaja di dalam grup
     // `auth`, beda dari Kalkulator/Berita yang publik, karena
@@ -83,8 +94,16 @@ Route::middleware('auth')->group(function () {
     // /tujuan sebagai index, /tujuan/{id}/... sebagai aksi. Urutan
     // definisinya tidak masalah karena jumlah segmen path beda, Laravel
     // tidak menganggapnya bentrok.
-    Route::get('/tujuan', fn () => Inertia::render('Goal/Index'))
+    Route::get('/tujuan', [GoalController::class, 'index'])
         ->name('goals.index');
+
+    // Alur "Buat Tujuan Pertama". Ditaruh SEBELUM rute bersegmen dinamis
+    // seperti /tujuan/{financialGoal} bila nanti ada, supaya "buat" tidak
+    // pernah tertangkap sebagai ID tujuan.
+    Route::get('/tujuan/buat', [GoalController::class, 'create'])
+        ->name('goals.create');
+    Route::post('/tujuan', [GoalController::class, 'store'])
+        ->name('goals.store');
     Route::get('/dompet', fn () => Inertia::render('Wallet/Index'))
         ->name('wallet.index');
     Route::get('/riwayat', fn () => Inertia::render('History/Index'))
