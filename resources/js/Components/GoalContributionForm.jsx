@@ -1,3 +1,4 @@
+import CurrencyInput from '@/Components/CurrencyInput';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 
@@ -59,19 +60,24 @@ export default function GoalContributionForm({ goalId }) {
                     >
                         Nominal
                     </label>
-                    <div className="mt-1 flex items-center gap-1.5">
-                        <span className="text-sm text-text-muted">Rp</span>
-                        <input
-                            id="contribution_amount"
-                            type="number"
-                            min="1"
-                            step="1000"
-                            autoFocus
-                            value={data.amount}
-                            onChange={(e) => setData('amount', e.target.value)}
-                            className="w-32 rounded-lg border border-border bg-bg-card px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
-                        />
-                    </div>
+                    {/*
+                        Memakai CurrencyInput, sama seperti kalkulator dan form
+                        buat tujuan — bukan <input type="number"> mentah.
+
+                        Versi sebelumnya memasang min="1" bersama step="1000".
+                        Browser menghitung nilai sah sebagai min + (n × step),
+                        yaitu 1, 1.001, 2.001, 3.001 — sehingga justru SETIAP
+                        angka bulat ditolak: Rp 5.000, Rp 50.000, Rp 100.000.
+                        Nominal paling wajar persis yang terhalang.
+                    */}
+                    <CurrencyInput
+                        id="contribution_amount"
+                        className="mt-1 w-40 py-1.5 text-sm"
+                        placeholder="50.000"
+                        autoFocus
+                        value={data.amount}
+                        onChange={(v) => setData('amount', v)}
+                    />
                     {errors.amount && (
                         <p className="mt-1 text-xs text-state-danger">
                             {errors.amount}

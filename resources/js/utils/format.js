@@ -30,8 +30,18 @@ export function formatCompactRupiah(value) {
     const n = Number(value) || 0;
     const abs = Math.abs(n);
 
+    // Membuang nol di belakang koma saja: "2,0 jt" -> "2 jt", "1,50" -> "1,5".
+    //
+    // Versi sebelumnya memakai /\.?0+$/ — titiknya opsional, sehingga pola itu
+    // juga memakan nol pada bilangan BULAT: 50 menjadi "5", dan 100 menjadi
+    // "1". Akibatnya Rp 100.000 tampil sebagai "Rp 1 rb", meleset seratus kali
+    // lipat. Titik kini wajib ada agar hanya bagian desimal yang tersentuh.
     const trim = (x, digits) =>
-        x.toFixed(digits).replace(/\.?0+$/, '').replace('.', ',');
+        x
+            .toFixed(digits)
+            .replace(/(\.\d*?)0+$/, '$1') // nol berlebih setelah titik
+            .replace(/\.$/, '') // titik yang jadi menggantung
+            .replace('.', ',');
 
     if (abs >= 1_000_000_000) return `Rp ${trim(n / 1_000_000_000, 2)} M`;
     if (abs >= 1_000_000) return `Rp ${trim(n / 1_000_000, 1)} jt`;
