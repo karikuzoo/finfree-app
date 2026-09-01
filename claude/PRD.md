@@ -174,6 +174,35 @@ Hari ini kartu "Alokasi Instrumen yang Disarankan" (FR-23..27) memberi saran lal
 **Kenapa diturunkan, bukan dicatat ulang.** Ini keputusan rancangan yang paling menentukan di dua bagian ini. Bila pengguna mencatat asetnya di Dompet *dan* mencatat komposisi tujuan secara terpisah, aset yang sama masuk dua kali dan kedua angka itu **akan** menyimpang tanpa ada yang menyadarinya — persoalan klasik yang sulit dilacak. Dengan menurunkannya dari setoran, hanya ada satu tempat memasukkan data, dan detail alokasi mustahil berbeda dari Dompet karena sumbernya memang sama. Sejalan dengan FR-34, yang sudah menetapkan `current_amount` sebagai nilai turunan, bukan kolom yang diedit langsung.
 
 **Batas yang diterima secara sadar.** Komposisi dihitung dari nilai **saat menyetor**, bukan harga pasar hari ini. Emas yang dibeli Rp 300.000 lalu naik menjadi Rp 350.000 tetap terbaca Rp 300.000 pada detail tujuan, meski saldo dompetnya sendiri boleh diperbarui (FR-49). Untuk aplikasi perencana ini dinilai wajar; menampilkan nilai pasar per tujuan menuntut riwayat harga per aset dan ditunda sampai ada kebutuhan nyata.
+### 6.12 Pengingat Kalender
+
+Kalender aktivitas sudah mencatat apa yang SUDAH terjadi. Pengingat menutup sisi
+lainnya: apa yang HARUS dilakukan. Tanpa itu, pengguna hanya bisa melihat ke
+belakang, dan aplikasi perencanaan yang tidak pernah mengingatkan apa pun akan
+dilupakan begitu semangat awal habis.
+
+- FR-57: Pengguna dapat membuat pengingat pada tanggal dan jam tertentu, dengan judul bebas.
+- FR-58: Satu tanggal boleh memuat banyak pengingat, masing-masing dengan jamnya sendiri. Berbeda dari catatan tanggal yang hanya satu per tanggal.
+- FR-59: Pengingat dapat ditandai selesai, dan tandanya dapat dibatalkan lagi.
+- FR-60: Menandai selesai **tidak menghapus** pengingatnya — kalender bulan lalu tetap memperlihatkan apa yang sudah dikerjakan.
+- FR-61: Tanggal yang memuat pengingat diberi penanda di kalender, dan penandanya meredup bila seluruh pengingat pada tanggal itu sudah selesai.
+- FR-62: Dashboard menampilkan panel pengingat **hari ini**, dengan jam yang sudah lewat tanpa ditandai selesai ditonjolkan — bukan disembunyikan.
+
+**Batas yang disengaja: pengingat ini murni di dalam aplikasi.** Ia tampil saat
+pengguna membuka FinGoal, dan tidak mengirim notifikasi ke perangkat saat
+aplikasi tertutup. Teks di antarmuka sengaja menyebutkan hal ini apa adanya,
+bukan menjanjikan lebih dari yang dilakukan.
+
+Menjadikannya notifikasi sungguhan menuntut salah satu dari dua jalur, dan
+keduanya keputusan tersendiri — jangan diselipkan sebagai "perbaikan kecil":
+
+| Jalur | Yang dibutuhkan |
+|---|---|
+| Email terjadwal | Penjadwal (cron) di server + layanan SMTP sungguhan; `MAIL_MAILER` sekarang masih `log` |
+| Notifikasi browser (Web Push) | Service worker, kunci VAPID, tabel langganan, izin pengguna, plus penjadwal. Di iOS hanya jalan bila aplikasi dipasang ke layar utama |
+
+Fondasinya sudah siap untuk keduanya: `reminders.remind_at` menyimpan waktu
+lengkap, jadi penjadwal apa pun tinggal membacanya.
 ## 7. Requirement Non-Fungsional
 
 - **NFR-1 Performa:** Waktu hitung kalkulator < 200ms di sisi backend; halaman utama first load < 2.5s pada koneksi 4G.
@@ -222,7 +251,7 @@ MVP dipecah jadi tiga rilis. Alasannya: dana pensiun terlihat seperti fitur ungg
 
 | Rilis | Fokus | Kenapa di sini |
 |---|---|---|
-| **Rilis 1 — produk utuh terkecil** | Auth (+ verifikasi email, rate limit), kalkulator **2 kategori**: beli rumah & beli kendaraan, pencatatan setoran (FR-32..36), dashboard progres, hapus/ekspor akun (FR-37..38) | Matematika kedua kategori ini paling lurus: satu target nominal, satu tanggal. Sudah menjadi produk yang benar-benar bisa dipakai orang, dan sudah punya alasan pengguna kembali tiap bulan. |
+| **Rilis 1 — produk utuh terkecil** | Auth (+ verifikasi email, rate limit), kalkulator **2 kategori**: beli rumah & beli kendaraan, pencatatan setoran (FR-32..36), dashboard progres, pengingat kalender (FR-57..62), hapus/ekspor akun (FR-37..38) | Matematika kedua kategori ini paling lurus: satu target nominal, satu tanggal. Sudah menjadi produk yang benar-benar bisa dipakai orang, dan sudah punya alasan pengguna kembali tiap bulan. |
 | **Rilis 2 — kedalaman finansial** | Mesin rekomendasi instrumen + blended return (FR-10..12, FR-23..27), **kalkulator utilitas** Pinjaman/KPR & Investasi (FR-41..45), lalu kategori **dana darurat**, **dana pendidikan**, dan **dana pensiun** | Rekomendasi lebih dulu karena ia memberi makan estimasi return kalkulator. Kalkulator utilitas ditaruh di sini karena memakai keluarga rumus yang sama dan biayanya rendah setelah mesin kalkulator terbukti benar — sekaligus jadi pintu masuk pengguna baru lewat FR-44. Tiga kategori tujuan sisanya butuh penentu target tersendiri (FR-20..22). |
 | **Rilis 3 — modul News** | Ingest + klasifikasi kategori (FR-16..18, FR-28..30), panel berita | Ditaruh terakhir karena bergantung pada pihak ketiga yang kualitasnya belum terverifikasi. **Gerbang mulai: uji kualitas hasil pencarian Currents dengan kata kunci nyata.** Bila hasilnya kurang, ganti sumber atau coret modul — jangan dipaksakan. |
 

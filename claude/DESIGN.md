@@ -151,6 +151,44 @@ Card berjudul **"Strategi Mencapai Target Ini"**. Panel ini belum ada di mockup 
 - Badge persentase di ujung kanan.
 - Bila realisasi tertinggal dari rencana (PRD FR-35), tampilkan penanda kedua pada bar dengan warna `--color-warning` — posisi "seharusnya di sini".
 
+### 5.8 Input Tanggal & Jam — jangan pakai bawaan browser
+
+**Aturan: tanggal memakai `DateInput`, jam memakai pemilih di `ActivityCalendar`.
+`<input type="date">` dan `<input type="time">` tidak dipakai di mana pun.**
+
+Ketiga masalah berikut tidak satu pun bisa diperbaiki lewat CSS — kontrol
+bawaan itu digambar oleh browser, di luar jangkauan stylesheet halaman:
+
+| Masalah | Wujudnya |
+|---|---|
+| Tema | Panel putih terang menyala di tengah antarmuka gelap |
+| Bahasa | Nama hari "Su Mo Tu…" dan jam "09:00 AM", mengikuti bahasa BROWSER — `lang="id"` pada halaman diabaikan |
+| Tata letak | Tidak bisa disentuh sama sekali |
+
+Dua `<select>` juga bukan jalan keluar untuk jam: tinggi dropdown bawaan
+ditentukan browser, sehingga 24 pilihan jam membuka panel setinggi hampir
+seluruh dialog.
+
+**Bentuk yang dipakai.** Sebuah tombol menampilkan nilai terpilih, dan
+mengkliknya membuka panel bertema Malam. Tanggal ditulis panjang ("1 September
+2026") — format angka selalu menyisakan keraguan antara hari-bulan dan
+bulan-hari. Nama hari memakai singkatan tiga huruf `Min Sen Sel Rab Kam Jum
+Sab`; inisial satu huruf dalam Bahasa Indonesia menghasilkan M-S-S-R-K-J-S,
+tiga kolom "S" yang mustahil dibedakan.
+
+**Batas tanggal ditegakkan di panel, bukan hanya di server.** Tanggal yang
+mustahil dibuat tidak bisa diklik sama sekali, bukan baru ditolak setelah
+tombol simpan ditekan. Nilainya menyalin aturan di Form Request terkait, dan
+rujukannya ditulis sebagai komentar di tempat pemakaian — supaya ketahuan bahwa
+sisi klien perlu ikut disesuaikan bila aturan server berubah.
+
+**Escape menutup panelnya saja**, bukan dialog yang memuatnya. Ini menuntut
+`stopPropagation` pada fase capture; tanpa itu, satu tekan Escape menutup
+keduanya sekaligus dan pengguna kehilangan isian yang sedang diketik.
+
+Nilai yang dipertukarkan tetap `"YYYY-MM-DD"` dan `"HH:MM"` persis seperti
+kontrol bawaan, jadi seluruh aturan validasi di server tidak berubah.
+
 ---
 
 ## 6. Ikonografi

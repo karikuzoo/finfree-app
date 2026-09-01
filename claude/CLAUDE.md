@@ -224,6 +224,25 @@ goal_contributions                            -- prasyarat FR-32..FR-36
   -- current_amount TIDAK disimpan sebagai kolom: ia = initial_amount + SUM(amount).
   -- Bila agregasi jadi lambat, barulah tambahkan kolom cache yang di-update via event.
 
+reminders                                     -- FR-57..FR-62, pengingat kalender
+  id, user_id (FK, on delete cascade),
+  title (string 200),
+  remind_at datetime,                         -- tanggal & jam jadi SATU kolom
+  completed_at timestamp NULL,
+  created_at, updated_at
+  INDEX (user_id, remind_at)
+  -- Tanggal dan jam tidak dipisah: pengurutan, penyaringan "hari ini", dan
+  -- pencarian pengingat terdekat semuanya jadi satu perbandingan sederhana.
+  -- Dipisah, ketiganya menuntut penggabungan kolom di setiap kueri.
+  --
+  -- Selesai ditandai lewat completed_at, BUKAN dengan menghapus barisnya —
+  -- supaya kalender bulan lalu tetap memperlihatkan apa yang sudah dikerjakan.
+  --
+  -- Pengingat ini murni DI DALAM APLIKASI: tampil saat pengguna membuka
+  -- FinGoal, tanpa notifikasi ke perangkat. Mengirim notifikasi meski aplikasi
+  -- tertutup menuntut Web Push atau email terjadwal — keduanya keputusan
+  -- tersendiri, jangan diselipkan diam-diam.
+
 goal_calculations
   id, financial_goal_id (FK, on delete cascade),
   monthly_contribution_required numeric(18,2),
@@ -559,6 +578,25 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
 - **Foto profil ditulis ulang, tidak disimpan apa adanya** (`app/Services/AvatarService.php`). Berkas yang diunggah dibaca ulang lalu ditulis kembali dari nol sebagai WebP 256×256. Dua alasannya: seluruh metadata ikut hilang — termasuk koordinat GPS yang sering tertanam di foto ponsel dan akan menjadi kebocoran lokasi rumah pengguna — dan berkas yang menyamar sebagai gambar gagal di tahap ini. Batas dimensi 3000×3000 ada demi memori: GD memakai 4 byte per piksel saat membuka gambar. Saat akun dihapus, berkasnya wajib ikut dihapus (FR-37); dijaga `ProfileAvatarTest`.
 - CSRF ditangani otomatis lewat cookie `XSRF-TOKEN` + middleware bawaan Laravel/Inertia — jangan menonaktifkannya untuk "menyederhanakan" pemanggilan dari luar. Kalau kelak benar-benar butuh API stateless (mis. untuk app mobile native), itu pekerjaan terpisah yang memakai Sanctum sebagai **token guard tambahan**, bukan modifikasi terhadap guard `web` yang dipakai halaman-halaman Inertia.
 
+### 10.5 Waktu & Zona Waktu
+
+Zona waktu aplikasi adalah **`Asia/Jakarta`**, disetel sebagai default di
+`config/app.php` — bukan hanya di `.env`.
+
+Alasannya penting: `.env` tidak ikut `git pull`, jadi menaruh nilainya di sana
+saja membuat anggota tim lain diam-diam tetap berjalan di UTC. Bawaan Laravel
+memang UTC, dan itu keliru di sini — UTC tertinggal 7 jam dari WIB, sehingga
+setiap hari antara pukul 00.00 dan 07.00 WIB aplikasi masih menganggap "hari
+ini" adalah kemarin.
+
+Yang rusak diam-diam bila zonanya kembali ke UTC: lingkaran hari ini di
+kalender, hitungan hari beruntun, tanggal bawaan form setoran, dan penanda
+pengingat yang sudah lewat. Tidak satu pun memunculkan error — semuanya hanya
+salah, dan hanya pada sebagian jam dalam sehari. `AppTimezoneTest` menjaganya.
+
+Konsekuensi yang perlu diingat: `config/app.php` termasuk berkas yang mudah
+tertimpa saat mengikuti versi baru Laravel. Bila test zona waktu tiba-tiba
+gagal setelah upgrade, itu penyebabnya.
 ## 11. Referensi Dokumen Terkait
 
 - `PRD.md` — requirement fungsional & non-fungsional lengkap, user stories, metrik sukses, tabel keputusan §13 (**catatan:** baris D-5 di sana masih mencatat keputusan Sanctum bearer token yang sudah digantikan D-9 di dokumen ini — perlu diperbarui agar kedua dokumen konsisten).

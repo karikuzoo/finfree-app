@@ -135,4 +135,8 @@ Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, d
 
 ## Menjalankan Project
 
-Skeleton Breeze+Inertia sudah bisa dijalankan sekarang lewat satu perintah (`composer run dev`) — lihat [CLAUDE.md](CLAUDE.md) §9 untuk urutan setup lengkap termasuk konfigurasi `.env` yang masih perlu diganti dari default Breeze (database, nama app, kredensial Currents API). Menjalankannya hari ini akan menampilkan halaman Breeze bawaan (Welcome, Login, Register, Dashboard kosong) — fitur FinGoal sendiri belum ada di dalamnya.
+Lihat [CONTRIBUTING.md](CONTRIBUTING.md) §9 untuk urutan setup lengkap — termasuk dua database PostgreSQL yang perlu dibuat, `php artisan storage:link`, dan akun demo yang dibuat oleh seeder.
+
+**Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard progres beserta kalender aktivitas dan pengingat, pembuatan serta daftar tujuan finansial, dan halaman error khusus.
+
+**Yang belum:** mengubah & menghapus tujuan, modul berita, Dompet beserta detail alokasinya, dan ekspor data. Peta lengkapnya ada di [PRD.md](PRD.md) §12.
