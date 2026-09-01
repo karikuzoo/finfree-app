@@ -1,4 +1,5 @@
 import CurrencyInput from "@/Components/CurrencyInput";
+import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -7,6 +8,23 @@ import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
 
+/** Batas bawah & atas tanggal target, menyalin aturan di StoreGoalRequest. */
+const geserHari = (jumlahHari) => {
+    const d = new Date();
+    d.setDate(d.getDate() + jumlahHari);
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const besok = () => geserHari(1);
+
+const enamPuluhTahunLagi = () => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 60);
+    d.setDate(d.getDate() - 1);
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 /**
  * Alur "Buat Tujuan Pertama".
  *
@@ -151,12 +169,19 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                         {perluTanggal && (
                             <div>
                                 <InputLabel htmlFor="target_date" value="Tanggal target" />
-                                <TextInput
+                                {/* Batasnya menyalin StoreGoalRequest: tanggal
+                                    target harus setelah hari ini, dan paling
+                                    jauh 60 tahun ke depan. Tanggal yang mustahil
+                                    lebih baik tidak bisa diklik sama sekali
+                                    daripada baru ditolak setelah tombol simpan
+                                    ditekan. */}
+                                <DateInput
                                     id="target_date"
-                                    type="date"
-                                    className="mt-1.5 block w-full"
+                                    className="mt-1.5"
+                                    min={besok()}
+                                    max={enamPuluhTahunLagi()}
                                     value={form.data.target_date}
-                                    onChange={(e) => form.setData("target_date", e.target.value)}
+                                    onChange={(v) => form.setData("target_date", v)}
                                 />
                                 <InputError message={form.errors.target_date} className="mt-2" />
                             </div>

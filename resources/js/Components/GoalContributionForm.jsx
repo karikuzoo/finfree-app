@@ -1,4 +1,5 @@
 import CurrencyInput from '@/Components/CurrencyInput';
+import DateInput from '@/Components/DateInput';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 
@@ -92,15 +93,15 @@ export default function GoalContributionForm({ goalId }) {
                     >
                         Tanggal
                     </label>
-                    <input
+                    {/* Setoran tidak bisa bertanggal masa depan — batas yang
+                        sama ditegakkan ulang di StoreGoalContributionRequest. */}
+                    <DateInput
                         id="contribution_date"
-                        type="date"
+                        className="mt-1 w-44"
                         max={todayStr()}
+                        bolehKosong={false}
                         value={data.contributed_on}
-                        onChange={(e) =>
-                            setData('contributed_on', e.target.value)
-                        }
-                        className="mt-1 rounded-lg border border-border bg-bg-card px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        onChange={(v) => setData('contributed_on', v)}
                     />
                     {errors.contributed_on && (
                         <p className="mt-1 text-xs text-state-danger">

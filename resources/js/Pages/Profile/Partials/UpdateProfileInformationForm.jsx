@@ -1,3 +1,4 @@
+import DateInput from '@/Components/DateInput';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -5,6 +6,17 @@ import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
 
+/**
+ * Batas atas tanggal lahir: usia minimal 17 tahun, menyalin aturan di
+ * ProfileUpdateRequest. Anak di bawah 17 belum bisa membuka rekening efek
+ * sendiri di Indonesia, jadi perencanaan investasi mandiri belum relevan.
+ */
+const usiaMinimal = () => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 17);
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 export default function UpdateProfileInformation({
     mustVerifyEmail,
     status,
@@ -103,16 +115,17 @@ export default function UpdateProfileInformation({
                             value="Tanggal lahir"
                         />
 
-                        <TextInput
+                        {/* Batasnya menyalin ProfileUpdateRequest: setelah
+                            1900 (menyaring salah ketik tahun), dan usia minimal
+                            17 tahun. */}
+                        <DateInput
                             id="birth_date"
-                            type="date"
-                            className="mt-1 block w-full"
+                            className="mt-1"
+                            min="1900-01-02"
+                            max={usiaMinimal()}
+                            placeholder="Pilih tanggal lahir"
                             value={data.birth_date}
-                            onChange={(e) =>
-                                setData('birth_date', e.target.value)
-                            }
-                            max={new Date().toISOString().slice(0, 10)}
-                            autoComplete="bday"
+                            onChange={(v) => setData('birth_date', v)}
                         />
 
                         <InputError
