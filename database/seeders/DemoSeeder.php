@@ -135,17 +135,43 @@ class DemoSeeder extends Seeder
     ): void {
         $baris = [];
 
+        $setoranPertama = Carbon::today()
+            ->subMonthsNoOverflow($jumlah - 1)
+            ->startOfMonth()
+            ->addDays(4);
+
         for ($i = $jumlah - 1; $i >= 0; $i--) {
+            $tanggal = Carbon::today()->subMonthsNoOverflow($i)->startOfMonth()->addDays(4);
+
             $baris[] = [
                 'financial_goal_id' => $goal->id,
                 'amount' => $nominal,
-                'contributed_on' => Carbon::today()->subMonthsNoOverflow($i)->startOfMonth()->addDays(4),
+                'contributed_on' => $tanggal,
                 'note' => $catatan,
-                'created_at' => now(),
-                'updated_at' => now(),
+                // Dicatat pada tanggal setorannya, bukan hari ini. Aplikasi
+                // hanya mengizinkan mencatat setoran untuk hari berjalan, jadi
+                // created_at yang seragam "sekarang" menggambarkan keadaan yang
+                // tidak mungkin terjadi.
+                'created_at' => $tanggal,
+                'updated_at' => $tanggal,
             ];
         }
 
         GoalContribution::insert($baris);
+
+        // Tujuannya harus lahir SEBELUM setoran pertamanya.
+        //
+        // Sebelum ini, seeder membuat tujuan dengan created_at = sekarang tetapi
+        // setorannya bertanggal sampai 12 bulan ke belakang — keadaan yang
+        // mustahil, karena aplikasi hanya mengizinkan mencatat setoran untuk
+        // hari berjalan. Grafik pertumbuhan aset membentang dari bulan tujuan
+        // dibuat, sehingga seluruh setoran "sebelum tujuan ada" jatuh di luar
+        // rentang dan hilang dari totalnya: kartu progres menunjukkan Rp 53 juta
+        // sementara grafiknya berhenti di Rp 14,5 juta. Grafiknya benar; data
+        // seeder-nya yang keliru.
+        $goal->forceFill([
+            'created_at' => $setoranPertama->copy()->subDay(),
+            'updated_at' => $setoranPertama->copy()->subDay(),
+        ])->saveQuietly();
     }
 }

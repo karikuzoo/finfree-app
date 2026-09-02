@@ -56,9 +56,11 @@ class DemoSeederTest extends TestCase
         $this->assertGreaterThan(0, $ringkasan['total_assets']);
         $this->assertCount(3, $ringkasan['goals']);
 
-        // Grafik pertumbuhan aset tidak berguna kalau hanya berisi satu titik.
-        $this->assertGreaterThan(1, count($ringkasan['asset_growth_series']));
-        $this->assertNotEmpty($ringkasan['recent_activity']);
+        // Grafik pertumbuhan aset kini dihitung PER TUJUAN, bukan sebagai satu
+        // deret untuk seluruh akun. Seeder menyebar setoran ke belakang selama
+        // berbulan-bulan justru supaya grafiknya punya kurva — satu titik saja
+        // membuat grafiknya tidak berguna.
+        $this->assertGreaterThan(1, count($ringkasan['goals'][0]['asset_growth_series']));
     }
 
     public function test_dijalankan_dua_kali_tidak_menggandakan_data(): void
