@@ -1,6 +1,6 @@
-import { useForm } from '@inertiajs/react';
-import { formatRupiah } from '@/utils/format';
-import GoalContributionForm from '@/Components/GoalContributionForm';
+import { useForm } from "@inertiajs/react";
+import { formatRupiah } from "@/utils/format";
+import GoalContributionForm from "@/Components/GoalContributionForm";
 
 /**
  * Kartu utama Dashboard (di atas semua kartu lain) — menampilkan target
@@ -20,7 +20,11 @@ import GoalContributionForm from '@/Components/GoalContributionForm';
  * jadi form pengaturan & catat setoran disembunyikan dan diberi label
  * "Contoh" supaya tidak disangka data asli.
  */
-export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false }) {
+export default function GoalHeroCard({
+    goal,
+    streakDays = 0,
+    placeholder = false,
+}) {
     const { data, setData, patch, processing, recentlySuccessful, errors } =
         useForm({
             daily_savings_target: goal?.daily_savings_target ?? 0,
@@ -32,7 +36,7 @@ export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false
 
     const submit = (e) => {
         e.preventDefault();
-        patch(route('goals.daily-savings-target.update', goal.id), {
+        patch(route("goals.daily-savings-target.update", goal.id), {
             preserveScroll: true,
         });
     };
@@ -69,27 +73,20 @@ export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false
                     </p>
                     <p className="mt-1 text-sm text-text-secondary">
                         Terkumpul {formatRupiah(goal.current_amount)}
-                        {goal.daily_savings_target > 0 && (
-                            <>
-                                {' '}
-                                + {formatRupiah(goal.daily_savings_target)}{' '}
-                                rencana hari ini
-                            </>
-                        )}
                     </p>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                         {goal.on_track && (
                             <span
                                 className={
-                                    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ' +
-                                    (goal.on_track.status === 'on_track'
-                                        ? 'bg-state-success/15 text-state-success'
-                                        : 'bg-state-warning/15 text-state-warning')
+                                    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold " +
+                                    (goal.on_track.status === "on_track"
+                                        ? "bg-state-success/15 text-state-success"
+                                        : "bg-state-warning/15 text-state-warning")
                                 }
                             >
-                                {goal.on_track.status === 'on_track'
-                                    ? 'Sesuai rencana'
+                                {goal.on_track.status === "on_track"
+                                    ? "Sesuai rencana"
                                     : `Tertinggal ${formatRupiah(goal.on_track.gap_amount)}`}
                             </span>
                         )}
@@ -98,7 +95,7 @@ export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false
                             <span className="inline-flex items-center rounded-full bg-bg-cardAlt px-2.5 py-1 text-[11px] font-medium text-text-secondary">
                                 {goal.days_remaining > 0
                                     ? `${goal.days_remaining} hari lagi`
-                                    : 'Sudah jatuh tempo'}
+                                    : "Sudah jatuh tempo"}
                             </span>
                         )}
                     </div>
@@ -123,9 +120,8 @@ export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false
 
             {placeholder ? (
                 <p className="mt-5 text-xs text-text-muted">
-                    Form pengaturan nominal harian dan catat setoran akan
-                    muncul di sini setelah Anda membuat tujuan finansial
-                    pertama.
+                    Form pengaturan nominal harian dan catat setoran akan muncul
+                    di sini setelah Anda membuat tujuan finansial pertama.
                 </p>
             ) : (
                 <div className="mt-5 space-y-4">
@@ -147,7 +143,7 @@ export default function GoalHeroCard({ goal, streakDays = 0, placeholder = false
                             step="1000"
                             value={data.daily_savings_target}
                             onChange={(e) =>
-                                setData('daily_savings_target', e.target.value)
+                                setData("daily_savings_target", e.target.value)
                             }
                             className="w-32 rounded-lg border border-border bg-bg-cardAlt px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
                         />

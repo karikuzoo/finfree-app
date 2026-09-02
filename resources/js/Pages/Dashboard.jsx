@@ -74,19 +74,17 @@ export default function Dashboard() {
         }));
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="py-3">
-                    <h1 className="text-2xl font-bold leading-tight text-text-primary">
-                        Halo, {auth.user.name.split(" ")[0]}
-                    </h1>
-                    <p className="mt-1 text-sm text-text-secondary">
-                        Ringkasan perencanaan keuangan Anda.
-                    </p>
-                </div>
-            }
-        >
+        <AuthenticatedLayout>
             <Head title="Dashboard" />
+
+            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                <h1 className="text-2xl font-bold leading-tight text-text-primary">
+                    Halo, {auth.user.name.split(" ")[0]}
+                </h1>
+                <p className="mt-1 text-sm text-text-secondary">
+                    Ringkasan perencanaan keuangan Anda.
+                </p>
+            </div>
 
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {!hasGoals ? (
@@ -131,7 +129,7 @@ export default function Dashboard() {
                                 Belum ada tujuan finansial
                             </h2>
                             <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
-                                Kartu di atas hanyalah contoh. Tentukan target
+                                Angka di atas hanyalah contoh. Tentukan target
                                 Anda sendiri — dana darurat, DP rumah, atau
                                 pensiun — lalu FinGoal menghitung berapa yang
                                 perlu disisihkan tiap bulan.

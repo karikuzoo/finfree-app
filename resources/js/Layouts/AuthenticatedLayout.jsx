@@ -48,7 +48,7 @@ const menu = [
     {
         label: "Profil",
         route: "profile.edit",
-        match: "profile.edit",
+        match: "profile.*",
         icon: UserIcon,
     },
     { label: "Keluar", route: "logout", match: "logout", icon: LogoutIcon },
