@@ -23,7 +23,7 @@ const menu = [
     {
         label: "Goal",
         route: "goals.index",
-        match: "goals.index",
+        match: "goals.*",
         icon: GoalIcon,
     },
     {
