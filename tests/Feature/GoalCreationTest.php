@@ -132,6 +132,34 @@ class GoalCreationTest extends TestCase
 
         $this->assertNull(FinancialGoal::sole()->target_date);
     }
+    /**
+     * Nol adalah NILAI AWAL form, jadi ini payload yang paling sering
+     * benar-benar dikirim — bukan kasus pinggiran. Dengan imbal hasil dan
+     * inflasi nol, setoran bulanan menjadi pembagian polos:
+     * (target - dana awal) / jumlah bulan.
+     *
+     * Rumus annuity punya cabang tersendiri untuk i = 0 (pembagian dengan nol
+     * bila tidak ditangani). Cabang itu sudah diuji di tingkat unit lewat test
+     * vector "return-nol"; yang dijaga di sini adalah jalur utuhnya sampai
+     * tersimpan sebagai snapshot perhitungan.
+     */
+    public function test_asumsi_nol_menghasilkan_setoran_pembagian_polos(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->post(route('goals.store'), $this->payload([
+                'target_amount' => 120000000,
+                'initial_amount' => 0,
+                'target_date' => Carbon::now()->addMonths(12)->toDateString(),
+                'estimated_return_rate' => 0,
+                'estimated_inflation_rate' => 0,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $kalkulasi = FinancialGoal::sole()->calculations()->sole();
+
+        // 120 juta dibagi 12 bulan, tanpa pertumbuhan maupun kenaikan target.
+        $this->assertSame('10000000.00', $kalkulasi->monthly_contribution_required);
+    }
     // ── Validasi ────────────────────────────────────────────────────────
 
     public static function payloadTidakSah(): array

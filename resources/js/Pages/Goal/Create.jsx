@@ -51,15 +51,21 @@ const formatTanggalIndonesia = (iso) =>
 /**
  * Alur "Buat Tujuan Pertama".
  *
- * Nilai awal imbal hasil & inflasi sengaja SUDAH TERISI. Pengguna baru
- * umumnya tidak tahu harus menulis angka berapa, dan kolom kosong di sini
- * menghentikan mereka sama sekali. Angkanya bisa diubah, dan asalnya
- * dijelaskan tepat di bawah kolomnya — bukan angka yang muncul entah dari
- * mana.
+ * Imbal hasil & inflasi bernilai awal NOL, bukan angka "wajar" yang
+ * disodorkan lebih dulu. Kolomnya tetap terisi — bukan kosong yang
+ * menghentikan pengguna baru — tetapi nolnya tidak menjanjikan apa pun:
+ * hasilnya murni target dibagi jangka waktu.
  *
- * Kolom tanggal target menghilang bila jenis tujuan tidak bertenggat (dana
- * darurat). Aturan yang sama ditegakkan ulang di StoreGoalRequest — yang di
- * sini semata kenyamanan, penjaganya tetap di server.
+ * Alasannya: angka yang sudah terisi cenderung diterima apa adanya. Asumsi
+ * imbal hasil yang lolos tanpa dipikirkan langsung membentuk setoran bulanan
+ * yang dijanjikan aplikasi ke pengguna, dan janji itu meleset bila asumsinya
+ * tidak pernah benar-benar dipilih. Angka acuan tetap disebutkan di bawah
+ * kolomnya bagi yang ingin memakainya.
+ *
+ * Isian tanggal target menyesuaikan mode yang dipilih, dan mode "Tanpa
+ * tenggat" tidak mengirim tanggal sama sekali. Aturan yang sama ditegakkan
+ * ulang di StoreGoalRequest — yang di sini semata kenyamanan, penjaganya
+ * tetap di server.
  *
  * DUA CARA menentukan tanggal target (`mode`), keduanya UJUNG-UJUNGNYA
  * menghasilkan `target_date` yang sama-sama dikirim ke StoreGoalRequest —
@@ -84,8 +90,14 @@ export default function GoalCreate({ isFirstGoal }) {
         target_amount: "",
         initial_amount: "",
         target_date: "",
-        estimated_return_rate: "7",
-        estimated_inflation_rate: "3.5",
+        // Nol, bukan angka "wajar" yang disodorkan lebih dulu. Angka yang
+        // sudah terisi cenderung diterima apa adanya, dan asumsi imbal hasil
+        // yang diterima tanpa dipikirkan langsung membentuk setoran bulanan
+        // yang dijanjikan ke pengguna. Mulai dari nol berarti hasilnya polos:
+        // target dibagi jangka waktu, tanpa menjanjikan pertumbuhan apa pun.
+        // Pengguna menambahkan asumsi secara sadar, bukan mewarisinya.
+        estimated_return_rate: "0",
+        estimated_inflation_rate: "0",
     });
 
     const [mode, setMode] = useState("waktu");
@@ -400,8 +412,10 @@ export default function GoalCreate({ isFirstGoal }) {
                                 Asumsi perhitungan
                             </h2>
                             <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                                Sudah diisi dengan angka yang wajar untuk
-                                Indonesia. Ubah bila Anda punya asumsi sendiri.
+                                Keduanya mulai dari nol — hasilnya murni target
+                                dibagi jangka waktu, tanpa menganggap dana Anda
+                                bertumbuh. Isi bila Anda ingin memperhitungkan
+                                imbal hasil dan inflasi.
                             </p>
                         </div>
 
@@ -426,9 +440,28 @@ export default function GoalCreate({ isFirstGoal }) {
                                         )
                                     }
                                 />
+                                {/*
+                                    TIDAK menyebutkan angka acuan apa pun.
+                                    Versi sebelumnya menulis "sekitar 4% untuk
+                                    deposito, 7% campuran obligasi" — angka yang
+                                    tidak pernah diverifikasi ke sumber mana pun
+                                    dan tidak muncul di dokumen mana pun. PRD D-7
+                                    mensyaratkan angka return/inflasi disimpan
+                                    beserta rates_as_of dan rates_source, sebab
+                                    ia langsung membentuk setoran bulanan yang
+                                    dijanjikan aplikasi ke pengguna.
+
+                                    Angka acuan baru boleh muncul di sini setelah
+                                    mesin rekomendasi instrumen (Rilis 2) memasok
+                                    nilai bersumber — LPS untuk deposito, DJPPR
+                                    untuk SBN, BPS untuk inflasi. Sampai saat itu,
+                                    tidak menyebutkan angka lebih jujur daripada
+                                    menyebutkan angka karangan.
+                                */}
                                 <p className="mt-1.5 text-xs text-text-muted">
-                                    7% mendekati campuran deposito dan obligasi
-                                    jangka menengah.
+                                    Biarkan 0 bila dananya hanya ditabung tanpa
+                                    diinvestasikan. Isi sesuai imbal hasil
+                                    instrumen yang Anda pakai.
                                 </p>
                                 <InputError
                                     message={form.errors.estimated_return_rate}
@@ -458,7 +491,8 @@ export default function GoalCreate({ isFirstGoal }) {
                                 />
                                 <p className="mt-1.5 text-xs text-text-muted">
                                     Menaikkan target agar nilainya tetap setara
-                                    saat tanggal target tiba.
+                                    saat tanggal target tiba. Biarkan 0 bila
+                                    target Anda sudah dalam nilai nominal.
                                 </p>
                                 <InputError
                                     message={
