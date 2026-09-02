@@ -12,7 +12,6 @@ import { formatRupiah } from "@/utils/format";
 import { todayInJakarta } from "@/utils/timezone";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
-import GoalContributionForm from "@/Components/GoalContributionForm";
 
 /**
  * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
@@ -104,11 +103,6 @@ export default function Dashboard() {
                             placeholder 
                         />
                         
-                        <div className="rounded-card border border-border bg-bg-card p-5" id="catat-setoran">
-                            <h2 className="text-sm font-semibold text-text-primary mb-4">Catat Setoran</h2>
-                            <p className="text-xs text-text-muted">Form pencatatan setoran akan muncul di sini setelah Anda membuat tujuan finansial.</p>
-                        </div>
-
                         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                             <div className="rounded-card border border-border bg-bg-card p-5">
                                 <ActivityCalendar
@@ -184,13 +178,20 @@ export default function Dashboard() {
                                 todayContributionAmount={todayContributionAmount}
                             />
 
-                            <div className="rounded-card border border-border bg-bg-card p-5" id="catat-setoran">
-                                <h2 className="text-sm font-semibold text-text-primary mb-4">Catat Setoran</h2>
-                                <GoalContributionForm key={selectedGoal.id} goalId={selectedGoal.id} />
-                            </div>
-
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                                <div className="rounded-card border border-border bg-bg-card p-5">
+                                {/*
+                                    Anchor #catat-setoran menempel di sini, bukan
+                                    di kartu form tersendiri: setoran kini dicatat
+                                    lewat kalender dengan mengklik tanggalnya
+                                    (PRD FR-32). Tombol "Catat Setoran" pada
+                                    DailyReminderBanner mengarah ke anchor ini —
+                                    memindahkannya tanpa memindahkan anchor akan
+                                    membuat tombol itu menggulir ke tempat kosong.
+                                */}
+                                <div
+                                    id="catat-setoran"
+                                    className="scroll-mt-24 rounded-card border border-border bg-bg-card p-5"
+                                >
                                     <ActivityCalendar
                                         calendar={calendar}
                                         goals={summary.goals ?? []}

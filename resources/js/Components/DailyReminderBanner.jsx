@@ -14,7 +14,9 @@ import { formatRupiah } from '@/utils/format';
  * Kalau tidak ada kondisi yang relevan, komponen ini tidak me-render apa
  * pun (bukan menampilkan pesan "semua aman" generik yang lama-lama
  * diabaikan pengguna). Tombolnya mengarah ke #catat-setoran — anchor id
- * yang dipasang di GoalHeroCard, bukan navigasi halaman baru.
+ * yang kini dipasang pada kartu kalender aktivitas di Dashboard, bukan
+ * navigasi halaman baru. Setoran dicatat dengan mengklik tanggal di kalender
+ * (PRD FR-32); kartu form tersendiri sudah tidak ada.
  */
 export default function DailyReminderBanner({ goal, streakDays, contributedToday }) {
     if (!goal || contributedToday) {

@@ -117,13 +117,17 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 ### 6.7 Pencatatan Realisasi (prasyarat dashboard progres)
 Tanpa bagian ini, `current_amount` tidak pernah berubah dan progress bar di FR-13 selamanya diam — dashboard hanya menampilkan hasil kalkulasi, bukan progres. Ini juga menghapus alasan pengguna untuk kembali, sehingga metrik retensi di §9 tidak akan tercapai.
 
-- FR-32: Pengguna dapat mencatat setoran ke sebuah tujuan (nominal, tanggal, catatan opsional) secara manual, lewat **dua pintu masuk** yang saling melengkapi:
-  - **Form ringkas di Dashboard** — untuk setoran hari ini, yang paling sering terjadi. Tanggalnya terisi otomatis hari berjalan dan tidak bisa diubah, supaya jalur tercepat ini tetap satu langkah.
-  - **Kalender aktivitas** — klik tanggalnya, lalu catat setoran di sana. Inilah cara memilih tanggal, dan pengguna tidak perlu mengetik tanggal sama sekali karena sudah ditentukan oleh sel yang diklik.
+- FR-32: Pengguna dapat mencatat setoran ke sebuah tujuan (nominal, tanggal, catatan opsional) secara manual, **lewat kalender aktivitas**: klik tanggalnya, lalu catat setoran di sana.
 
-  Rancangan ini disengaja. Sebuah kolom tanggal di form Dashboard sempat ada lalu dihapus: ia memperlambat jalur yang paling sering dipakai demi keperluan yang jarang. Tetapi menghapusnya saja membuat setoran yang baru sempat dicatat beberapa hari kemudian jatuh di tanggal yang salah — dan aplikasi yang mengukur kedisiplinan menabung tidak boleh salah mencatat kapan orang menabung. Kalender mengembalikannya tanpa membebani jalur cepatnya.
+  Tidak ada form setoran tersendiri di Dashboard. Rancangan ini melewati dua putaran sebelum mendarat di sini, dan alasannya perlu dicatat supaya tidak diputar lagi:
 
-  Tanggal masa depan ditolak (`before_or_equal:today`): uang yang belum disetor bukan setoran. Form di kalender menyembunyikan diri pada tanggal masa depan dan mengarahkan pengguna membuat pengingat (FR-57) sebagai gantinya.
+  1. Semula form Dashboard punya kolom tanggal. Kolom itu memperlambat jalur yang paling sering dipakai — setoran hari ini — demi keperluan yang jarang.
+  2. Kolom tanggal lalu dihapus dan setoran dikunci ke hari berjalan. Tetapi setoran yang baru sempat dicatat beberapa hari kemudian jadi jatuh di tanggal yang salah, dan aplikasi yang mengukur kedisiplinan menabung tidak boleh salah mencatat kapan orang menabung.
+  3. Pencatatan akhirnya dipindahkan seluruhnya ke kalender. Tanggalnya tidak perlu diketik sama sekali — ia ditentukan oleh sel yang diklik, cara memilih tanggal yang paling langsung. Satu tempat, bukan dua yang harus dijaga tetap sepadan.
+
+  Tanggal masa depan ditolak (`before_or_equal:today`): uang yang belum disetor bukan setoran. Pada tanggal masa depan, kalender menyembunyikan form dan mengarahkan pengguna membuat pengingat (FR-57) sebagai gantinya.
+
+  Tombol "Catat Setoran" pada banner pengingat harian mengarah ke anchor `#catat-setoran`, yang kini menempel pada kartu kalender.
 - FR-33: Pengguna dapat melihat, mengedit, dan menghapus riwayat setoran per tujuan.
 - FR-34: `current_amount` sebuah tujuan adalah hasil turunan dari dana awal + akumulasi setoran tercatat, bukan angka yang diedit langsung.
 - FR-35: Dashboard membandingkan **rencana vs realisasi**: setoran seharusnya sampai bulan ini vs yang benar-benar tercatat, beserta selisihnya (tertinggal/di depan target).
