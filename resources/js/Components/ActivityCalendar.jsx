@@ -4,6 +4,7 @@ import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import InputError from "@/Components/InputError";
 import { formatCompactRupiah, formatRupiah } from "@/utils/format";
+import { nowInJakartaParts } from "@/utils/timezone";
 import { router, useForm } from "@inertiajs/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -65,18 +66,14 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
         return peta;
     }, [data.reminders]);
 
-    const hariIni = new Date();
-    const hariIniStr = iso(
-        hariIni.getFullYear(),
-        hariIni.getMonth(),
-        hariIni.getDate(),
-    );
+    const { tahun: tahunIni, bulan: bulanIniIdx, tanggal: tanggalIni } = nowInJakartaParts();
+    const hariIniStr = iso(tahunIni, bulanIniIdx, tanggalIni);
 
     // Bulan yang ditampilkan. Saat placeholder tidak ada prop dari backend,
     // jadi jatuh ke bulan berjalan.
     const [tahun, bulan] = data.month
         ? data.month.split("-").map(Number)
-        : [hariIni.getFullYear(), hariIni.getMonth() + 1];
+        : [tahunIni, bulanIniIdx + 1];
     const bulanIndex = bulan - 1;
 
     const sel = useMemo(() => {

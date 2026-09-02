@@ -5,6 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { nowInJakartaParts } from '@/utils/timezone';
 
 /**
  * Batas atas tanggal lahir: usia minimal 17 tahun, menyalin aturan di
@@ -12,8 +13,8 @@ import { Link, useForm, usePage } from '@inertiajs/react';
  * sendiri di Indonesia, jadi perencanaan investasi mandiri belum relevan.
  */
 const usiaMinimal = () => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 17);
+    const { tahun, bulan, tanggal } = nowInJakartaParts();
+    const d = new Date(tahun - 17, bulan, tanggal);
 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };

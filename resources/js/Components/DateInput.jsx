@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { todayInJakarta } from "@/utils/timezone";
 
 /**
  * Pemilih tanggal bertema Malam.
@@ -27,11 +28,7 @@ const BULAN = [
 const iso = (t, b, tgl) =>
     `${t}-${String(b + 1).padStart(2, "0")}-${String(tgl).padStart(2, "0")}`;
 
-const hariIniIso = () => {
-    const d = new Date();
-
-    return iso(d.getFullYear(), d.getMonth(), d.getDate());
-};
+const hariIniIso = () => todayInJakarta();
 
 /**
  * Tanggal ditulis panjang ("1 September 2026") supaya tidak ada keraguan

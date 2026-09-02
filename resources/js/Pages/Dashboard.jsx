@@ -9,6 +9,7 @@ import TodayReminders from "@/Components/TodayReminders";
 import AssetGrowthChart from "@/Components/AssetGrowthChart";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatRupiah } from "@/utils/format";
+import { todayInJakarta } from "@/utils/timezone";
 import { Head, Link, usePage } from "@inertiajs/react";
 
 /**
@@ -61,12 +62,12 @@ export default function Dashboard() {
         ],
     };
 
-    const today = new Date();
+    const todayIso = todayInJakarta();
+    const [todayYear, todayMonth, todayDay] = todayIso.split("-").map(Number);
     const pad = (n) => String(n).padStart(2, "0");
-    const dateStr = (day) =>
-        `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(day)}`;
+    const dateStr = (day) => `${todayYear}-${pad(todayMonth)}-${pad(day)}`;
     const placeholderCalendar = [3, 8, 12, 17, 21]
-        .filter((day) => day <= today.getDate())
+        .filter((day) => day <= todayDay)
         .map((day, index) => ({
             date: dateStr(day),
             amount: [50000, 75000, 50000, 100000, 50000][index],
@@ -154,10 +155,7 @@ export default function Dashboard() {
                                 streakDays={summary.streak_days}
                                 contributedToday={summary.contribution_calendar.some(
                                     (item) =>
-                                        item.date ===
-                                            new Date()
-                                                .toISOString()
-                                                .slice(0, 10) &&
+                                        item.date === todayInJakarta() &&
                                         item.amount > 0,
                                 )}
                             />

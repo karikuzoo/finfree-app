@@ -7,11 +7,12 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
+import { nowInJakartaParts } from "@/utils/timezone";
 
 /** Batas bawah & atas tanggal target, menyalin aturan di StoreGoalRequest. */
 const geserHari = (jumlahHari) => {
-    const d = new Date();
-    d.setDate(d.getDate() + jumlahHari);
+    const { tahun, bulan, tanggal } = nowInJakartaParts();
+    const d = new Date(tahun, bulan, tanggal + jumlahHari);
 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
@@ -19,9 +20,8 @@ const geserHari = (jumlahHari) => {
 const besok = () => geserHari(1);
 
 const enamPuluhTahunLagi = () => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 60);
-    d.setDate(d.getDate() - 1);
+    const { tahun, bulan, tanggal } = nowInJakartaParts();
+    const d = new Date(tahun + 60, bulan, tanggal - 1);
 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };

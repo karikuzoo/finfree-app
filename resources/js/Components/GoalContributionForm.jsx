@@ -2,9 +2,10 @@ import CurrencyInput from '@/Components/CurrencyInput';
 import DateInput from '@/Components/DateInput';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import { todayInJakarta } from '@/utils/timezone';
 
 function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return todayInJakarta();
 }
 
 /**
