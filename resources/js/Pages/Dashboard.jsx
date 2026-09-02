@@ -61,7 +61,7 @@ export default function Dashboard() {
         target_amount: 500000000,
         current_amount: 150000000,
         daily_savings_target: 50000,
-        projected_progress_percentage: 30,
+        progress_percentage: 30,
         days_remaining: 320,
         on_track: { status: "on_track", gap_amount: 0 },
         suggested_allocation: [

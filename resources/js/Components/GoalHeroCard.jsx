@@ -15,7 +15,7 @@ export default function GoalHeroCard({
         return null;
     }
 
-    const progressWidth = Math.min(100, goal.progress_percentage);
+    const progressWidth = Math.min(100, goal.progress_percentage ?? 0);
 
     return (
         <div className="relative scroll-mt-24 rounded-card border border-border bg-bg-card p-6">
