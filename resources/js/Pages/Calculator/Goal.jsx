@@ -245,12 +245,23 @@ export default function CalculatorGoal({ input, result }) {
                             </p>
                         </div>
 
-                        <PrimaryButton
-                            className="mt-6 w-full justify-center py-3 text-sm"
-                            disabled={form.processing}
-                        >
-                            {form.processing ? 'Menghitung…' : 'Hitung Sekarang'}
-                        </PrimaryButton>
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <PrimaryButton
+                                className="w-full justify-center py-3 text-sm"
+                                disabled={form.processing}
+                            >
+                                {form.processing ? 'Menghitung…' : 'Hitung Sekarang'}
+                            </PrimaryButton>
+
+                            {result && (
+                                <a
+                                    href={route('calculator.goal')}
+                                    className="inline-flex w-full items-center justify-center rounded-lg border border-border-strong bg-transparent px-4 py-3 text-sm font-semibold text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base sm:w-auto"
+                                >
+                                    Reset
+                                </a>
+                            )}
+                        </div>
                     </form>
 
                     {/* ── Kolom kanan: hasil ────────────────────────────── */}
