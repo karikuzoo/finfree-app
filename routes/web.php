@@ -104,8 +104,13 @@ Route::middleware('auth')->group(function () {
         ->name('goals.create');
     Route::post('/tujuan', [GoalController::class, 'store'])
         ->name('goals.store');
-    Route::get('/dompet', fn () => Inertia::render('Wallet/Index'))
-        ->name('wallet.index');
+    Route::get('/dompet', function (\Illuminate\Http\Request $request, \App\Services\DashboardSummaryService $summary) {
+        $ringkasan = $summary->forUser($request->user());
+        return Inertia::render('Wallet/Index', [
+            'totalAssets' => $ringkasan['total_assets'],
+            'goals' => $ringkasan['goals'],
+        ]);
+    })->name('wallet.index');
     Route::get('/riwayat', fn () => Inertia::render('History/Index'))
         ->name('history.index');
 
