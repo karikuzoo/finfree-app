@@ -17,7 +17,13 @@ class GoalContributionController extends Controller
 {
     public function store(StoreGoalContributionRequest $request, FinancialGoal $financialGoal): RedirectResponse
     {
-        $financialGoal->contributions()->create($request->validated());
+        $contribution = $financialGoal->contributions()->create($request->validated());
+
+        $request->user()->activities()->create([
+            'type' => 'contribution_recorded',
+            'goal_name' => $financialGoal->name,
+            'amount' => $contribution->amount,
+        ]);
 
         return back();
     }

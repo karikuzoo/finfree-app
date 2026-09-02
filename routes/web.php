@@ -127,6 +127,9 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/tujuan/{financialGoal}/setoran', [GoalContributionController::class, 'store'])
         ->name('goals.contributions.store');
+
+    Route::delete('/tujuan/{financialGoal}', [GoalController::class, 'destroy'])
+        ->name('goals.destroy');
 });
 
 require __DIR__.'/auth.php';

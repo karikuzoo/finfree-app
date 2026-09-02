@@ -1,6 +1,10 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import Modal from "@/Components/Modal";
+import DangerButton from "@/Components/DangerButton";
+import SecondaryButton from "@/Components/SecondaryButton";
 import { formatRupiah } from "@/utils/format";
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, useForm } from "@inertiajs/react";
+import { useState } from "react";
 
 /**
  * Daftar tujuan finansial.
@@ -106,6 +110,16 @@ function RingkasanKeseluruhan({ totalAssets, totalTarget, overallProgress, jumla
 }
 
 function KartuTujuan({ goal, typeLabels, utama }) {
+    const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+    const { delete: destroy, processing } = useForm();
+
+    const hapusTujuan = () => {
+        destroy(route("goals.destroy", goal.id), {
+            preserveScroll: true,
+            onSuccess: () => setConfirmingDeletion(false),
+        });
+    };
+
     return (
         <div className="rounded-card border border-border bg-bg-card p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -130,9 +144,21 @@ function KartuTujuan({ goal, typeLabels, utama }) {
                     </p>
                 </div>
 
-                <p className="text-lg font-bold text-text-primary num-tabular">
-                    {goal.progress_percentage.toFixed(1)}%
-                </p>
+                <div className="flex items-center gap-3">
+                    <p className="text-lg font-bold text-text-primary num-tabular">
+                        {goal.progress_percentage.toFixed(1)}%
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => setConfirmingDeletion(true)}
+                        className="rounded-lg p-1.5 text-text-muted transition hover:bg-state-danger/10 hover:text-state-danger"
+                        title="Hapus tujuan"
+                    >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <BatangProgres persen={goal.progress_percentage} className="mt-4" />
@@ -145,6 +171,28 @@ function KartuTujuan({ goal, typeLabels, utama }) {
 
                 <StatusOnTrack status={goal.on_track} />
             </div>
+
+            <Modal show={confirmingDeletion} onClose={() => setConfirmingDeletion(false)} maxWidth="md">
+                <div className="p-6">
+                    <h2 className="text-lg font-semibold text-text-primary">
+                        Hapus tujuan "{goal.name}"?
+                    </h2>
+                    <p className="mt-2 text-sm text-text-secondary">
+                        Seluruh data setoran dan kalkulasi yang terkait dengan
+                        tujuan ini akan ikut terhapus secara permanen dan tidak
+                        bisa dikembalikan.
+                    </p>
+
+                    <div className="mt-6 flex justify-end gap-3">
+                        <SecondaryButton onClick={() => setConfirmingDeletion(false)}>
+                            Batal
+                        </SecondaryButton>
+                        <DangerButton onClick={hapusTujuan} disabled={processing}>
+                            {processing ? "Menghapus..." : "Hapus Tujuan"}
+                        </DangerButton>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

@@ -11,6 +11,8 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatRupiah } from "@/utils/format";
 import { todayInJakarta } from "@/utils/timezone";
 import { Head, Link, usePage } from "@inertiajs/react";
+import { useState } from "react";
+import GoalContributionForm from "@/Components/GoalContributionForm";
 
 /**
  * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
@@ -40,6 +42,14 @@ export default function Dashboard() {
     const { auth, summary, calendar, todayReminders } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
 
+    const [selectedGoalId, setSelectedGoalId] = useState(summary.primary_goal?.id ?? null);
+    const selectedGoal = summary.goals?.find(g => g.id == selectedGoalId) || summary.primary_goal;
+
+    const todayIso = todayInJakarta();
+    const todayContributionAmount = hasGoals
+        ? summary.contribution_calendar.find(item => item.date === todayIso)?.amount || 0
+        : 0;
+
     // Data contoh untuk GoalHeroCard, ActivityCalendar, & donut alokasi
     // saat pengguna belum punya goal sama sekali — angka target 500 juta
     // dipakai supaya konsisten dengan ilustrasi "Contoh perhitungan" di
@@ -62,7 +72,6 @@ export default function Dashboard() {
         ],
     };
 
-    const todayIso = todayInJakarta();
     const [todayYear, todayMonth, todayDay] = todayIso.split("-").map(Number);
     const pad = (n) => String(n).padStart(2, "0");
     const dateStr = (day) => `${todayYear}-${pad(todayMonth)}-${pad(day)}`;
@@ -89,7 +98,16 @@ export default function Dashboard() {
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {!hasGoals ? (
                     <div className="space-y-6">
-                        <GoalHeroCard goal={placeholderGoal} placeholder />
+                        <GoalHeroCard 
+                            goals={[placeholderGoal]} 
+                            selectedGoal={placeholderGoal} 
+                            placeholder 
+                        />
+                        
+                        <div className="rounded-card border border-border bg-bg-card p-5" id="catat-setoran">
+                            <h2 className="text-sm font-semibold text-text-primary mb-4">Catat Setoran</h2>
+                            <p className="text-xs text-text-muted">Form pencatatan setoran akan muncul di sini setelah Anda membuat tujuan finansial.</p>
+                        </div>
 
                         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                             <div className="rounded-card border border-border bg-bg-card p-5">
@@ -149,7 +167,7 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
                         <div className="space-y-6">
                             <DailyReminderBanner
-                                goal={summary.primary_goal}
+                                goal={selectedGoal}
                                 streakDays={summary.streak_days}
                                 contributedToday={summary.contribution_calendar.some(
                                     (item) =>
@@ -159,9 +177,17 @@ export default function Dashboard() {
                             />
 
                             <GoalHeroCard
-                                goal={summary.primary_goal}
+                                goals={summary.goals}
+                                selectedGoal={selectedGoal}
+                                onGoalChange={setSelectedGoalId}
                                 streakDays={summary.streak_days}
+                                todayContributionAmount={todayContributionAmount}
                             />
+
+                            <div className="rounded-card border border-border bg-bg-card p-5" id="catat-setoran">
+                                <h2 className="text-sm font-semibold text-text-primary mb-4">Catat Setoran</h2>
+                                <GoalContributionForm key={selectedGoal.id} goalId={selectedGoal.id} />
+                            </div>
 
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                                 <div className="rounded-card border border-border bg-bg-card p-5">
@@ -171,8 +197,7 @@ export default function Dashboard() {
                                 <div className="rounded-card border border-border bg-bg-card p-5">
                                     <AllocationBreakdownChart
                                         allocation={
-                                            summary.primary_goal
-                                                .suggested_allocation
+                                            selectedGoal.suggested_allocation
                                         }
                                     />
                                 </div>

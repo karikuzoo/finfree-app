@@ -1,6 +1,4 @@
 import CurrencyInput from '@/Components/CurrencyInput';
-import DateInput from '@/Components/DateInput';
-import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import { todayInJakarta } from '@/utils/timezone';
 
@@ -9,16 +7,10 @@ function todayStr() {
 }
 
 /**
- * Form kecil untuk mencatat setoran (PRD FR-32..FR-35) langsung dari
- * GoalHeroCard, tanpa pindah halaman — POST ke
- * goals.contributions.store (GoalContributionController).
- *
- * Disembunyikan di balik tombol "Catat Setoran" (bukan selalu terbuka)
- * supaya kartu utama Dashboard tidak penuh form saat pengguna cuma mau
- * melihat progres.
+ * Form kecil untuk mencatat setoran (PRD FR-32..FR-35).
+ * POST ke goals.contributions.store (GoalContributionController).
  */
 export default function GoalContributionForm({ goalId }) {
-    const [open, setOpen] = useState(false);
     const { data, setData, post, processing, recentlySuccessful, errors, reset } =
         useForm({
             amount: '',
@@ -32,27 +24,14 @@ export default function GoalContributionForm({ goalId }) {
             preserveScroll: true,
             onSuccess: () => {
                 reset('amount', 'note');
-                setOpen(false);
             },
         });
     };
 
-    if (!open) {
-        return (
-            <button
-                type="button"
-                onClick={() => setOpen(true)}
-                className="rounded-lg border border-border-strong px-3 py-1.5 text-sm font-medium text-text-primary transition hover:bg-bg-cardAlt"
-            >
-                + Catat Setoran
-            </button>
-        );
-    }
-
     return (
         <form
             onSubmit={submit}
-            className="w-full rounded-lg border border-border bg-bg-cardAlt p-4"
+            className="w-full"
         >
             <div className="flex flex-wrap items-end gap-3">
                 <div>
@@ -87,30 +66,6 @@ export default function GoalContributionForm({ goalId }) {
                     )}
                 </div>
 
-                <div>
-                    <label
-                        htmlFor="contribution_date"
-                        className="block text-xs text-text-secondary"
-                    >
-                        Tanggal
-                    </label>
-                    {/* Setoran tidak bisa bertanggal masa depan — batas yang
-                        sama ditegakkan ulang di StoreGoalContributionRequest. */}
-                    <DateInput
-                        id="contribution_date"
-                        className="mt-1 w-44"
-                        max={todayStr()}
-                        bolehKosong={false}
-                        value={data.contributed_on}
-                        onChange={(v) => setData('contributed_on', v)}
-                    />
-                    {errors.contributed_on && (
-                        <p className="mt-1 text-xs text-state-danger">
-                            {errors.contributed_on}
-                        </p>
-                    )}
-                </div>
-
                 <div className="flex-1 basis-40">
                     <label
                         htmlFor="contribution_note"
@@ -135,13 +90,6 @@ export default function GoalContributionForm({ goalId }) {
                         className="rounded-lg bg-lime-500 px-3 py-1.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 disabled:opacity-60"
                     >
                         Simpan
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setOpen(false)}
-                        className="rounded-lg px-3 py-1.5 text-sm text-text-secondary transition hover:bg-bg-card"
-                    >
-                        Batal
                     </button>
                 </div>
             </div>

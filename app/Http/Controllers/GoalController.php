@@ -122,6 +122,12 @@ class GoalController extends Controller
                 ]);
             }
 
+            $request->user()->activities()->create([
+                'type' => 'goal_created',
+                'goal_name' => $goal->name,
+                'amount' => $goal->target_amount,
+            ]);
+
             return $goal;
         });
 
@@ -170,5 +176,40 @@ class GoalController extends Controller
         );
 
         return max(1, (int) ceil($months));
+    }
+
+    /**
+     * Hapus tujuan beserta seluruh data terkait (setoran & kalkulasi).
+     *
+     * Hard delete — model ini tidak memakai SoftDeletes (lihat catatan di
+     * migrasi create_financial_goals_table dan docblock FinancialGoal).
+     * Relasi contributions dan calculations di-cascade oleh foreign key
+     * di migrasi, tapi dihapus eksplisit di sini juga sebagai jaring
+     * pengaman — kalau constraint FK berubah, data yatim piatu tidak
+     * akan tertinggal.
+     */
+    public function destroy(Request $request, FinancialGoal $financialGoal): RedirectResponse
+    {
+        // Pastikan tujuan milik pengguna yang sedang login.
+        if ($financialGoal->user_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        $nama = $financialGoal->name;
+
+        DB::transaction(function () use ($request, $financialGoal, $nama) {
+            $financialGoal->calculations()->delete();
+            $financialGoal->contributions()->delete();
+            $financialGoal->delete();
+
+            $request->user()->activities()->create([
+                'type' => 'goal_deleted',
+                'goal_name' => $nama,
+            ]);
+        });
+
+        return redirect()
+            ->route('goals.index')
+            ->with('status', "Tujuan \"{$nama}\" berhasil dihapus.");
     }
 }

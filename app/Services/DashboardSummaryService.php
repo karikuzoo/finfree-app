@@ -425,43 +425,16 @@ class DashboardSummaryService
      */
     private function recentActivity(User $user): array
     {
-        $contributions = GoalContribution::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->orderByDesc('goal_contributions.created_at')
-            ->limit(self::RECENT_ACTIVITY_LIMIT)
-            ->get([
-                'goal_contributions.amount',
-                'goal_contributions.created_at',
-                'financial_goals.name as goal_name',
-            ])
+        return $user->activities()
+            ->latest()
+            ->take(self::RECENT_ACTIVITY_LIMIT)
+            ->get()
             ->map(fn ($row) => [
-                'type' => 'contribution_recorded',
+                'type' => $row->type,
                 'goal_name' => $row->goal_name,
                 'amount' => (float) $row->amount,
                 'occurred_at' => Carbon::parse($row->created_at)->toIso8601String(),
-            ]);
-
-        $calculations = GoalCalculation::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_calculations.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->orderByDesc('goal_calculations.created_at')
-            ->limit(self::RECENT_ACTIVITY_LIMIT)
-            ->get([
-                'goal_calculations.created_at',
-                'financial_goals.name as goal_name',
             ])
-            ->map(fn ($row) => [
-                'type' => 'goal_calculation_completed',
-                'goal_name' => $row->goal_name,
-                'occurred_at' => Carbon::parse($row->created_at)->toIso8601String(),
-            ]);
-
-        return $contributions
-            ->concat($calculations)
-            ->sortByDesc('occurred_at')
-            ->take(self::RECENT_ACTIVITY_LIMIT)
-            ->values()
             ->all();
     }
 }

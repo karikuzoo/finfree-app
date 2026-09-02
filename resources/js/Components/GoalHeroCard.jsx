@@ -1,53 +1,24 @@
-import { useForm } from "@inertiajs/react";
 import { formatRupiah } from "@/utils/format";
-import GoalContributionForm from "@/Components/GoalContributionForm";
+import Dropdown from "@/Components/Dropdown";
 
-/**
- * Kartu utama Dashboard (di atas semua kartu lain) — menampilkan target
- * goal tertua pengguna (DashboardSummaryService::summarizeGoal via
- * primary_goal) dan progress bar gabungan `current_amount` (initial +
- * setoran, murni dari backend) dengan `daily_savings_target` (janji
- * harian yang diisi manual lewat form di kartu ini) sebagai proyeksi —
- * BUKAN sebagai nilai tersimpan baru.
- *
- * Angka nominal besar sengaja tidak diwarnai lime, mengikuti aturan warna
- * di SummaryCard — lime di sini hanya dipakai untuk progress bar dan
- * tombol aksi. Badge status memakai warna semantik `state.*`
- * (success/danger), bukan lime, supaya beda maksud dengan aksen lime.
- *
- * `placeholder=true` dipakai saat pengguna belum punya goal sama sekali —
- * `goal` di kondisi ini adalah data contoh/dummy (bukan dari backend),
- * jadi form pengaturan & catat setoran disembunyikan dan diberi label
- * "Contoh" supaya tidak disangka data asli.
- */
 export default function GoalHeroCard({
-    goal,
+    goals = [],
+    selectedGoal,
+    onGoalChange,
     streakDays = 0,
+    todayContributionAmount = 0,
     placeholder = false,
 }) {
-    const { data, setData, patch, processing, recentlySuccessful, errors } =
-        useForm({
-            daily_savings_target: goal?.daily_savings_target ?? 0,
-        });
+    const goal = selectedGoal;
 
     if (!goal) {
         return null;
     }
 
-    const submit = (e) => {
-        e.preventDefault();
-        patch(route("goals.daily-savings-target.update", goal.id), {
-            preserveScroll: true,
-        });
-    };
-
-    const progressWidth = Math.min(100, goal.projected_progress_percentage);
+    const progressWidth = Math.min(100, goal.progress_percentage);
 
     return (
-        <div
-            id="catat-setoran"
-            className="relative scroll-mt-24 rounded-card border border-border bg-bg-card p-6"
-        >
+        <div className="relative scroll-mt-24 rounded-card border border-border bg-bg-card p-6">
             {placeholder && (
                 <span className="absolute right-6 top-6 rounded-full bg-bg-cardAlt px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                     Contoh tampilan
@@ -57,9 +28,44 @@ export default function GoalHeroCard({
             <div className="flex flex-wrap items-start justify-between gap-6">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            Target Utama · {goal.name}
-                        </p>
+                        {placeholder ? (
+                            <div className="flex h-8 items-center rounded-lg border-2 border-transparent text-sm font-bold text-text-primary">
+                                {goal.name}
+                            </div>
+                        ) : (
+                            <Dropdown>
+                                <Dropdown.Trigger>
+                                    <button
+                                        type="button"
+                                        className="group relative inline-flex items-center rounded-lg border-2 border-border-strong bg-bg-cardAlt py-1.5 pl-3 pr-9 text-sm font-bold text-text-primary shadow-sm transition hover:border-lime-500 focus:border-lime-500 focus:outline-none focus:ring-0"
+                                    >
+                                        <span className="truncate max-w-[200px]">{goal.name}</span>
+                                        <div className="pointer-events-none absolute right-2.5 text-text-muted transition group-hover:text-lime-500">
+                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </div>
+                                    </button>
+                                </Dropdown.Trigger>
+
+                                <Dropdown.Content align="left" width="none" contentClasses="py-1 bg-bg-card min-w-[200px] whitespace-nowrap">
+                                    {goals.map((g) => (
+                                        <button
+                                            key={g.id}
+                                            type="button"
+                                            onClick={() => onGoalChange && onGoalChange(g.id)}
+                                            className={`block w-full px-4 py-2 text-left text-sm font-semibold transition ${
+                                                g.id === goal.id
+                                                    ? "bg-lime-500 text-onPrimary"
+                                                    : "text-text-secondary hover:bg-lime-500 hover:text-onPrimary"
+                                            }`}
+                                        >
+                                            {g.name}
+                                        </button>
+                                    ))}
+                                </Dropdown.Content>
+                            </Dropdown>
+                        )}
 
                         {!placeholder && streakDays > 0 && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-bg-cardAlt px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
@@ -117,58 +123,6 @@ export default function GoalHeroCard({
                     style={{ width: `${progressWidth}%` }}
                 />
             </div>
-
-            {placeholder ? (
-                <p className="mt-5 text-xs text-text-muted">
-                    Form pengaturan nominal harian dan catat setoran akan muncul
-                    di sini setelah Anda membuat tujuan finansial pertama.
-                </p>
-            ) : (
-                <div className="mt-5 space-y-4">
-                    <form
-                        onSubmit={submit}
-                        className="flex flex-wrap items-center gap-3"
-                    >
-                        <label
-                            htmlFor="daily_savings_target"
-                            className="text-sm text-text-secondary"
-                        >
-                            Sisihkan per hari
-                        </label>
-                        <span className="text-sm text-text-muted">Rp</span>
-                        <input
-                            id="daily_savings_target"
-                            type="number"
-                            min="0"
-                            step="1000"
-                            value={data.daily_savings_target}
-                            onChange={(e) =>
-                                setData("daily_savings_target", e.target.value)
-                            }
-                            className="w-32 rounded-lg border border-border bg-bg-cardAlt px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
-                        />
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="rounded-lg bg-lime-500 px-3 py-1.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 disabled:opacity-60"
-                        >
-                            Simpan
-                        </button>
-                        {recentlySuccessful && (
-                            <span className="text-xs text-lime-500">
-                                Tersimpan.
-                            </span>
-                        )}
-                        {errors.daily_savings_target && (
-                            <span className="text-xs text-state-danger">
-                                {errors.daily_savings_target}
-                            </span>
-                        )}
-                    </form>
-
-                    <GoalContributionForm goalId={goal.id} />
-                </div>
-            )}
         </div>
     );
 }
