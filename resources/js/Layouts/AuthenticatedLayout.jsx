@@ -117,7 +117,7 @@ export default function AuthenticatedLayout({ header, children }) {
     return (
         <div className="flex min-h-screen bg-bg-base">
             {/* Sidebar — desktop */}
-            <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-bg-surface">
+            <aside className="sticky top-0 hidden h-screen md:flex md:w-64 md:shrink-0 md:flex-col md:overflow-y-auto md:border-r md:border-border md:bg-bg-surface">
                 <Link
                     href={route("dashboard")}
                     className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border px-6 focus:outline-none focus:ring-2 focus:ring-lime-500"
