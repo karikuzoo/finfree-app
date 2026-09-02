@@ -78,7 +78,6 @@ class DashboardSummaryService
             // default. NULL kalau belum ada goal aktif sama sekali.
             'primary_goal' => $goalSummaries->first(),
             'streak_days' => $this->streakDays($user),
-            'asset_growth_series' => $this->assetGrowthSeries($user),
             'contribution_calendar' => $this->contributionCalendar($user),
             'recent_activity' => $this->recentActivity($user),
         ];
@@ -129,6 +128,7 @@ class DashboardSummaryService
                 : null,
             'on_track' => $this->onTrackStatus($goal, $currentAmount, $targetAmount),
             'suggested_allocation' => $this->allocations->forGoal($goal, $accountRiskProfile),
+            'asset_growth_series' => $this->goalAssetGrowthSeries($goal),
         ];
     }
 
@@ -229,37 +229,22 @@ class DashboardSummaryService
      * datanya kecil — setoran satu user dalam setahun — jadi ini bukan
      * masalah performa.
      */
-    private function assetGrowthSeries(User $user): array
+    private function goalAssetGrowthSeries(FinancialGoal $goal): array
     {
-        $months = self::ASSET_GROWTH_MONTHS;
+        $start = Carbon::parse($goal->created_at)->startOfMonth();
+        $end = Carbon::now()->startOfMonth();
 
-        // startOfMonth() DULU, baru subMonths() — urutannya menentukan.
-        //
-        // Dibalik, hasilnya salah di akhir bulan: dari 31 Agustus,
-        // subMonths(11) menghasilkan "31 September" yang tidak ada, lalu
-        // meluber ke 1 Oktober. Jendela 12 bulannya jadi mulai sebulan
-        // terlambat dan setoran bulan pertama hilang dari total kumulatif.
-        // Tanggal 1 tidak pernah bisa meluber, jadi urutan ini aman.
-        $since = Carbon::now()->startOfMonth()->subMonths($months - 1);
-
-        $baseline = (float) FinancialGoal::query()
-            ->where('user_id', $user->id)
-            ->where('status', GoalStatus::Active->value)
-            ->sum('initial_amount');
-
-        $contributionsByMonth = GoalContribution::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->where('goal_contributions.contributed_on', '>=', $since->toDateString())
-            ->get(['goal_contributions.contributed_on', 'goal_contributions.amount'])
+        $contributionsByMonth = $goal->contributions()
+            ->where('contributed_on', '>=', $start->toDateString())
+            ->get(['contributed_on', 'amount'])
             ->groupBy(fn ($row) => Carbon::parse($row->contributed_on)->format('Y-m'))
             ->map(fn (Collection $rows) => (float) $rows->sum('amount'));
 
         $series = [];
-        $cumulative = $baseline;
-        $cursor = $since->copy();
+        $cumulative = (float) $goal->initial_amount;
+        $cursor = $start->copy();
 
-        for ($i = 0; $i < $months; $i++) {
+        while ($cursor->lessThanOrEqualTo($end)) {
             $key = $cursor->format('Y-m');
             $cumulative += (float) ($contributionsByMonth[$key] ?? 0);
 

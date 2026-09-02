@@ -220,15 +220,14 @@ export default function Dashboard() {
 
                             <div className="rounded-card border border-border bg-bg-card p-5">
                                 <h2 className="text-base font-semibold text-text-primary">
-                                    Pertumbuhan Aset (12 Bulan Terakhir)
+                                    Pertumbuhan Aset — {selectedGoal?.name ?? 'Pilih Tujuan'}
                                 </h2>
                                 <p className="mt-1 text-sm text-text-secondary">
-                                    Nilai akumulasi aset bersih dari seluruh
-                                    tujuan aktif.
+                                    Nilai akumulasi aset untuk tujuan yang dipilih.
                                 </p>
                                 <div className="mt-4">
                                     <AssetGrowthChart
-                                        series={summary.asset_growth_series}
+                                        series={selectedGoal?.asset_growth_series ?? []}
                                     />
                                 </div>
                             </div>
