@@ -1,4 +1,5 @@
 import Modal from "@/Components/Modal";
+import CurrencyInput from "@/Components/CurrencyInput";
 import PrimaryButton from "@/Components/PrimaryButton";
 import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
@@ -29,7 +30,7 @@ const HARI = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const iso = (tahun, bulan, tanggal) =>
     `${tahun}-${String(bulan + 1).padStart(2, "0")}-${String(tanggal).padStart(2, "0")}`;
 
-export default function ActivityCalendar({ calendar, placeholder = false }) {
+export default function ActivityCalendar({ calendar, goals = [], placeholder = false }) {
     // Saat placeholder, `calendar` masih berbentuk array lama (data contoh).
     // Dinormalkan supaya sisa komponen hanya mengenal satu bentuk.
     const data = Array.isArray(calendar)
@@ -223,6 +224,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
             {tanggalTerpilih && (
                 <DialogCatatan
                     sel={tanggalTerpilih}
+                    goals={goals}
                     onClose={() => setTanggalTerpilih(null)}
                 />
             )}
@@ -365,7 +367,7 @@ function Keterangan() {
     );
 }
 
-function DialogCatatan({ sel, onClose }) {
+function DialogCatatan({ sel, goals = [], onClose }) {
     const sudahAda = Boolean(sel.catatan);
 
     const form = useForm({
@@ -438,6 +440,8 @@ function DialogCatatan({ sel, onClose }) {
                         )}
                     </div>
                 )}
+
+                <SeksiCatatSetoran tgl={sel.tgl} goals={goals} />
 
                 <form onSubmit={simpan}>
                 <label
@@ -779,5 +783,123 @@ function KolomWaktu({ judul, pilihan, terpilih, onPilih }) {
                 })}
             </div>
         </div>
+    );
+}
+
+/**
+ * Catat setoran pada tanggal yang sedang dibuka.
+ *
+ * Inilah cara pengguna memilih tanggal setoran (PRD FR-32) tanpa perlu mengetik
+ * tanggal sama sekali — tanggalnya sudah ditentukan oleh sel kalender yang
+ * diklik. Form ringkas di Dashboard hanya bisa mencatat untuk hari berjalan;
+ * lewat kalender, setoran yang baru sempat dicatat beberapa hari kemudian tetap
+ * jatuh di tanggal yang benar.
+ *
+ * Tanggal MASA DEPAN tidak menampilkan form ini: uang yang belum disetor bukan
+ * setoran, dan server menolaknya lewat aturan `before_or_equal:today`. Yang
+ * ditampilkan sebagai gantinya adalah penjelasan singkat — bukan form yang
+ * dipastikan gagal saat ditekan.
+ */
+function SeksiCatatSetoran({ tgl, goals }) {
+    const { tahun, bulan, tanggal } = nowInJakartaParts();
+    const masaDepan = tgl > iso(tahun, bulan, tanggal);
+
+    const form = useForm({
+        amount: "",
+        contributed_on: tgl,
+        note: "",
+        financial_goal_id: goals[0]?.id ?? "",
+    });
+
+    if (goals.length === 0) {
+        return null;
+    }
+
+    if (masaDepan) {
+        return (
+            <p className="mt-4 rounded-lg border border-border bg-bg-cardAlt px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
+                Setoran hanya bisa dicatat untuk tanggal yang sudah lewat atau
+                hari ini. Untuk merencanakan setoran di tanggal ini, buat
+                pengingat di bawah.
+            </p>
+        );
+    }
+
+    const simpan = (e) => {
+        e.preventDefault();
+
+        form.post(route("goals.contributions.store", form.data.financial_goal_id), {
+            preserveScroll: true,
+            onSuccess: () => form.reset("amount", "note"),
+        });
+    };
+
+    return (
+        <form onSubmit={simpan} className="mt-4 rounded-lg border border-border bg-bg-cardAlt p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+                Catat setoran di tanggal ini
+            </p>
+
+            <div className="mt-2.5 space-y-2.5">
+                {/*
+                    Pemilih tujuan hanya muncul bila tujuannya lebih dari satu.
+                    Menampilkan menu berisi satu pilihan hanya menambah langkah
+                    tanpa memberi pilihan apa pun.
+                */}
+                {goals.length > 1 && (
+                    <div>
+                        <select
+                            value={form.data.financial_goal_id}
+                            onChange={(e) => form.setData("financial_goal_id", e.target.value)}
+                            aria-label="Tujuan"
+                            className="block w-full rounded-lg border-border-strong bg-bg-base py-2 text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                        >
+                            {goals.map((g) => (
+                                <option key={g.id} value={g.id}>
+                                    {g.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                <div className="flex flex-wrap items-start gap-2">
+                    <div className="w-36">
+                        <CurrencyInput
+                            className="py-2 text-sm"
+                            placeholder="50.000"
+                            value={form.data.amount}
+                            onChange={(v) => form.setData("amount", v)}
+                        />
+                        <InputError message={form.errors.amount} className="mt-1" />
+                    </div>
+
+                    <input
+                        type="text"
+                        maxLength={500}
+                        value={form.data.note}
+                        onChange={(e) => form.setData("note", e.target.value)}
+                        placeholder="Catatan (opsional)"
+                        aria-label="Catatan setoran"
+                        className="min-w-0 flex-1 rounded-lg border-border-strong bg-bg-base py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
+                    />
+
+                    <SecondaryButton
+                        type="submit"
+                        disabled={form.processing || form.data.amount === ""}
+                    >
+                        Simpan
+                    </SecondaryButton>
+                </div>
+
+                <InputError message={form.errors.contributed_on} />
+            </div>
+
+            {goals.length === 1 && (
+                <p className="mt-2 text-[11px] text-text-muted">
+                    Masuk ke tujuan {goals[0].name}.
+                </p>
+            )}
+        </form>
     );
 }

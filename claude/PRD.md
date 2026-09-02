@@ -117,7 +117,13 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 ### 6.7 Pencatatan Realisasi (prasyarat dashboard progres)
 Tanpa bagian ini, `current_amount` tidak pernah berubah dan progress bar di FR-13 selamanya diam — dashboard hanya menampilkan hasil kalkulasi, bukan progres. Ini juga menghapus alasan pengguna untuk kembali, sehingga metrik retensi di §9 tidak akan tercapai.
 
-- FR-32: Pengguna dapat mencatat setoran ke sebuah tujuan (nominal, tanggal, catatan opsional) secara manual.
+- FR-32: Pengguna dapat mencatat setoran ke sebuah tujuan (nominal, tanggal, catatan opsional) secara manual, lewat **dua pintu masuk** yang saling melengkapi:
+  - **Form ringkas di Dashboard** — untuk setoran hari ini, yang paling sering terjadi. Tanggalnya terisi otomatis hari berjalan dan tidak bisa diubah, supaya jalur tercepat ini tetap satu langkah.
+  - **Kalender aktivitas** — klik tanggalnya, lalu catat setoran di sana. Inilah cara memilih tanggal, dan pengguna tidak perlu mengetik tanggal sama sekali karena sudah ditentukan oleh sel yang diklik.
+
+  Rancangan ini disengaja. Sebuah kolom tanggal di form Dashboard sempat ada lalu dihapus: ia memperlambat jalur yang paling sering dipakai demi keperluan yang jarang. Tetapi menghapusnya saja membuat setoran yang baru sempat dicatat beberapa hari kemudian jatuh di tanggal yang salah — dan aplikasi yang mengukur kedisiplinan menabung tidak boleh salah mencatat kapan orang menabung. Kalender mengembalikannya tanpa membebani jalur cepatnya.
+
+  Tanggal masa depan ditolak (`before_or_equal:today`): uang yang belum disetor bukan setoran. Form di kalender menyembunyikan diri pada tanggal masa depan dan mengarahkan pengguna membuat pengingat (FR-57) sebagai gantinya.
 - FR-33: Pengguna dapat melihat, mengedit, dan menghapus riwayat setoran per tujuan.
 - FR-34: `current_amount` sebuah tujuan adalah hasil turunan dari dana awal + akumulasi setoran tercatat, bukan angka yang diedit langsung.
 - FR-35: Dashboard membandingkan **rencana vs realisasi**: setoran seharusnya sampai bulan ini vs yang benar-benar tercatat, beserta selisihnya (tertinggal/di depan target).

@@ -191,7 +191,10 @@ export default function Dashboard() {
 
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                                 <div className="rounded-card border border-border bg-bg-card p-5">
-                                    <ActivityCalendar calendar={calendar} />
+                                    <ActivityCalendar
+                                        calendar={calendar}
+                                        goals={summary.goals ?? []}
+                                    />
                                 </div>
 
                                 <div className="rounded-card border border-border bg-bg-card p-5">
