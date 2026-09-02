@@ -23,7 +23,6 @@ export default function GoalIndex({
     totalTarget,
     totalAssets,
     overallProgress,
-    typeLabels,
 }) {
     return (
         <AuthenticatedLayout>
@@ -66,7 +65,6 @@ export default function GoalIndex({
                                 <KartuTujuan
                                     key={goal.id}
                                     goal={goal}
-                                    typeLabels={typeLabels}
                                     /* Tujuan tertua otomatis jadi tujuan utama
                                        di Dashboard (DashboardSummaryService
                                        mengurutkan berdasar created_at). Ditandai
@@ -109,7 +107,7 @@ function RingkasanKeseluruhan({ totalAssets, totalTarget, overallProgress, jumla
     );
 }
 
-function KartuTujuan({ goal, typeLabels, utama }) {
+function KartuTujuan({ goal, utama }) {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const { delete: destroy, processing } = useForm();
 
@@ -136,12 +134,16 @@ function KartuTujuan({ goal, typeLabels, utama }) {
                         )}
                     </div>
 
-                    <p className="mt-1 text-xs text-text-muted">
-                        {typeLabels[goal.type] ?? goal.type}
-                        {goal.days_remaining !== null && (
-                            <> · {goal.days_remaining} hari lagi</>
-                        )}
-                    </p>
+                    {/* Label jenis tujuan dihapus bersama pilihannya di form:
+                        setiap tujuan kini bertipe "custom", jadi menampilkannya
+                        hanya menuliskan "Kustom" di semua kartu. Tujuan tanpa
+                        tenggat tidak punya sisa hari, dan barisnya ikut hilang
+                        daripada menampilkan keterangan kosong. */}
+                    {goal.days_remaining !== null && (
+                        <p className="mt-1 text-xs text-text-muted">
+                            {goal.days_remaining} hari lagi
+                        </p>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-3">

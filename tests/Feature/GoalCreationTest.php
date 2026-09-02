@@ -25,7 +25,6 @@ class GoalCreationTest extends TestCase
     private function payload(array $ubah = []): array
     {
         return array_merge([
-            'type' => GoalType::House->value,
             'name' => 'DP Rumah Pertama',
             'target_amount' => 500000000,
             'initial_amount' => 50000000,
@@ -51,20 +50,7 @@ class GoalCreationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Goal/Create')
                 ->where('isFirstGoal', true)
-                ->has('goalTypes', count(GoalType::cases())));
-    }
-
-    /**
-     * Daftar jenis tujuan berasal dari enum, bukan ditulis ulang di frontend.
-     * Menambah jenis baru harus cukup di satu tempat.
-     */
-    public function test_daftar_jenis_tujuan_mengikuti_enum(): void
-    {
-        $this->actingAs(User::factory()->create())
-            ->get(route('goals.create'))
-            ->assertInertia(fn ($page) => $page
-                ->where('goalTypes.0.value', GoalType::cases()[0]->value)
-                ->where('goalTypes.0.label', GoalType::cases()[0]->label()));
+                ->missing('goalTypes'));
     }
 
     // ── Pembuatan ───────────────────────────────────────────────────────
@@ -82,7 +68,9 @@ class GoalCreationTest extends TestCase
 
         $this->assertSame($user->id, $goal->user_id);
         $this->assertSame('DP Rumah Pertama', $goal->name);
-        $this->assertSame(GoalType::House, $goal->type);
+        // Jenis tidak lagi dipilih pengguna — selalu 'custom'. Kolomnya tetap
+        // ada di database supaya skema dan data lama tidak perlu diubah.
+        $this->assertSame(GoalType::Custom, $goal->type);
         $this->assertSame(GoalStatus::Active, $goal->status);
         $this->assertSame('500000000.00', $goal->target_amount);
         $this->assertSame('50000000.00', $goal->initial_amount);
@@ -106,14 +94,17 @@ class GoalCreationTest extends TestCase
     }
 
     /**
-     * Dana darurat tidak bertenggat, jadi tidak ada jangka waktu — dan tanpa
-     * jangka waktu, setoran bulanan tidak punya arti untuk dihitung.
+     * TUJUAN APA PUN boleh tanpa tenggat, bukan lagi hanya dana darurat.
+     *
+     * Sebelumnya kemampuan ini melekat pada jenis tujuan; setelah pilihan jenis
+     * dihapus dari form, ia pindah menjadi mode tersendiri ("Tanpa tenggat").
+     * Tanpa jangka waktu, setoran bulanan tidak punya arti — jadi tidak ada
+     * snapshot perhitungan yang disimpan, dan itu memang disengaja.
      */
-    public function test_dana_darurat_boleh_tanpa_tanggal_target(): void
+    public function test_tujuan_boleh_dibuat_tanpa_tanggal_target(): void
     {
         $this->actingAs(User::factory()->create())
             ->post(route('goals.store'), $this->payload([
-                'type' => GoalType::Emergency->value,
                 'name' => 'Dana Darurat',
                 'target_date' => null,
             ]))
@@ -125,22 +116,28 @@ class GoalCreationTest extends TestCase
         $this->assertSame(0, $goal->calculations()->count());
     }
 
-    public function test_jenis_bertenggat_wajib_punya_tanggal_target(): void
+    /**
+     * Form mengirim STRING KOSONG untuk mode "Tanpa tenggat", bukan null —
+     * itulah yang benar-benar dikirim browser dari kolom yang tidak diisi.
+     * Test lain memakai null, jadi jalur ini perlu diuji tersendiri: kalau
+     * middleware ConvertEmptyStringsToNull suatu saat dimatikan, "" akan gagal
+     * aturan `date` dan mode Tanpa tenggat berhenti bekerja tanpa ada yang
+     * menyadarinya.
+     */
+    public function test_tanggal_target_string_kosong_diperlakukan_sebagai_tanpa_tenggat(): void
     {
         $this->actingAs(User::factory()->create())
-            ->post(route('goals.store'), $this->payload(['target_date' => null]))
-            ->assertSessionHasErrors('target_date');
+            ->post(route('goals.store'), $this->payload(['target_date' => '']))
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame(0, FinancialGoal::count());
+        $this->assertNull(FinancialGoal::sole()->target_date);
     }
-
     // ── Validasi ────────────────────────────────────────────────────────
 
     public static function payloadTidakSah(): array
     {
         return [
             'nama kosong' => [['name' => ''], 'name'],
-            'jenis tidak dikenal' => [['type' => 'liburan-ke-mars'], 'type'],
             'target nol' => [['target_amount' => 0], 'target_amount'],
             'target negatif' => [['target_amount' => -1000], 'target_amount'],
             'imbal hasil tidak masuk akal' => [['estimated_return_rate' => 45], 'estimated_return_rate'],

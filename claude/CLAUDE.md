@@ -182,8 +182,14 @@ users                                          -- SUDAH DIIMPLEMENTASIKAN
 financial_goals
   id, user_id (FK, on delete cascade),
   type (enum: retirement|house|vehicle|emergency|education|custom),
+  -- SELALU 'custom' untuk tujuan yang dibuat lewat aplikasi. Pilihan jenis
+  -- sudah dihapus dari form (PRD FR-4): tidak ada logika yang bergantung
+  -- padanya — alokasi instrumen dihitung dari profil risiko & jangka waktu.
+  -- Kolomnya dipertahankan karena data lama masih memakai nilai lain, dan
+  -- membuangnya menuntut migrasi yang menghapus informasi tanpa manfaat.
+  -- Jangan menulis logika baru yang bercabang berdasarkan kolom ini.
   name, target_amount numeric(18,2), initial_amount numeric(18,2),
-  target_date date NULL,                      -- NULL untuk dana darurat (tanpa tenggat)
+  target_date date NULL,                      -- NULL = tujuan tanpa tenggat
   estimated_return_rate numeric(5,2),         -- persen, mis. 7.50
   estimated_inflation_rate numeric(5,2),
   risk_profile_override (enum, nullable)      -- FR-24
@@ -415,7 +421,7 @@ Bentuk `summary` (dipakai langsung sebagai `props.summary` di `Dashboard.jsx`):
 - Route `/dashboard` sudah ada dari Breeze di dalam grup middleware `auth` — **jangan** dikeluarkan dari grup itu. Karena Laravel yang menjaga akses (bukan pengecekan token di frontend), pengguna belum login otomatis diarahkan ke halaman login, bukan menerima 401 JSON.
 - Bila `active_goals_count = 0`, `DashboardSummaryService` tetap mengembalikan struktur yang sama dengan array/nilai kosong (bukan melempar exception atau `null`) — `Dashboard.jsx` memakainya sebagai sinyal untuk menampilkan empty state (DESIGN.md §9.1), bukan error state (§9.3).
 - `asset_growth_series` dan `recent_activity` masing-masing dibatasi (mis. 12 bulan terakhir, 10 aktivitas terakhir) di dalam service — props Inertia dikirim utuh setiap render halaman, jadi jangan biarkan array ini tumbuh tanpa batas.
-- Uji `DashboardSummaryService` dengan kasus: user tanpa goals, goals dengan `target_date` `NULL` (dana darurat, tidak masuk hitungan "progress ke tanggal"), dan goals lintas beberapa `status` (pastikan hanya `active` yang masuk agregasi utama, `achieved`/`archived` dikecualikan kecuali diminta eksplisit).
+- Uji `DashboardSummaryService` dengan kasus: user tanpa goals, goals dengan `target_date` `NULL` (tujuan tanpa tenggat, tidak masuk hitungan "progress ke tanggal"), dan goals lintas beberapa `status` (pastikan hanya `active` yang masuk agregasi utama, `achieved`/`archived` dikecualikan kecuali diminta eksplisit).
 
 ## 7. Integrasi Currents API
 

@@ -55,26 +55,12 @@ class GoalController extends Controller
             'totalTarget' => $ringkasan['total_target'],
             'totalAssets' => $ringkasan['total_assets'],
             'overallProgress' => $ringkasan['overall_progress_percentage'],
-            'typeLabels' => $this->typeLabels(),
         ]);
     }
 
     public function create(Request $request): Response
     {
         return Inertia::render('Goal/Create', [
-            // Daftar jenis tujuan berasal dari enum, bukan ditulis ulang di
-            // frontend — supaya menambah jenis baru cukup di satu tempat.
-            'goalTypes' => collect(GoalType::cases())
-                ->map(fn (GoalType $type) => [
-                    'value' => $type->value,
-                    'label' => $type->label(),
-                    // Dana darurat tidak bertenggat; frontend memakai penanda
-                    // ini untuk menyembunyikan kolom tanggal, dan aturan yang
-                    // sama ditegakkan lagi di StoreGoalRequest.
-                    'requiresDate' => $type !== GoalType::Emergency,
-                ])
-                ->values(),
-
             'isFirstGoal' => $request->user()->goals()->count() === 0,
         ]);
     }
@@ -92,7 +78,13 @@ class GoalController extends Controller
         // baik daripada meninggalkan tujuan tanpa angka yang menjelaskannya.
         $goal = DB::transaction(function () use ($request, $data, $targetDate, $initialAmount, $inflationRate, $calculator) {
             $goal = $request->user()->goals()->create([
-                'type' => $data['type'],
+                // Jenis tujuan tidak lagi dipilih pengguna: satu nama bebas
+                // lebih fleksibel daripada enam kategori tetap, dan tidak ada
+                // logika yang bergantung padanya — alokasi instrumen dihitung
+                // dari profil risiko & jangka waktu (InvestmentAllocationService),
+                // bukan dari jenis. Kolomnya tetap ada di database dan diisi
+                // 'custom' supaya skema serta data lama tidak perlu diubah.
+                'type' => GoalType::Custom,
                 'name' => $data['name'],
                 'target_amount' => $data['target_amount'],
                 'initial_amount' => $initialAmount,
@@ -141,24 +133,9 @@ class GoalController extends Controller
     }
 
     /**
-     * Peta nilai enum → label bahasa Indonesia, mis. `house` → "Beli Rumah".
-     *
-     * Dikirim dari server supaya menambah jenis tujuan baru cukup dilakukan di
-     * App\Enums\GoalType — tidak perlu menyalin daftarnya lagi ke frontend.
-     *
-     * @return array<string, string>
-     */
-    private function typeLabels(): array
-    {
-        return collect(GoalType::cases())
-            ->mapWithKeys(fn (GoalType $type) => [$type->value => $type->label()])
-            ->all();
-    }
-
-    /**
      * Jumlah bulan dari hari ini sampai tanggal target.
      *
-     * NULL untuk tujuan tanpa tenggat (dana darurat) — tanpa jangka waktu,
+     * NULL untuk tujuan tanpa tenggat — tanpa jangka waktu,
      * setoran bulanan tidak punya arti dan tidak ada yang bisa dihitung.
      *
      * Dibulatkan ke atas supaya tenggatnya tidak terlewat: sisa 30 hari lebih

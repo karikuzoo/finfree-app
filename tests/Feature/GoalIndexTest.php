@@ -85,15 +85,6 @@ class GoalIndexTest extends TestCase
         $this->assertSame($dashboard['on_track'], $daftar['on_track']);
     }
 
-    public function test_label_jenis_tujuan_dikirim_dari_enum(): void
-    {
-        $this->actingAs(User::factory()->create())
-            ->get(route('goals.index'))
-            ->assertInertia(fn ($page) => $page
-                ->where('typeLabels.house', GoalType::House->label())
-                ->where('typeLabels.emergency', GoalType::Emergency->label()));
-    }
-
     public function test_ringkasan_keseluruhan_menjumlahkan_semua_tujuan(): void
     {
         $user = User::factory()->create();

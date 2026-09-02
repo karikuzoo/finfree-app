@@ -78,9 +78,8 @@ const formatTanggalIndonesia = (iso) =>
  * yang terkirim — sama seperti kalkulator publik memperlakukan
  * WhatIfPanel-nya.
  */
-export default function GoalCreate({ goalTypes, isFirstGoal }) {
+export default function GoalCreate({ isFirstGoal }) {
     const form = useForm({
-        type: "",
         name: "",
         target_amount: "",
         initial_amount: "",
@@ -93,21 +92,13 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
     const [months, setMonths] = useState("");
     const [dailyAmount, setDailyAmount] = useState("");
 
-    const jenisTerpilih = goalTypes.find((t) => t.value === form.data.type);
-    const perluTanggal = jenisTerpilih ? jenisTerpilih.requiresDate : true;
-
-    const pilihJenis = (value) => {
-        const jenis = goalTypes.find((t) => t.value === value);
-
-        form.setData((sebelumnya) => ({
-            ...sebelumnya,
-            type: value,
-            // Nama diisikan otomatis dari label jenisnya, tetapi HANYA bila
-            // pengguna belum menulis apa pun — mengetik lalu kehilangan
-            // ketikan sendiri saat berganti pilihan itu menjengkelkan.
-            name: sebelumnya.name.trim() === "" ? jenis.label : sebelumnya.name,
-        }));
-    };
+    // Tujuan tanpa tenggat kini jadi MODE tersendiri, bukan turunan dari
+    // jenis tujuan. Sebelumnya hanya "dana darurat" yang boleh tanpa tanggal;
+    // setelah pilihan jenis dihapus, kemampuan itu akan ikut hilang kalau
+    // tidak dipindahkan ke sini — padahal kolom target_date di database
+    // memang nullable dan Dashboard sudah menangani tujuan tanpa tenggat
+    // (days_remaining & on_track bernilai null).
+    const perluTanggal = mode !== "tanpa";
 
     // Pratinjau mode "harian" — dihitung ulang tiap render, bukan lewat
     // useMemo/useEffect: solveMonths() adalah pencarian biner ≤10 langkah,
@@ -170,39 +161,6 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                 </div>
 
                 <form onSubmit={submit} className="space-y-6">
-                    {/* ── Jenis tujuan ─────────────────────────────────── */}
-                    <div className="rounded-card border border-border bg-bg-card p-5">
-                        <InputLabel value="Jenis tujuan" />
-
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                            {goalTypes.map((jenis) => {
-                                const aktif = form.data.type === jenis.value;
-
-                                return (
-                                    <button
-                                        key={jenis.value}
-                                        type="button"
-                                        onClick={() => pilihJenis(jenis.value)}
-                                        aria-pressed={aktif}
-                                        className={
-                                            "rounded-lg border px-3 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card " +
-                                            (aktif
-                                                ? "border-lime-500 bg-lime-softBg text-lime-500"
-                                                : "border-border-strong text-text-secondary hover:border-text-muted hover:text-text-primary")
-                                        }
-                                    >
-                                        {jenis.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        <InputError
-                            message={form.errors.type}
-                            className="mt-2"
-                        />
-                    </div>
-
                     {/* ── Rincian tujuan ───────────────────────────────── */}
                     <div className="space-y-5 rounded-card border border-border bg-bg-card p-5">
                         <div>
@@ -270,9 +228,16 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                             />
                         </div>
 
-                        {perluTanggal && (
-                            <div>
-                                <InputLabel value="Tentukan lewat" />
+                        {/*
+                            Tombol mode SELALU dirender. Sebelumnya seluruh blok
+                            ini dibungkus {perluTanggal && ...}, sehingga memilih
+                            "Tanpa tenggat" membuat tombolnya sendiri ikut
+                            menghilang — pengguna terjebak dan harus memuat ulang
+                            halaman untuk berpindah mode. Yang boleh berganti
+                            hanyalah isian di bawahnya.
+                        */}
+                        <div>
+                            <InputLabel value="Tentukan lewat" />
 
                                 <div className="mt-2 flex gap-2">
                                     <ModePill
@@ -284,6 +249,11 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                                         label="Setoran harian"
                                         aktif={mode === "harian"}
                                         onClick={() => setMode("harian")}
+                                    />
+                                    <ModePill
+                                        label="Tanpa tenggat"
+                                        aktif={mode === "tanpa"}
+                                        onClick={() => setMode("tanpa")}
                                     />
                                 </div>
 
@@ -341,7 +311,7 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                                             </p>
                                         )}
                                     </div>
-                                ) : (
+                                ) : mode === "harian" ? (
                                     <div className="mt-4">
                                         <InputLabel
                                             htmlFor="daily_amount"
@@ -405,23 +375,22 @@ export default function GoalCreate({ goalTypes, isFirstGoal }) {
                                                 </p>
                                             ))}
                                     </div>
-                                )}
+                            ) : (
+                                <p className="mt-4 rounded-lg border border-border-strong bg-bg-cardAlt px-4 py-3 text-xs leading-relaxed text-text-secondary">
+                                    Tujuan ini dikumpulkan terus-menerus tanpa
+                                    tenggat — cocok untuk dana darurat. Yang
+                                    dipantau progresnya, bukan hitung mundurnya,
+                                    dan setoran bulanan tidak dihitung karena
+                                    tanpa jangka waktu angka itu tidak punya
+                                    arti.
+                                </p>
+                            )}
 
-                                <InputError
-                                    message={form.errors.target_date}
-                                    className="mt-2"
-                                />
-                            </div>
-                        )}
-
-                        {jenisTerpilih && !perluTanggal && (
-                            <p className="rounded-lg border border-border-strong bg-bg-cardAlt px-4 py-3 text-xs leading-relaxed text-text-secondary">
-                                Dana darurat tidak diberi tanggal target. Ia
-                                dikumpulkan terus-menerus tanpa tenggat, jadi
-                                yang dipantau progresnya — bukan hitung
-                                mundurnya.
-                            </p>
-                        )}
+                            <InputError
+                                message={form.errors.target_date}
+                                className="mt-2"
+                            />
+                        </div>
                     </div>
 
                     {/* ── Asumsi perhitungan ───────────────────────────── */}

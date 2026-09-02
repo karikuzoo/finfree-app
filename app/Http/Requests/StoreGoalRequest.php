@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\GoalType;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Validasi pembuatan tujuan finansial (FR-01..FR-09).
@@ -20,20 +18,18 @@ class StoreGoalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', Rule::enum(GoalType::class)],
-
             'name' => ['required', 'string', 'max:100'],
 
             'target_amount' => ['required', 'numeric', 'min:1', 'max:999999999999'],
 
             'initial_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999', 'lt:target_amount'],
 
-            // Dana darurat tidak punya tenggat — itu memang sifatnya, bukan
-            // kelalaian pengguna (lihat migrasi create_financial_goals_table).
-            // Selain dana darurat, tanggal target wajib: tanpa itu jangka
-            // waktunya tidak diketahui dan setoran bulanan tidak bisa dihitung.
+            // Opsional. Tujuan tanpa tenggat dikumpulkan terus-menerus —
+            // dana darurat contoh khasnya — dan kolomnya di database memang
+            // nullable. Tanpa tanggal, jangka waktunya tidak diketahui
+            // sehingga setoran bulanan tidak dihitung; itu konsekuensi yang
+            // diterima, bukan kesalahan.
             'target_date' => [
-                Rule::requiredIf(fn () => $this->input('type') !== GoalType::Emergency->value),
                 'nullable',
                 'date',
                 'after:today',
@@ -49,9 +45,6 @@ class StoreGoalRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'type.required' => 'Pilih jenis tujuan terlebih dahulu.',
-            'type.enum' => 'Jenis tujuan yang dipilih tidak dikenali.',
-
             'name.required' => 'Nama tujuan wajib diisi.',
             'name.max' => 'Nama tujuan maksimal 100 karakter.',
 
@@ -60,7 +53,6 @@ class StoreGoalRequest extends FormRequest
 
             'initial_amount.lt' => 'Dana awal harus lebih kecil dari nominal target. Bila dana Anda sudah mencapai target, tujuan ini tidak perlu dibuat.',
 
-            'target_date.required' => 'Tanggal target wajib diisi untuk jenis tujuan ini.',
             'target_date.after' => 'Tanggal target harus setelah hari ini.',
             'target_date.before' => 'Tanggal target maksimal 60 tahun dari sekarang.',
 
@@ -74,7 +66,6 @@ class StoreGoalRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'type' => 'jenis tujuan',
             'name' => 'nama tujuan',
             'target_amount' => 'nominal target',
             'initial_amount' => 'dana awal',

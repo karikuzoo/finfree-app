@@ -71,8 +71,18 @@ Keduanya dijembatani satu fitur: hasil kalkulator bisa langsung dijadikan Tujuan
 - FR-3: Pengguna dapat mengatur profil (nama, foto, mata uang, profil risiko: konservatif/moderat/agresif).
 
 ### 6.2 Kalkulator Tujuan Finansial
-- FR-4: Pengguna memilih jenis tujuan (Pensiun, Rumah, Kendaraan, Dana Darurat, Pendidikan, Kustom).
-- FR-5: Pengguna memasukkan parameter: nama tujuan, nominal target, jangka waktu (tahun/bulan), dana awal yang sudah dimiliki, estimasi inflasi (default per kategori, dapat diubah), estimasi return investasi (default per kategori, dapat diubah).
+- FR-4: Tujuan dikenali dari **namanya sendiri**, bebas diketik pengguna. Tidak ada pilihan jenis/kategori di form.
+
+  Semula ada enam kategori tetap (Pensiun, Rumah, Kendaraan, Dana Darurat, Pendidikan, Kustom) yang harus dipilih lebih dulu. Kategori itu dihapus dari antarmuka karena memaksa pengguna memilih kotak sebelum boleh menulis apa yang sebenarnya ia inginkan — sementara **tidak satu pun logika bergantung padanya**: alokasi instrumen dihitung dari profil risiko dan jangka waktu (`InvestmentAllocationService`), bukan dari jenis tujuan.
+
+  Kolom `financial_goals.type` tetap ada di database dan diisi `custom` untuk semua tujuan baru. Menghapus kolomnya menuntut migrasi yang membuang jenis pada data lama tanpa memberi manfaat apa pun.
+- FR-5: Pengguna memasukkan parameter: nama tujuan, nominal target, jangka waktu, dana awal yang sudah dimiliki, estimasi inflasi, dan estimasi return investasi. Kedua estimasi sudah terisi nilai wajar yang berlaku umum dan dapat diubah — bukan lagi default per kategori, karena kategorinya sudah tidak ada.
+- FR-5a: Jangka waktu ditentukan lewat **tiga mode** yang semuanya bermuara pada satu `target_date`:
+  - **Jangka waktu** — pengguna mengisi berapa bulan.
+  - **Setoran harian** — pengguna mengisi nominal harian, lalu jangka waktunya dihitung mundur (`solveMonths()`).
+  - **Tanpa tenggat** — tujuan dikumpulkan terus-menerus, `target_date` bernilai NULL.
+
+  Mode ketiga menggantikan aturan lama "hanya Dana Darurat yang boleh tanpa tanggal". Setelah kategori dihapus, aturan itu kehilangan pegangan, dan tanpa mode ini kemampuannya akan ikut hilang diam-diam — padahal kolomnya nullable dan Dashboard sudah menanganinya (`days_remaining` dan `on_track` bernilai null). Kini tujuan apa pun boleh tanpa tenggat, bukan hanya dana darurat.
 - FR-6: Sistem menghitung nominal yang harus disisihkan per bulan menggunakan rumus *future value of annuity* (mempertimbangkan bunga majemuk/return investasi dan inflasi terhadap target nominal).
 - FR-7: Sistem menampilkan ringkasan hasil: setoran bulanan dibutuhkan, total kontribusi vs total hasil investasi (proyeksi), grafik proyeksi pertumbuhan dana per tahun/bulan hingga target tercapai.
 - FR-8: Sistem dapat menampilkan skenario "bagaimana jika" (ubah jangka waktu atau nominal setoran, hasil ter-update otomatis/real-time).
@@ -85,7 +95,11 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 - FR-21 (Dana Darurat): pengguna memasukkan **pengeluaran bulanan saat ini** dan status tanggungan. Sistem menyarankan target 3× (lajang), 6× (menikah), atau 12× (berpenghasilan tidak tetap) pengeluaran bulanan. Kategori ini **tidak** memakai tanggal target; targetnya "secepat mungkin", sehingga output yang ditampilkan adalah *estimasi waktu tercapai* dari nominal setoran yang sanggup disisihkan (kebalikan dari kalkulator lain).
 - FR-22 (Dana Pendidikan): target bukan satu nominal tunggal melainkan **rangkaian pencairan** (masuk SD, SMP, SMA, kuliah). Sistem menghitung kebutuhan tiap jenjang dengan inflasi pendidikan tersendiri (jauh di atas inflasi umum) dan menjumlahkan kebutuhan setoran bulanannya. MVP boleh menyederhanakan ke satu jenjang terpilih, tetapi model data harus sudah mengakomodasi banyak pencairan.
 
-> Konsekuensi desain: ketiga kategori di atas tidak bisa memakai satu form generik yang sama. Rencanakan `GoalForm` sebagai shell + strategi per kategori sejak awal, bukan `if/else` yang ditempel belakangan.
+> **Pertanyaan terbuka setelah kategori dihapus (FR-4).** Ketiga penentu target di atas dulu dipicu oleh jenis tujuan yang dipilih pengguna. Tanpa pilihan itu, aplikasi tidak lagi tahu kapan harus menawarkannya, dan ketiganya perlu jalan masuk baru sebelum dibangun di Rilis 2.
+>
+> Arah yang paling menjanjikan: jadikan ketiganya **alat bantu opsional** yang dipanggil pengguna dari dalam form — sebuah tautan bernada "Belum tahu nominal targetnya? Hitung dulu" yang membuka penentu yang sesuai, lalu mengisikan hasilnya ke kolom nominal target. Dengan begitu penentu target menjadi pilihan pengguna, bukan konsekuensi kategori yang terlanjur dipilih di awal.
+>
+> Konsekuensi teknis lamanya tetap berlaku: ketiga penentu itu tidak bisa memakai satu form generik yang sama. Rencanakan sebagai shell + strategi sejak awal, bukan `if/else` yang ditempel belakangan. Putuskan jalan masuknya sebelum FR-20..22 mulai dikerjakan.
 
 ### 6.3 Rekomendasi Instrumen Investasi
 - FR-10: Berdasarkan jangka waktu tujuan & profil risiko pengguna, sistem menampilkan saran alokasi antar instrumen (contoh: jangka <2 tahun → dominan deposito/obligasi jangka pendek; 2–5 tahun → campuran obligasi & reksa dana campuran; >5 tahun → dominan saham/reksa dana saham).
