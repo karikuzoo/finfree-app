@@ -174,6 +174,31 @@ function KartuTujuan({ goal, utama }) {
                 <StatusOnTrack status={goal.on_track} />
             </div>
 
+            {/*
+                Setoran bulanan sesuai RENCANA — angka yang disepakati saat
+                tujuan dibuat, bukan hitungan ulang terhadap sisa waktu hari
+                ini. Kata "rencana" ada di labelnya supaya tidak disangka
+                kebutuhan terkini; menghitung ulang saat realisasi meleset
+                adalah FR-36, fitur tersendiri yang menawarkan pilihan.
+
+                Sebelum ini angkanya dihitung, disimpan ke goal_calculations,
+                lalu tidak pernah ditampilkan di mana pun — padahal inilah satu
+                angka yang pengguna butuhkan setiap bulan.
+            */}
+            {goal.planned_monthly_contribution !== null && (
+                <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
+                    <span className="text-xs text-text-muted">
+                        Rencana setoran
+                    </span>
+                    <span className="num-tabular text-sm font-semibold text-lime-500">
+                        {formatRupiah(goal.planned_monthly_contribution)}
+                        <span className="ml-1 text-xs font-normal text-text-muted">
+                            / bulan
+                        </span>
+                    </span>
+                </div>
+            )}
+
             <Modal show={confirmingDeletion} onClose={() => setConfirmingDeletion(false)} maxWidth="md">
                 <div className="p-6">
                     <h2 className="text-lg font-semibold text-text-primary">

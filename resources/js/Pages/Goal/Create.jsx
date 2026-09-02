@@ -7,7 +7,10 @@ import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
 import { nowInJakartaParts } from "@/utils/timezone";
-import { solveMonths } from "@/utils/goalCalculator";
+import {
+    calculateMonthlyContribution,
+    solveMonths,
+} from "@/utils/goalCalculator";
 import { formatDuration, formatRupiah } from "@/utils/format";
 import { useState } from "react";
 
@@ -132,6 +135,37 @@ export default function GoalCreate({ isFirstGoal }) {
                   maxMonths: BATAS_BULAN,
               })
             : null;
+
+    // Jangka waktu efektif menurut mode yang sedang dipakai. NULL untuk
+    // "Tanpa tenggat" — tanpa jangka waktu, setoran bulanan tidak punya arti.
+    const bulanEfektif =
+        mode === "waktu"
+            ? Number(months) || null
+            : mode === "harian"
+              ? bulanTerhitung
+              : null;
+
+    // Hasil perhitungan yang SAMA dengan yang nanti disimpan server.
+    //
+    // Sebelum ini, imbal hasil dan inflasi diminta lalu hasilnya hanya ditulis
+    // ke goal_calculations dan tidak pernah ditampilkan di mana pun — pengguna
+    // mengisi dua angka yang tampak tidak berpengaruh apa-apa. Meminta masukan
+    // lalu membuang keluarannya diam-diam lebih buruk daripada tidak meminta.
+    //
+    // Mesinnya cermin dari GoalCalculatorService dan diuji terhadap test vector
+    // yang sama (docs/fixtures/calculator-cases.json), jadi angka di sini pasti
+    // sama dengan yang tersimpan. Dihitung ulang tiap render tanpa useMemo:
+    // biayanya beberapa operasi aritmetika, jauh di bawah ongkos memoization.
+    const hasil = bulanEfektif
+        ? calculateMonthlyContribution({
+              targetAmount: Number(form.data.target_amount) || 0,
+              currentAmount: Number(form.data.initial_amount) || 0,
+              months: bulanEfektif,
+              annualReturnRate: Number(form.data.estimated_return_rate) || 0,
+              annualInflationRate:
+                  Number(form.data.estimated_inflation_rate) || 0,
+          })
+        : null;
 
     const submit = (e) => {
         e.preventDefault();
@@ -504,6 +538,72 @@ export default function GoalCreate({ isFirstGoal }) {
                         </div>
                     </div>
 
+                    {/* ── Hasil perhitungan ────────────────────────────── */}
+                    {hasil && (
+                        <div className="rounded-card border border-lime-500/40 bg-lime-softBg p-5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                                Yang perlu Anda sisihkan
+                            </p>
+
+                            <p className="num-tabular mt-1.5 text-3xl font-bold text-lime-500">
+                                {formatRupiah(hasil.monthly_contribution_required)}
+                                <span className="ml-1.5 text-base font-medium text-text-secondary">
+                                    / bulan
+                                </span>
+                            </p>
+
+                            <p className="mt-1 text-xs text-text-muted">
+                                Selama {formatDuration(bulanEfektif)}.
+                            </p>
+
+                            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-lime-500/20 pt-4 text-sm sm:grid-cols-2">
+                                <Baris
+                                    istilah="Total disetor"
+                                    nilai={formatRupiah(hasil.total_contribution_projection)}
+                                />
+                                <Baris
+                                    istilah="Hasil investasi"
+                                    nilai={formatRupiah(hasil.total_investment_growth_projection)}
+                                />
+                                <Baris
+                                    istilah="Target setelah inflasi"
+                                    nilai={formatRupiah(hasil.future_value_target)}
+                                />
+                                <Baris
+                                    istilah="Proyeksi akhir"
+                                    nilai={formatRupiah(hasil.future_value_projection)}
+                                    tebal
+                                />
+                            </dl>
+
+                            {/*
+                                Inflasi tidak terlihat bekerja tanpa kalimat ini.
+                                Nominal target yang tersimpan tetap nilai HARI INI
+                                — itu angka yang pengguna maksud dan pahami — jadi
+                                tanpa penjelasan, mengisi kolom inflasi terasa
+                                tidak berpengaruh apa-apa.
+                            */}
+                            {Number(form.data.estimated_inflation_rate) > 0 && (
+                                <p className="mt-3 text-xs leading-relaxed text-text-secondary">
+                                    Target Anda{" "}
+                                    {formatRupiah(form.data.target_amount)} dalam
+                                    nilai hari ini. Dengan inflasi{" "}
+                                    {form.data.estimated_inflation_rate}% per
+                                    tahun, daya beli setara itu membutuhkan{" "}
+                                    {formatRupiah(hasil.future_value_target)} saat
+                                    tanggal target tiba — dan angka itulah yang
+                                    dikejar perhitungan di atas.
+                                </p>
+                            )}
+
+                            {hasil.already_achieved && (
+                                <p className="mt-3 text-xs leading-relaxed text-state-success">
+                                    Dana awal Anda sudah cukup untuk mencapai
+                                    target ini tanpa setoran tambahan.
+                                </p>
+                            )}
+                        </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-3">
                         <PrimaryButton
                             disabled={
@@ -546,5 +646,21 @@ function ModePill({ label, aktif, onClick }) {
         >
             {label}
         </button>
+    );
+}
+
+function Baris({ istilah, nilai, tebal = false }) {
+    return (
+        <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-text-secondary">{istilah}</dt>
+            <dd
+                className={
+                    "num-tabular " +
+                    (tebal ? "font-bold text-text-primary" : "text-text-primary")
+                }
+            >
+                {nilai}
+            </dd>
+        </div>
     );
 }

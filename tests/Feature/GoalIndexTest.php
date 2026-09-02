@@ -143,6 +143,83 @@ class GoalIndexTest extends TestCase
             ->assertInertia(fn ($page) => $page->has('goals', 0));
     }
 
+    /**
+     * Setoran bulanan sesuai rencana harus sampai ke kartu tujuan.
+     *
+     * Angkanya sudah lama dihitung dan disimpan ke goal_calculations, tetapi
+     * tidak pernah dikirim ke halaman mana pun — pengguna mengisi asumsi imbal
+     * hasil dan inflasi yang hasilnya tak terlihat di mana-mana.
+     */
+    public function test_kartu_menampilkan_setoran_bulanan_sesuai_rencana(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('goals.store'), [
+            'name' => 'DP Rumah',
+            'target_amount' => 120000000,
+            'initial_amount' => 0,
+            'target_date' => Carbon::now()->addMonths(12)->toDateString(),
+            'estimated_return_rate' => 0,
+            'estimated_inflation_rate' => 0,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('goals.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('goals.0.planned_monthly_contribution', 10000000));
+    }
+
+    /**
+     * Tujuan tanpa tenggat tidak punya snapshot perhitungan — tanpa jangka
+     * waktu, setoran bulanan tidak punya arti. NULL, bukan nol: nol terbaca
+     * sebagai "tidak perlu menyetor apa pun", yang keliru.
+     */
+    public function test_tujuan_tanpa_tenggat_tidak_punya_rencana_setoran(): void
+    {
+        $user = User::factory()->create();
+        $this->buatTujuan($user, ['target_date' => null]);
+
+        $this->actingAs($user)
+            ->get(route('goals.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('goals.0.planned_monthly_contribution', null));
+    }
+
+    /**
+     * Snapshot perhitungan di-eager load lewat relasi latestCalculation.
+     * Tanpa itu, tiap tujuan menambah satu kueri sendiri (N+1) — kemunduran
+     * yang tak terasa saat menguji dengan dua tujuan dan baru menggigit ketika
+     * penggunanya punya belasan.
+     */
+    public function test_jumlah_kueri_tidak_bertambah_seiring_jumlah_tujuan(): void
+    {
+        $user = User::factory()->create();
+        $this->buatTujuan($user, ['name' => 'Satu']);
+
+        $hitung = function () use ($user) {
+            $jumlah = 0;
+            \Illuminate\Support\Facades\DB::listen(function () use (&$jumlah) {
+                $jumlah++;
+            });
+            $this->actingAs($user)->get(route('goals.index'));
+
+            return $jumlah;
+        };
+
+        $satuTujuan = $hitung();
+
+        foreach (['Dua', 'Tiga', 'Empat'] as $nama) {
+            $this->buatTujuan($user, ['name' => $nama]);
+        }
+
+        $empatTujuan = $hitung();
+
+        $this->assertSame(
+            $satuTujuan,
+            $empatTujuan,
+            "Jumlah kueri naik dari {$satuTujuan} ke {$empatTujuan} saat tujuan bertambah — tanda N+1.",
+        );
+    }
     public function test_setelah_membuat_tujuan_diarahkan_ke_daftar(): void
     {
         $this->actingAs(User::factory()->create())

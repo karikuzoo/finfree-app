@@ -54,6 +54,7 @@ class DashboardSummaryService
         $activeGoals = $user->goals()
             ->where('status', GoalStatus::Active->value)
             ->withSum('contributions as contributions_sum', 'amount')
+            ->with(['latestCalculation', 'contributions'])
             ->orderBy('created_at')
             ->get();
 
@@ -113,6 +114,15 @@ class DashboardSummaryService
         return [
             'id' => $goal->id,
             'name' => $goal->name,
+            // Setoran bulanan SESUAI RENCANA — dari snapshot saat tujuan
+            // dibuat, bukan dihitung ulang terhadap sisa waktu hari ini.
+            // Menghitung ulang adalah FR-36 (rekalkulasi saat realisasi
+            // meleset), fitur tersendiri dengan tawaran pilihan ke pengguna.
+            // NULL untuk tujuan tanpa tenggat: tanpa jangka waktu, setoran
+            // bulanan tidak punya arti dan snapshotnya memang tidak dibuat.
+            'planned_monthly_contribution' => $goal->latestCalculation
+                ? round((float) $goal->latestCalculation->monthly_contribution_required, 2)
+                : null,
             'type' => $goal->type->value,
             'current_amount' => $currentAmount,
             'target_amount' => $targetAmount,
@@ -234,10 +244,20 @@ class DashboardSummaryService
         $start = Carbon::parse($goal->created_at)->startOfMonth();
         $end = Carbon::now()->startOfMonth();
 
-        $contributionsByMonth = $goal->contributions()
-            ->where('contributed_on', '>=', $start->toDateString())
-            ->get(['contributed_on', 'amount'])
-            ->groupBy(fn ($row) => Carbon::parse($row->contributed_on)->format('Y-m'))
+        // Menyaring dari relasi yang SUDAH di-eager load, bukan kueri baru.
+        //
+        // Versi sebelumnya memanggil $goal->contributions()->where(...)->get()
+        // di dalam perulangan per tujuan — satu kueri tambahan untuk tiap
+        // tujuan (N+1). Tidak terasa saat menguji dengan dua tujuan, dan baru
+        // menggigit ketika penggunanya punya belasan.
+        //
+        // Batas bawahnya berbeda-beda per tujuan (mengikuti created_at
+        // masing-masing), jadi tidak bisa dijadikan satu kondisi eager load.
+        // Menyaring di PHP aman di sini: volumenya kecil — setoran satu
+        // pengguna dalam setahun.
+        $contributionsByMonth = $goal->contributions
+            ->filter(fn ($row) => $row->contributed_on->greaterThanOrEqualTo($start))
+            ->groupBy(fn ($row) => $row->contributed_on->format('Y-m'))
             ->map(fn (Collection $rows) => (float) $rows->sum('amount'));
 
         $series = [];
