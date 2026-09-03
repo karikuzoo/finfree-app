@@ -648,7 +648,14 @@ const MENIT = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"
  */
 function PilihJam({ value, onChange }) {
     const [buka, setBuka] = useState(false);
+    // Arah bukaan ditentukan saat panel dibuka, bukan dipatok.
+    //
+    // Dipatok ke atas, panel terpotong bila tombolnya berada di bagian atas
+    // dialog; dipatok ke bawah, terpotong bila di bagian bawah. Diukur dulu,
+    // keduanya terhindar.
+    const [keAtas, setKeAtas] = useState(true);
     const bungkus = useRef(null);
+    const tombol = useRef(null);
 
     // Nilai kosong TIDAK boleh diandalkan diselamatkan nilai bawaan
     // destructuring: "".split(":") menghasilkan [""], dan string kosong itu
@@ -686,8 +693,17 @@ function PilihJam({ value, onChange }) {
     return (
         <div ref={bungkus} className="relative">
             <button
+                ref={tombol}
                 type="button"
-                onClick={() => setBuka((s) => !s)}
+                onClick={() => {
+                    if (!buka) {
+                        const r = tombol.current?.getBoundingClientRect();
+                        // ~210px: tinggi panel (kepala + max-h-40 + padding).
+                        const cukupDiAtas = (r?.top ?? 0) > 210;
+                        setKeAtas(cukupDiAtas);
+                    }
+                    setBuka((s) => !s);
+                }}
                 aria-haspopup="dialog"
                 aria-expanded={buka}
                 aria-label={`Jam pengingat: ${jam}:${menit}`}
@@ -717,7 +733,10 @@ function PilihJam({ value, onChange }) {
                 <div
                     role="dialog"
                     aria-label="Pilih jam"
-                    className="absolute bottom-full right-0 z-20 mb-2 flex overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-xl"
+                    className={
+                        "absolute right-0 z-30 flex overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-xl " +
+                        (keAtas ? "bottom-full mb-2" : "top-full mt-2")
+                    }
                 >
                     <KolomWaktu
                         judul="Jam"

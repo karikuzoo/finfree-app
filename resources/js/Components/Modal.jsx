@@ -54,7 +54,20 @@ export default function Modal({
                     leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                 >
                     <DialogPanel
-                        className={`mb-6 transform overflow-hidden rounded-card border border-border bg-bg-card shadow-xl transition-all sm:mx-auto sm:w-full ${maxWidthClass}`}
+                        /*
+                            TANPA overflow-hidden.
+
+                            Sebelumnya ada, dan itu memotong apa pun yang perlu
+                            keluar dari batas modal — pemilih jam dan pemilih
+                            tanggal di dalam dialog tanggal kalender jadi
+                            terpotong separuh, tak peduli membuka ke atas atau
+                            ke bawah.
+
+                            Aman dibuang: seluruh isi modal berada di dalam
+                            padding, tidak ada yang menyentuh sudut membulatnya,
+                            jadi tidak ada yang perlu dipangkas.
+                        */
+                        className={`mb-6 transform rounded-card border border-border bg-bg-card shadow-xl transition-all sm:mx-auto sm:w-full ${maxWidthClass}`}
                     >
                         {children}
                     </DialogPanel>
