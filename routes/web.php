@@ -112,10 +112,8 @@ Route::middleware('auth')->group(function () {
 
     // Ekspor (FR-38). Ditaruh SEBELUM rute bersegmen dinamis supaya
     // "ekspor" tidak pernah tertangkap sebagai ID tujuan.
-    Route::get('/tujuan/ekspor/json', [GoalExportController::class, 'json'])
-        ->name('goals.export.json');
-    Route::get('/tujuan/ekspor/csv', [GoalExportController::class, 'csv'])
-        ->name('goals.export.csv');
+    Route::get('/tujuan/ekspor', [GoalExportController::class, 'xlsx'])
+        ->name('goals.export');
     Route::post('/tujuan', [GoalController::class, 'store'])
         ->name('goals.store');
     Route::get('/tujuan/{financialGoal}/ubah', [GoalController::class, 'edit'])

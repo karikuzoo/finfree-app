@@ -3,111 +3,149 @@
 namespace App\Http\Controllers;
 
 use App\Models\FinancialGoal;
-use App\Models\GoalCalculation;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Writer\XLSX\Writer;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Ekspor data tujuan finansial (PRD FR-38).
+ * Ekspor data tujuan finansial (PRD FR-38) sebagai satu berkas Excel.
  *
- * LINGKUPNYA sengaja terbatas pada tujuan, setoran, dan snapshot
- * perhitungannya. Data profil — nama, email, tanggal lahir, nomor telepon —
- * TIDAK ikut: berkas unduhan gampang tersimpan di folder Downloads bertahun-
- * tahun, terkirim ke orang lain, atau ikut tersalin ke cadangan awan. Isinya
- * dibatasi pada yang benar-benar dibutuhkan pengguna untuk mengolah datanya
- * sendiri, bukan seluruh isi basis data tentang dirinya.
+ * SATU berkas .xlsx, bukan JSON maupun beberapa CSV terpisah.
  *
- * Hash kata sandi dan token sesi jelas tidak pernah ikut.
+ * JSON sempat disediakan karena ia satu-satunya format yang memuat semuanya —
+ * tetapi lengkap dalam format yang tidak bisa dibuka penggunanya bukan lengkap
+ * sama sekali. Pengguna FinGoal mengklik ganda berkas .json dan mendapat
+ * Notepad berisi teks mentah. CSV bisa dibuka, tetapi tidak punya sheet,
+ * sehingga hanya memuat setoran dan meninggalkan tujuannya sendiri.
  *
- * Dua format karena dua kebutuhan berbeda:
- *  - JSON: lengkap dan berstruktur, untuk memindahkan atau mencadangkan.
- *  - CSV : setoran saja, untuk diolah di spreadsheet. Hanya setoran yang
- *          benar-benar berbentuk tabel; memaksa tujuan dan kalkulasi ke CSV
- *          menuntut beberapa berkas dalam zip — mesin yang lebih rumit
- *          daripada manfaatnya.
+ * .xlsx menyelesaikan keduanya: terbuka langsung di Excel maupun Google
+ * Sheets, dan tiap jenis data punya sheet-nya sendiri.
+ *
+ * LINGKUPNYA sengaja tanpa data profil — nama, email, telepon, tanggal lahir.
+ * Berkas unduhan gampang tersimpan bertahun-tahun di folder Downloads,
+ * terkirim ke orang lain, atau ikut tersalin ke cadangan awan. Isinya dibatasi
+ * pada yang dibutuhkan pengguna untuk mengolah catatan keuangannya sendiri.
  */
 class GoalExportController extends Controller
 {
-    public function json(Request $request): StreamedResponse
+    public function xlsx(Request $request): BinaryFileResponse
     {
         $user = $request->user();
+        $goals = $this->goals($user);
 
-        $isi = [
-            'diekspor_pada' => now()->toIso8601String(),
-            'aplikasi' => config('app.name'),
-            'catatan' => 'Berisi data tujuan finansial dan setoran Anda. Data profil tidak disertakan.',
-            'tujuan' => $this->goals($user)->map(fn (FinancialGoal $goal) => [
-                'nama' => $goal->name,
-                'nominal_target' => (float) $goal->target_amount,
-                'dana_awal' => (float) $goal->initial_amount,
-                'tanggal_target' => $goal->target_date?->toDateString(),
-                'estimasi_imbal_hasil_persen' => (float) $goal->estimated_return_rate,
-                'estimasi_inflasi_persen' => (float) $goal->estimated_inflation_rate,
-                'status' => $goal->status->value,
-                'dibuat_pada' => $goal->created_at?->toIso8601String(),
+        // Ditulis ke berkas sementara lalu dikirim, bukan dialirkan langsung
+        // ke keluaran. OpenSpout memasang header-nya sendiri lewat
+        // openToBrowser(), dan itu bertabrakan dengan header yang sudah
+        // disiapkan Laravel. Menulis ke disk lebih dulu menghindari tabrakan
+        // itu, dan tetap hemat memori karena OpenSpout mengalir ke berkas.
+        $jalur = tempnam(sys_get_temp_dir(), 'fingoal-').'.xlsx';
 
-                'setoran' => $goal->contributions->map(fn ($s) => [
-                    'tanggal' => $s->contributed_on->toDateString(),
-                    'nominal' => (float) $s->amount,
-                    'catatan' => $s->note,
-                ])->values(),
+        $writer = new Writer();
+        $writer->openToFile($jalur);
 
-                'perhitungan' => $goal->calculations->map(fn (GoalCalculation $k) => [
-                    'dihitung_pada' => $k->created_at?->toIso8601String(),
-                    'setoran_bulanan_dibutuhkan' => (float) $k->monthly_contribution_required,
-                    'proyeksi_total_setoran' => (float) $k->total_contribution_projection,
-                    'proyeksi_hasil_investasi' => (float) $k->total_investment_growth_projection,
-                    // Versi rumus ikut supaya angka lama tetap bisa dijelaskan
-                    // meski rumusnya berubah kemudian (PRD D-6).
-                    'versi_rumus' => $k->formula_version,
-                ])->values(),
-            ])->values(),
-        ];
+        $this->sheetRingkasan($writer, $goals);
+        $this->sheetTujuan($writer, $goals);
+        $this->sheetSetoran($writer, $goals);
 
-        return $this->unduh(
-            $this->namaBerkas('json'),
-            'application/json',
-            fn () => print json_encode(
-                $isi,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
-            ),
-        );
+        $writer->close();
+
+        return response()
+            ->download($jalur, 'fingoal-'.now()->format('Y-m-d').'.xlsx', [
+                // Berkas berisi data keuangan — jangan sampai tersimpan di
+                // cache proxy atau riwayat browser bersama.
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            ])
+            ->deleteFileAfterSend();
     }
 
-    public function csv(Request $request): StreamedResponse
+    /**
+     * Sheet pertama sengaja ringkasan: itu yang terbuka lebih dulu saat berkas
+     * diklik, dan angka besarnya yang paling dicari.
+     */
+    private function sheetRingkasan(Writer $writer, $goals): void
     {
-        $goals = $this->goals($request->user());
+        $writer->getCurrentSheet()->setName('Ringkasan');
 
-        return $this->unduh(
-            $this->namaBerkas('csv'),
-            'text/csv; charset=UTF-8',
-            function () use ($goals) {
-                $keluaran = fopen('php://output', 'w');
-
-                // BOM UTF-8. Tanpa ini Excel di Windows membaca berkasnya
-                // sebagai ANSI, dan setiap huruf beraksen maupun tanda kutip
-                // lengkung pada catatan berubah jadi karakter aneh.
-                fwrite($keluaran, "\xEF\xBB\xBF");
-
-                fputcsv($keluaran, ['Tanggal', 'Tujuan', 'Nominal', 'Catatan']);
-
-                foreach ($goals as $goal) {
-                    foreach ($goal->contributions as $setoran) {
-                        fputcsv($keluaran, [
-                            $setoran->contributed_on->toDateString(),
-                            $goal->name,
-                            // Angka polos tanpa pemisah ribuan — spreadsheet
-                            // perlu membacanya sebagai bilangan, bukan teks.
-                            (float) $setoran->amount,
-                            $setoran->note,
-                        ]);
-                    }
-                }
-
-                fclose($keluaran);
-            },
+        $terkumpul = $goals->sum(
+            fn (FinancialGoal $g) => (float) $g->initial_amount + (float) $g->contributions->sum('amount'),
         );
+        $target = $goals->sum(fn (FinancialGoal $g) => (float) $g->target_amount);
+
+        $writer->addRow(Row::fromValuesWithStyle(['Ringkasan Tujuan Finansial'], $this->tebal()));
+        $writer->addRow(Row::fromValues([]));
+        $writer->addRow(Row::fromValues(['Diekspor pada', now()->translatedFormat('j F Y, H:i')]));
+        $writer->addRow(Row::fromValues(['Jumlah tujuan', $goals->count()]));
+        $writer->addRow(Row::fromValues(['Total target', $target]));
+        $writer->addRow(Row::fromValues(['Total terkumpul', $terkumpul]));
+        $writer->addRow(Row::fromValues([
+            'Progres keseluruhan',
+            $target > 0 ? round($terkumpul / $target * 100, 1).'%' : '—',
+        ]));
+        $writer->addRow(Row::fromValues([]));
+        $writer->addRow(Row::fromValues([
+            'Data profil tidak disertakan dalam berkas ini.',
+        ]));
+    }
+
+    private function sheetTujuan(Writer $writer, $goals): void
+    {
+        $writer->addNewSheetAndMakeItCurrent()->setName('Tujuan');
+
+        $writer->addRow(Row::fromValuesWithStyle([
+            'Nama', 'Nominal target', 'Dana awal', 'Terkumpul', 'Progres (%)',
+            'Tanggal target', 'Imbal hasil (%)', 'Inflasi (%)', 'Status', 'Dibuat',
+        ], $this->tebal()));
+
+        foreach ($goals as $goal) {
+            $terkumpul = (float) $goal->initial_amount + (float) $goal->contributions->sum('amount');
+            $target = (float) $goal->target_amount;
+
+            $writer->addRow(Row::fromValues([
+                $goal->name,
+                $target,
+                (float) $goal->initial_amount,
+                $terkumpul,
+                $target > 0 ? round($terkumpul / $target * 100, 1) : 0,
+                // Tanggal ditulis sebagai teks ISO, bukan objek tanggal.
+                // Excel menampilkan objek tanggal menurut locale mesin
+                // pembacanya, sehingga 3 September bisa terbaca 9 Maret di
+                // komputer berlokal Amerika. ISO tidak pernah ambigu.
+                $goal->target_date?->toDateString() ?? 'Tanpa tenggat',
+                (float) $goal->estimated_return_rate,
+                (float) $goal->estimated_inflation_rate,
+                $goal->status->value,
+                $goal->created_at?->toDateString(),
+            ]));
+        }
+    }
+
+    private function sheetSetoran(Writer $writer, $goals): void
+    {
+        $writer->addNewSheetAndMakeItCurrent()->setName('Setoran');
+
+        $writer->addRow(Row::fromValuesWithStyle(
+            ['Tanggal', 'Tujuan', 'Nominal', 'Catatan'],
+            $this->tebal(),
+        ));
+
+        foreach ($goals as $goal) {
+            foreach ($goal->contributions as $setoran) {
+                $writer->addRow(Row::fromValues([
+                    $setoran->contributed_on->toDateString(),
+                    $goal->name,
+                    (float) $setoran->amount,
+                    $setoran->note ?? '',
+                ]));
+            }
+        }
+    }
+
+    private function tebal(): Style
+    {
+        return new Style(fontBold: true);
     }
 
     /** @return \Illuminate\Database\Eloquent\Collection<int, FinancialGoal> */
@@ -115,31 +153,10 @@ class GoalExportController extends Controller
     {
         return $user->goals()
             // Di-eager load supaya jumlah kueri tidak ikut bertambah seiring
-            // banyaknya tujuan.
-            ->with([
-                'contributions' => fn ($q) => $q->orderBy('contributed_on'),
-                'calculations' => fn ($q) => $q->orderBy('created_at'),
-            ])
+            // banyaknya tujuan — ekspor menyentuh seluruh riwayat sekaligus,
+            // justru di sinilah N+1 paling terasa.
+            ->with(['contributions' => fn ($q) => $q->orderBy('contributed_on')])
             ->orderBy('created_at')
             ->get();
-    }
-
-    private function namaBerkas(string $ekstensi): string
-    {
-        return 'fingoal-tujuan-'.now()->format('Y-m-d').'.'.$ekstensi;
-    }
-
-    /**
-     * Dialirkan, bukan disusun utuh di memori lebih dulu. Pengguna dengan
-     * riwayat setoran bertahun-tahun tidak akan membentur batas memori PHP.
-     */
-    private function unduh(string $nama, string $tipe, callable $tulis): StreamedResponse
-    {
-        return response()->streamDownload($tulis, $nama, [
-            'Content-Type' => $tipe,
-            // Berkas berisi data keuangan — jangan sampai tersimpan di cache
-            // proxy atau riwayat browser bersama.
-            'Cache-Control' => 'no-store, no-cache, must-revalidate',
-        ]);
     }
 }

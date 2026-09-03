@@ -9,13 +9,25 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
+use ZipArchive;
 
 /**
- * Ekspor data tujuan (PRD FR-38).
+ * Ekspor data tujuan sebagai satu berkas Excel (PRD FR-38).
+ *
+ * Berkas .xlsx pada dasarnya adalah zip berisi XML, jadi isinya diperiksa
+ * dengan membongkar zip-nya — bukan dengan pustaka pembaca spreadsheet
+ * tersendiri yang hanya akan menambah dependensi demi pengujian.
  */
 class GoalExportTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     private function buatTujuan(User $user, string $nama = 'DP Rumah'): FinancialGoal
     {
@@ -39,20 +51,50 @@ class GoalExportTest extends TestCase
         return $goal;
     }
 
-    private function isi($response): string
+    /** Simpan respons unduhan ke berkas sementara agar bisa dibongkar. */
+    private function unduh(User $user): string
     {
-        ob_start();
-        $response->sendContent();
+        $response = $this->actingAs($user)->get(route('goals.export'));
+        $response->assertOk();
 
-        return ob_get_clean();
+        $jalur = tempnam(sys_get_temp_dir(), 'uji-ekspor-').'.xlsx';
+        file_put_contents($jalur, $response->streamedContent());
+
+        return $jalur;
+    }
+
+    /** Seluruh teks di dalam berkas xlsx, digabung jadi satu. */
+    private function isiBerkas(string $jalur): string
+    {
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($jalur) === true, 'Berkas xlsx tidak bisa dibuka sebagai zip.');
+
+        $teks = '';
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $teks .= $zip->getFromIndex($i);
+        }
+        $zip->close();
+
+        return $teks;
+    }
+
+    private function namaSheet(string $jalur): array
+    {
+        $zip = new ZipArchive();
+        $zip->open($jalur);
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $zip->close();
+
+        preg_match_all('/<sheet name="([^"]+)"/', $workbook, $cocok);
+
+        return $cocok[1];
     }
 
     // ── Akses ───────────────────────────────────────────────────────────
 
     public function test_tamu_tidak_bisa_mengunduh(): void
     {
-        $this->get(route('goals.export.json'))->assertRedirect(route('login'));
-        $this->get(route('goals.export.csv'))->assertRedirect(route('login'));
+        $this->get(route('goals.export'))->assertRedirect(route('login'));
     }
 
     /**
@@ -67,39 +109,53 @@ class GoalExportTest extends TestCase
         $saya = User::factory()->create();
         $this->buatTujuan($saya, 'Punya Saya');
 
-        $isi = $this->isi($this->actingAs($saya)->get(route('goals.export.json')));
+        $isi = $this->isiBerkas($this->unduh($saya));
 
         $this->assertStringContainsString('Punya Saya', $isi);
         $this->assertStringNotContainsString('Punya Orang Lain', $isi);
     }
 
-    // ── JSON ────────────────────────────────────────────────────────────
+    // ── Bentuk berkas ───────────────────────────────────────────────────
 
-    public function test_json_memuat_tujuan_setoran_dan_perhitungan(): void
+    public function test_berkas_punya_tiga_sheet(): void
     {
         $user = User::factory()->create();
-        $goal = $this->buatTujuan($user);
-        $goal->calculations()->create([
-            'monthly_contribution_required' => 3000000,
-            'total_contribution_projection' => 180000000,
-            'total_investment_growth_projection' => 20000000,
-            'calculation_snapshot' => [],
-            'formula_version' => 1,
-        ]);
+        $this->buatTujuan($user);
 
-        $data = json_decode(
-            $this->isi($this->actingAs($user)->get(route('goals.export.json'))),
-            true,
+        $this->assertSame(
+            ['Ringkasan', 'Tujuan', 'Setoran'],
+            $this->namaSheet($this->unduh($user)),
         );
+    }
 
-        $tujuan = $data['tujuan'][0];
+    public function test_berkas_diunduh_dengan_nama_bertanggal(): void
+    {
+        $user = User::factory()->create();
+        $this->buatTujuan($user);
 
-        $this->assertSame('DP Rumah', $tujuan['nama']);
-        // JSON menulis float bulat tanpa desimal, jadi terbaca integer.
-        $this->assertSame(200000000, $tujuan['nominal_target']);
-        $this->assertSame('Bonus tahunan', $tujuan['setoran'][0]['catatan']);
-        $this->assertSame(3000000, $tujuan['perhitungan'][0]['setoran_bulanan_dibutuhkan']);
-        $this->assertSame(1, $tujuan['perhitungan'][0]['versi_rumus']);
+        $disposisi = $this->actingAs($user)
+            ->get(route('goals.export'))
+            ->headers->get('content-disposition');
+
+        $this->assertStringContainsString('attachment', $disposisi);
+        $this->assertStringContainsString(
+            'fingoal-'.now()->format('Y-m-d').'.xlsx',
+            $disposisi,
+        );
+    }
+
+    // ── Isi ─────────────────────────────────────────────────────────────
+
+    public function test_memuat_tujuan_beserta_angkanya(): void
+    {
+        $user = User::factory()->create();
+        $this->buatTujuan($user);
+
+        $isi = $this->isiBerkas($this->unduh($user));
+
+        foreach (['DP Rumah', '200000000', '2031-01-01', 'Bonus tahunan'] as $harus) {
+            $this->assertStringContainsString($harus, $isi, "Tidak menemukan: {$harus}");
+        }
     }
 
     /**
@@ -116,12 +172,11 @@ class GoalExportTest extends TestCase
             'name' => 'Budi Santoso',
             'email' => 'budi@contoh.test',
             'phone' => '0812 3456 7890',
-            'nationality' => 'Indonesia',
             'occupation' => 'Karyawan swasta',
         ]);
         $this->buatTujuan($user);
 
-        $isi = $this->isi($this->actingAs($user)->get(route('goals.export.json')));
+        $isi = $this->isiBerkas($this->unduh($user));
 
         foreach ([
             'budi@contoh.test',
@@ -137,61 +192,16 @@ class GoalExportTest extends TestCase
         }
     }
 
-    // ── CSV ─────────────────────────────────────────────────────────────
-
-    public function test_csv_memuat_baris_setoran(): void
+    public function test_pengguna_tanpa_tujuan_tetap_mendapat_berkas_utuh(): void
     {
         $user = User::factory()->create();
-        $this->buatTujuan($user);
 
-        $isi = $this->isi($this->actingAs($user)->get(route('goals.export.csv')));
-
-        $this->assertStringContainsString('Tanggal,Tujuan,Nominal,Catatan', $isi);
-        $this->assertStringContainsString('2026-09-01,"DP Rumah",1500000,"Bonus tahunan"', $isi);
-    }
-
-    /**
-     * BOM UTF-8 wajib ada. Tanpanya Excel di Windows membaca berkas sebagai
-     * ANSI, dan setiap huruf beraksen maupun tanda kutip lengkung pada catatan
-     * berubah menjadi karakter aneh — kerusakan yang baru terlihat setelah
-     * berkasnya dibuka pengguna, bukan saat diunduh.
-     */
-    public function test_csv_diawali_bom_utf8(): void
-    {
-        $user = User::factory()->create();
-        $this->buatTujuan($user);
-
-        $isi = $this->isi($this->actingAs($user)->get(route('goals.export.csv')));
-
-        $this->assertStringStartsWith("\xEF\xBB\xBF", $isi);
-    }
-
-    public function test_berkas_diunduh_bukan_ditampilkan(): void
-    {
-        $user = User::factory()->create();
-        $this->buatTujuan($user);
-
-        $response = $this->actingAs($user)->get(route('goals.export.json'));
-
-        $disposisi = $response->headers->get('content-disposition');
-
-        $this->assertStringContainsString('attachment', $disposisi);
-        $this->assertStringContainsString(
-            'fingoal-tujuan-'.now()->format('Y-m-d').'.json',
-            $disposisi,
+        // Berkas kosong tetap harus punya ketiga sheet — pengguna yang belum
+        // punya tujuan sebaiknya menerima berkas yang wajar, bukan galat.
+        $this->assertSame(
+            ['Ringkasan', 'Tujuan', 'Setoran'],
+            $this->namaSheet($this->unduh($user)),
         );
-    }
-
-    public function test_pengguna_tanpa_tujuan_tetap_mendapat_berkas_kosong(): void
-    {
-        $user = User::factory()->create();
-
-        $data = json_decode(
-            $this->isi($this->actingAs($user)->get(route('goals.export.json'))),
-            true,
-        );
-
-        $this->assertSame([], $data['tujuan']);
     }
 
     /**
@@ -208,7 +218,7 @@ class GoalExportTest extends TestCase
             \Illuminate\Support\Facades\DB::listen(function () use (&$n) {
                 $n++;
             });
-            $this->isi($this->actingAs($user)->get(route('goals.export.json')));
+            $this->actingAs($user)->get(route('goals.export'))->streamedContent();
 
             return $n;
         };
@@ -224,12 +234,5 @@ class GoalExportTest extends TestCase
             $hitung(),
             'Jumlah kueri naik saat tujuan bertambah — tanda N+1.',
         );
-    }
-
-    protected function tearDown(): void
-    {
-        Carbon::setTestNow();
-
-        parent::tearDown();
     }
 }
