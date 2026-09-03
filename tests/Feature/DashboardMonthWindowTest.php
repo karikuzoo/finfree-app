@@ -61,7 +61,7 @@ class DashboardMonthWindowTest extends TestCase
     /** @return array<int, array{month: string, cumulative_amount: float}> */
     private function deret(User $user): array
     {
-        return app(DashboardSummaryService::class)->forUser($user)['goals'][0]['asset_growth_series'];
+        return app(DashboardSummaryService::class)->forUser($user)['goals'][0]['asset_growth_series']['monthly'];
     }
 
     public function test_deret_membentang_dari_bulan_tujuan_dibuat_sampai_bulan_ini(): void

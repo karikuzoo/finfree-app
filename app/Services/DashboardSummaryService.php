@@ -28,6 +28,8 @@ class DashboardSummaryService
 {
     private const ASSET_GROWTH_MONTHS = 12;
 
+    private const ASSET_GROWTH_DAYS = 30;
+
     private const RECENT_ACTIVITY_LIMIT = 10;
 
     public function __construct(
@@ -138,7 +140,10 @@ class DashboardSummaryService
                 : null,
             'on_track' => $this->onTrackStatus($goal, $currentAmount, $targetAmount),
             'suggested_allocation' => $this->allocations->forGoal($goal, $accountRiskProfile),
-            'asset_growth_series' => $this->goalAssetGrowthSeries($goal),
+            'asset_growth_series' => [
+                'monthly' => $this->goalAssetGrowthSeriesMonthly($goal),
+                'daily' => $this->goalAssetGrowthSeriesDaily($goal),
+            ],
         ];
     }
 
@@ -231,15 +236,17 @@ class DashboardSummaryService
     }
 
     /**
-     * Akumulasi bulanan dari dana awal + setoran, dibatasi N bulan
-     * terakhir — array ini tidak boleh tumbuh tanpa batas.
+     * Akumulasi BULANAN dari dana awal + setoran, dibatasi sejak tujuan
+     * dibuat sampai bulan berjalan — array ini tidak boleh tumbuh tanpa
+     * batas (goal lama tetap dibatasi wajar karena bulan cuma bertambah
+     * ~12 poin/tahun).
      *
      * Pengelompokan per bulan dilakukan di PHP, bukan lewat fungsi tanggal
      * SQL (strftime()/to_char() berbeda sintaks antar driver). Volume
      * datanya kecil — setoran satu user dalam setahun — jadi ini bukan
      * masalah performa.
      */
-    private function goalAssetGrowthSeries(FinancialGoal $goal): array
+    private function goalAssetGrowthSeriesMonthly(FinancialGoal $goal): array
     {
         $start = Carbon::parse($goal->created_at)->startOfMonth();
         $end = Carbon::now()->startOfMonth();
@@ -274,6 +281,53 @@ class DashboardSummaryService
             ];
 
             $cursor->addMonth();
+        }
+
+        return $series;
+    }
+
+    /**
+     * Sama seperti versi bulanan di atas, tapi per HARI dan dibatasi
+     * jendela {self::ASSET_GROWTH_DAYS} hari terakhir (bukan sejak goal
+     * dibuat) — goal yang sudah berjalan bertahun-tahun kalau ditampilkan
+     * harian penuh akan jadi ratusan/ribuan titik, tidak terbaca di
+     * grafik dan berat dikirim. 30 hari cukup untuk melihat pola setoran
+     * belakangan tanpa membebani.
+     *
+     * Titik pertama jendela TIDAK mulai dari nol — nilainya `baseline`,
+     * yaitu initial_amount + seluruh setoran SEBELUM jendela ini, supaya
+     * grafik tetap menunjukkan akumulasi total yang benar (bukan
+     * seolah-olah baru mulai menabung 30 hari lalu).
+     */
+    private function goalAssetGrowthSeriesDaily(FinancialGoal $goal): array
+    {
+        $goalCreatedAt = Carbon::parse($goal->created_at)->startOfDay();
+        $today = Carbon::now()->startOfDay();
+        $windowStart = $today->copy()->subDays(self::ASSET_GROWTH_DAYS - 1)->max($goalCreatedAt);
+
+        $baseline = (float) $goal->initial_amount + (float) $goal->contributions
+            ->filter(fn ($row) => $row->contributed_on->lessThan($windowStart))
+            ->sum('amount');
+
+        $contributionsByDay = $goal->contributions
+            ->filter(fn ($row) => $row->contributed_on->greaterThanOrEqualTo($windowStart))
+            ->groupBy(fn ($row) => $row->contributed_on->toDateString())
+            ->map(fn (Collection $rows) => (float) $rows->sum('amount'));
+
+        $series = [];
+        $cumulative = $baseline;
+        $cursor = $windowStart->copy();
+
+        while ($cursor->lessThanOrEqualTo($today)) {
+            $key = $cursor->toDateString();
+            $cumulative += (float) ($contributionsByDay[$key] ?? 0);
+
+            $series[] = [
+                'date' => $key,
+                'cumulative_amount' => round($cumulative, 2),
+            ];
+
+            $cursor->addDay();
         }
 
         return $series;

@@ -49,6 +49,8 @@ export default function Dashboard() {
         ? summary.contribution_calendar.find(item => item.date === todayIso)?.amount || 0
         : 0;
 
+    const [assetGrowthGranularity, setAssetGrowthGranularity] = useState('monthly');
+
     // Data contoh untuk GoalHeroCard, ActivityCalendar, & donut alokasi
     // saat pengguna belum punya goal sama sekali — angka target 500 juta
     // dipakai supaya konsisten dengan ilustrasi "Contoh perhitungan" di
@@ -223,15 +225,41 @@ export default function Dashboard() {
                             </div>
 
                             <div className="rounded-card border border-border bg-bg-card p-5">
-                                <h2 className="text-base font-semibold text-text-primary">
-                                    Pertumbuhan Aset — {selectedGoal?.name ?? 'Pilih Tujuan'}
-                                </h2>
-                                <p className="mt-1 text-sm text-text-secondary">
-                                    Nilai akumulasi aset untuk tujuan yang dipilih.
-                                </p>
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <h2 className="text-base font-semibold text-text-primary">
+                                            Pertumbuhan Aset — {selectedGoal?.name ?? 'Pilih Tujuan'}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-text-secondary">
+                                            Nilai akumulasi aset untuk tujuan yang dipilih.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-1 rounded-lg bg-bg-cardAlt p-1">
+                                        {[
+                                            { key: 'monthly', label: 'Bulanan' },
+                                            { key: 'daily', label: 'Harian' },
+                                        ].map((opsi) => (
+                                            <button
+                                                key={opsi.key}
+                                                type="button"
+                                                onClick={() => setAssetGrowthGranularity(opsi.key)}
+                                                className={
+                                                    'rounded-md px-3 py-1 text-xs font-medium transition ' +
+                                                    (assetGrowthGranularity === opsi.key
+                                                        ? 'bg-lime-500 text-onPrimary'
+                                                        : 'text-text-secondary hover:text-text-primary')
+                                                }
+                                            >
+                                                {opsi.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                                 <div className="mt-4">
                                     <AssetGrowthChart
-                                        series={selectedGoal?.asset_growth_series ?? []}
+                                        series={selectedGoal?.asset_growth_series?.[assetGrowthGranularity] ?? []}
+                                        granularity={assetGrowthGranularity}
                                     />
                                 </div>
                             </div>

@@ -149,7 +149,7 @@ class CalendarContributionTest extends TestCase
         ]);
 
         $ringkasan = app(DashboardSummaryService::class)->forUser($user)['goals'][0];
-        $titikAkhir = end($ringkasan['asset_growth_series'])['cumulative_amount'];
+        $titikAkhir = end($ringkasan['asset_growth_series']['monthly'])['cumulative_amount'];
 
         $this->assertSame(
             $ringkasan['current_amount'],

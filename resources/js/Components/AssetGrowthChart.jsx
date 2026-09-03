@@ -20,20 +20,35 @@ function shortMonthLabel(ym) {
     return MONTH_LABELS[Number(month) - 1] ?? ym;
 }
 
+/** "2026-09-03" -> "3 Sep" */
+function shortDayLabel(ymd) {
+    const [, month, day] = ymd.split('-');
+    return `${Number(day)} ${MONTH_LABELS[Number(month) - 1] ?? month}`;
+}
+
 /**
- * Proyeksi total aset gabungan seluruh tujuan aktif, 12 bulan terakhir
- * (DashboardSummaryService::assetGrowthSeries, CLAUDE.md §6.9).
+ * Proyeksi total aset SATU tujuan (yang sedang dipilih di GoalHeroCard),
+ * bisa ditampilkan HARIAN atau BULANAN lewat prop `granularity`
+ * (DashboardSummaryService::summarizeGoal — key `asset_growth_series`
+ * berisi `{ monthly: [...], daily: [...] }`, Dashboard.jsx yang memilih
+ * mana yang dikirim ke sini lewat toggle-nya sendiri).
+ *
+ * - `monthly`: titik `{ month: "2026-03", cumulative_amount }`, sejak
+ *   tujuan dibuat sampai bulan berjalan.
+ * - `daily`: titik `{ date: "2026-03-05", cumulative_amount }`, dibatasi
+ *   30 hari terakhir (goalAssetGrowthSeriesDaily) — jendela lebih pendek
+ *   supaya tetap terbaca, bukan ratusan titik untuk goal lama.
  *
  * Satu garis akumulatif — beda dari ProjectionChart.jsx yang memisahkan
- * setoran vs hasil pengembangan untuk SATU tujuan. Di sini yang ditunjukkan
- * total lintas tujuan, jadi pemisahan itu tidak relevan lagi. Warna & gaya
- * grid tetap mengikuti bahasa visual yang sama.
+ * setoran vs hasil pengembangan. Warna & gaya grid tetap mengikuti bahasa
+ * visual yang sama di kedua granularitas.
  */
-export default function AssetGrowthChart({ series }) {
+export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
     if (!series?.length) return null;
 
+    const isDaily = granularity === 'daily';
     const data = series.map((point) => ({
-        month: shortMonthLabel(point.month),
+        label: isDaily ? shortDayLabel(point.date) : shortMonthLabel(point.month),
         value: point.cumulative_amount,
     }));
 
@@ -50,10 +65,13 @@ export default function AssetGrowthChart({ series }) {
                 <CartesianGrid stroke="#282C28" vertical={false} />
 
                 <XAxis
-                    dataKey="month"
+                    dataKey="label"
                     stroke="#282C28"
                     tick={{ fill: '#8B917F', fontSize: 11 }}
                     tickLine={false}
+                    // Harian = sampai 30 titik, gampang berdesakan — lompati
+                    // sebagian label otomatis, biarkan recharts yang atur.
+                    interval={isDaily ? 'preserveStartEnd' : 0}
                 />
                 <YAxis
                     tickFormatter={formatCompactRupiah}

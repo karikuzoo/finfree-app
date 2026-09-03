@@ -60,7 +60,7 @@ class DemoSeederTest extends TestCase
         // deret untuk seluruh akun. Seeder menyebar setoran ke belakang selama
         // berbulan-bulan justru supaya grafiknya punya kurva — satu titik saja
         // membuat grafiknya tidak berguna.
-        $this->assertGreaterThan(1, count($ringkasan['goals'][0]['asset_growth_series']));
+        $this->assertGreaterThan(1, count($ringkasan['goals'][0]['asset_growth_series']['monthly']));
     }
 
     public function test_dijalankan_dua_kali_tidak_menggandakan_data(): void
