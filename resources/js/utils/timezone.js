@@ -48,3 +48,35 @@ export function nowInJakartaParts() {
 
     return { tahun, bulan: bulan - 1, tanggal };
 }
+
+const jakartaTimeFormatter = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+});
+
+const jakartaDateLongFormatter = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+});
+
+/**
+ * Jam WIB (format "14:05") dari sebuah waktu TERTENTU (bukan "sekarang")
+ * — mis. `occurred_at` dari log aktivitas. Beda dari `todayInJakarta()`
+ * di atas: ini menerima instant APA SAJA (string ISO8601), bukan selalu
+ * "sekarang". Tetap aman dari bug yang sama: `Intl.DateTimeFormat` dengan
+ * `timeZone: 'Asia/Jakarta'` eksplisit membuat hasilnya selalu WIB, apa
+ * pun zona waktu perangkat pembacanya — bukan format jam lokal browser.
+ */
+export function formatJakartaTime(iso) {
+    return jakartaTimeFormatter.format(new Date(iso));
+}
+
+/** "Kamis, 3 September 2026" dari sebuah waktu tertentu — lihat catatan di formatJakartaTime. */
+export function formatJakartaDateLong(iso) {
+    return jakartaDateLongFormatter.format(new Date(iso));
+}

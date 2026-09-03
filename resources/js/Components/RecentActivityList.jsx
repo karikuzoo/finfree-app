@@ -1,4 +1,4 @@
-import { formatRupiah } from "@/utils/format";
+import { describeActivity } from "@/utils/activity";
 
 function relativeTime(iso) {
     const diffMs = Date.now() - new Date(iso).getTime();
@@ -6,16 +6,6 @@ function relativeTime(iso) {
     if (diffHours < 1) return "Baru saja";
     if (diffHours < 24) return `${diffHours} jam lalu`;
     return `${Math.round(diffHours / 24)} hari lalu`;
-}
-
-function describe(activity) {
-    if (activity.type === "contribution_recorded") {
-        return `Nabung ${formatRupiah(activity.amount)} untuk ${activity.goal_name}`;
-    }
-    if (activity.type === "goal_deleted") {
-        return `Menghapus tujuan ${activity.goal_name}`;
-    }
-    return `Membuat tujuan ${activity.goal_name}`;
 }
 
 /**
@@ -35,7 +25,7 @@ export default function RecentActivityList({ activities }) {
             {activities.map((activity, index) => (
                 <div key={index} className="py-3">
                     <p className="text-sm text-text-primary">
-                        {describe(activity)}
+                        {describeActivity(activity)}
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
                         {relativeTime(activity.occurred_at)}

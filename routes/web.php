@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
@@ -111,7 +112,7 @@ Route::middleware('auth')->group(function () {
             'goals' => $ringkasan['goals'],
         ]);
     })->name('wallet.index');
-    Route::get('/riwayat', fn () => Inertia::render('History/Index'))
+    Route::get('/riwayat', [HistoryController::class, 'index'])
         ->name('history.index');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
