@@ -45,6 +45,36 @@ class ReminderController extends Controller
     }
 
     /**
+     * Mengubah judul dan jam pengingat.
+     *
+     * TANGGALNYA tidak ikut bisa diubah, sama seperti setoran: pengingat
+     * disunting dari dialog tanggal, dan memindahkannya ke tanggal lain akan
+     * membuat barisnya lenyap dari dialog yang sedang terbuka. Untuk
+     * memindahkan hari, hapus lalu buat ulang di tanggal yang benar.
+     */
+    public function update(Request $request, Reminder $reminder): RedirectResponse
+    {
+        abort_unless($reminder->user_id === $request->user()->id, 403);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:200'],
+            'remind_time' => ['required', 'date_format:H:i'],
+        ], [
+            'title.required' => 'Judul pengingat wajib diisi.',
+            'title.max' => 'Judul pengingat maksimal 200 karakter.',
+            'remind_time.required' => 'Jam pengingat wajib diisi.',
+            'remind_time.date_format' => 'Jam pengingat harus dalam format 24 jam, misalnya 09:00.',
+        ]);
+
+        $reminder->update([
+            'title' => $data['title'],
+            'remind_at' => $reminder->remind_at->toDateString().' '.$data['remind_time'].':00',
+        ]);
+
+        return back();
+    }
+
+    /**
      * Menandai selesai, atau membatalkan tanda itu.
      *
      * Sengaja tanpa parameter "jadikan selesai atau belum" — tombolnya satu,

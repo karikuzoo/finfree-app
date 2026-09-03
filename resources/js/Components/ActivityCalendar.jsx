@@ -570,12 +570,6 @@ function SeksiPengingat({ tgl, pengingat }) {
         });
     };
 
-    const toggle = (id) =>
-        router.patch(route("reminders.toggle", id), {}, { preserveScroll: true });
-
-    const hapus = (id) =>
-        router.delete(route("reminders.destroy", id), { preserveScroll: true });
-
     return (
         <div className="mt-6 border-t border-border pt-5">
             <h4 className="text-sm font-medium text-text-secondary">
@@ -588,52 +582,7 @@ function SeksiPengingat({ tgl, pengingat }) {
             {pengingat.length > 0 && (
                 <ul className="mt-3 space-y-1.5">
                     {pengingat.map((p) => (
-                        <li
-                            key={p.id}
-                            className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-cardAlt px-3 py-2"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={p.completed}
-                                onChange={() => toggle(p.id)}
-                                aria-label={`Tandai selesai: ${p.title}`}
-                                className="h-4 w-4 shrink-0 rounded border-border-strong bg-bg-base text-lime-500 focus:ring-lime-500 focus:ring-offset-bg-cardAlt"
-                            />
-
-                            <span className="num-tabular shrink-0 text-xs font-semibold text-state-warning">
-                                {p.time}
-                            </span>
-
-                            <span
-                                className={
-                                    "min-w-0 flex-1 truncate text-sm " +
-                                    (p.completed
-                                        ? "text-text-muted line-through"
-                                        : "text-text-primary")
-                                }
-                            >
-                                {p.title}
-                            </span>
-
-                            <button
-                                type="button"
-                                onClick={() => hapus(p.id)}
-                                aria-label={`Hapus pengingat: ${p.title}`}
-                                className="shrink-0 rounded p-1 text-text-muted transition hover:text-state-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
-                            >
-                                <svg
-                                    className="h-4 w-4"
-                                    viewBox="0 0 16 16"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.6"
-                                    strokeLinecap="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M4 4l8 8M12 4l-8 8" />
-                                </svg>
-                            </button>
-                        </li>
+                        <BarisPengingat key={p.id} pengingat={p} />
                     ))}
                 </ul>
             )}
@@ -1080,6 +1029,132 @@ function BarisSetoran({ entri }) {
                     “{entri.note}”
                 </p>
             )}
+        </li>
+    );
+}
+/**
+ * Satu pengingat — bisa ditandai selesai, disunting, dan dihapus.
+ *
+ * Judul dan jam saja yang bisa diubah, TIDAK tanggalnya. Alasannya sama
+ * dengan setoran: pengingat disunting dari dialog tanggal, dan memindahkannya
+ * ke hari lain membuat barisnya lenyap dari dialog yang sedang terbuka.
+ */
+function BarisPengingat({ pengingat }) {
+    const [sunting, setSunting] = useState(false);
+
+    const form = useForm({
+        title: pengingat.title,
+        remind_time: pengingat.time,
+    });
+
+    const simpan = (e) => {
+        e.preventDefault();
+        form.patch(route("reminders.update", pengingat.id), {
+            preserveScroll: true,
+            onSuccess: () => setSunting(false),
+        });
+    };
+
+    const toggle = () =>
+        router.patch(
+            route("reminders.toggle", pengingat.id),
+            {},
+            { preserveScroll: true },
+        );
+
+    const hapus = () =>
+        router.delete(route("reminders.destroy", pengingat.id), {
+            preserveScroll: true,
+        });
+
+    if (sunting) {
+        return (
+            <li>
+                <form
+                    onSubmit={simpan}
+                    className="space-y-2 rounded-lg border border-border-strong bg-bg-base p-2.5"
+                >
+                    <input
+                        type="text"
+                        maxLength={200}
+                        autoFocus
+                        value={form.data.title}
+                        onChange={(e) => form.setData("title", e.target.value)}
+                        aria-label="Judul pengingat"
+                        className="block w-full rounded-lg border-border-strong bg-bg-base py-1.5 text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                    />
+                    <InputError message={form.errors.title} />
+
+                    <div className="flex items-center justify-between gap-2">
+                        <PilihJam
+                            value={form.data.remind_time}
+                            onChange={(v) => form.setData("remind_time", v)}
+                        />
+
+                        <div className="flex gap-2">
+                            <SecondaryButton
+                                type="button"
+                                onClick={() => setSunting(false)}
+                            >
+                                Batal
+                            </SecondaryButton>
+                            <PrimaryButton disabled={form.processing}>
+                                {form.processing ? "Menyimpan…" : "Simpan"}
+                            </PrimaryButton>
+                        </div>
+                    </div>
+                    <InputError message={form.errors.remind_time} />
+                </form>
+            </li>
+        );
+    }
+
+    return (
+        <li className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-cardAlt px-3 py-2">
+            <input
+                type="checkbox"
+                checked={pengingat.completed}
+                onChange={toggle}
+                aria-label={`Tandai selesai: ${pengingat.title}`}
+                className="h-4 w-4 shrink-0 rounded border-border-strong bg-bg-base text-lime-500 focus:ring-lime-500 focus:ring-offset-bg-cardAlt"
+            />
+
+            <span className="num-tabular shrink-0 text-xs font-semibold text-state-warning">
+                {pengingat.time}
+            </span>
+
+            <span
+                className={
+                    "min-w-0 flex-1 truncate text-sm " +
+                    (pengingat.completed
+                        ? "text-text-muted line-through"
+                        : "text-text-primary")
+                }
+            >
+                {pengingat.title}
+            </span>
+
+            <button
+                type="button"
+                onClick={() => setSunting(true)}
+                aria-label={`Ubah pengingat: ${pengingat.title}`}
+                className="shrink-0 rounded p-1 text-text-muted transition hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+            >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11.5 2.5a1.4 1.4 0 0 1 2 2L7 11l-2.5.5.5-2.5 6.5-6.5Z" />
+                </svg>
+            </button>
+
+            <button
+                type="button"
+                onClick={hapus}
+                aria-label={`Hapus pengingat: ${pengingat.title}`}
+                className="shrink-0 rounded p-1 text-text-muted transition hover:text-state-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+            >
+                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+            </button>
         </li>
     );
 }

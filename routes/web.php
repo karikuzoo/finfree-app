@@ -79,7 +79,12 @@ Route::middleware('auth')->group(function () {
     // pengingat, masing-masing dengan jamnya sendiri.
     Route::post('/kalender/pengingat', [ReminderController::class, 'store'])
         ->name('reminders.store');
-    Route::patch('/kalender/pengingat/{reminder}', [ReminderController::class, 'toggle'])
+    Route::patch('/kalender/pengingat/{reminder}', [ReminderController::class, 'update'])
+        ->name('reminders.update');
+    // Menandai selesai punya jalurnya sendiri: ia bukan "perubahan
+    // sebagian" biasa melainkan satu tombol tanpa masukan, dan PATCH
+    // pada rute induk dipakai untuk menyunting judul & jam.
+    Route::patch('/kalender/pengingat/{reminder}/selesai', [ReminderController::class, 'toggle'])
         ->name('reminders.toggle');
     Route::delete('/kalender/pengingat/{reminder}', [ReminderController::class, 'destroy'])
         ->name('reminders.destroy');

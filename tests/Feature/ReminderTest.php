@@ -93,6 +93,100 @@ class ReminderTest extends TestCase
         ])->assertRedirect(route('login'));
     }
 
+    // ── Mengubah ────────────────────────────────────────────────────────
+
+    public function test_judul_dan_jam_dapat_diubah(): void
+    {
+        $user = User::factory()->create();
+        $pengingat = $user->reminders()->create([
+            'title' => 'Cek harga emas',
+            'remind_at' => '2026-09-05 20:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('reminders.update', $pengingat), [
+                'title' => 'Cek harga emas Antam',
+                'remind_time' => '07:30',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pengingat->refresh();
+
+        $this->assertSame('Cek harga emas Antam', $pengingat->title);
+        $this->assertSame('2026-09-05 07:30:00', $pengingat->remind_at->toDateTimeString());
+    }
+
+    /**
+     * TANGGALNYA tidak ikut berubah meski dikirim. Pengingat disunting dari
+     * dialog tanggal; memindahkannya ke hari lain membuat barisnya lenyap dari
+     * dialog yang sedang terbuka.
+     */
+    public function test_tanggal_pengingat_tidak_ikut_berubah(): void
+    {
+        $user = User::factory()->create();
+        $pengingat = $user->reminders()->create([
+            'title' => 'Coba',
+            'remind_at' => '2026-09-05 09:00:00',
+        ]);
+
+        $this->actingAs($user)->patch(route('reminders.update', $pengingat), [
+            'title' => 'Coba',
+            'remind_time' => '10:00',
+            'remind_date' => '2026-10-01',
+        ]);
+
+        $this->assertSame('2026-09-05', $pengingat->fresh()->remind_at->toDateString());
+    }
+
+    public function test_menolak_perubahan_yang_tidak_sah(): void
+    {
+        $user = User::factory()->create();
+        $pengingat = $user->reminders()->create([
+            'title' => 'Coba',
+            'remind_at' => '2026-09-05 09:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('reminders.update', $pengingat), ['title' => '', 'remind_time' => '09:00'])
+            ->assertSessionHasErrors('title');
+
+        $this->actingAs($user)
+            ->patch(route('reminders.update', $pengingat), ['title' => 'Coba', 'remind_time' => 'pagi'])
+            ->assertSessionHasErrors('remind_time');
+
+        $this->assertSame('Coba', $pengingat->fresh()->title);
+    }
+
+    public function test_tidak_bisa_mengubah_pengingat_orang_lain(): void
+    {
+        $pengingat = User::factory()->create()->reminders()->create([
+            'title' => 'Rahasia',
+            'remind_at' => '2026-09-05 09:00:00',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('reminders.update', $pengingat), [
+                'title' => 'Dibajak',
+                'remind_time' => '01:00',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('Rahasia', $pengingat->fresh()->title);
+    }
+
+    /**
+     * Menandai selesai punya jalurnya sendiri sejak PATCH pada rute induk
+     * dipakai untuk menyunting. Nama rutenya tidak berubah, jadi frontend
+     * tidak perlu disesuaikan — test ini memastikan keduanya memang terpisah.
+     */
+    public function test_menandai_selesai_dan_menyunting_adalah_dua_jalur_berbeda(): void
+    {
+        $this->assertNotSame(
+            route('reminders.toggle', 1),
+            route('reminders.update', 1),
+        );
+    }
+
     // ── Menandai selesai ────────────────────────────────────────────────
 
     public function test_pengingat_dapat_ditandai_selesai_dan_dibatalkan(): void
