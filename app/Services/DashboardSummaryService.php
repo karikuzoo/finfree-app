@@ -379,6 +379,7 @@ class DashboardSummaryService
             ->orderBy('goal_contributions.contributed_on')
             ->orderBy('goal_contributions.id')
             ->get([
+                'goal_contributions.id',
                 'goal_contributions.contributed_on',
                 'goal_contributions.amount',
                 'goal_contributions.note',
@@ -389,6 +390,9 @@ class DashboardSummaryService
                 'date' => $date,
                 'amount' => round((float) $rows->sum('amount'), 2),
                 'entries' => $rows->map(fn ($row) => [
+                    // id dikirim supaya setoran bisa disunting & dihapus dari
+                    // dialog tanggal (FR-33).
+                    'id' => $row->id,
                     'amount' => round((float) $row->amount, 2),
                     'note' => $row->note,
                     'goal' => $row->goal_name,

@@ -138,6 +138,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/tujuan/{financialGoal}/setoran', [GoalContributionController::class, 'store'])
         ->name('goals.contributions.store');
 
+    // Ubah & hapus setoran (FR-33). Disunting dari dialog tanggal di
+    // kalender, jadi tanggalnya tidak ikut bisa diubah — lihat controller.
+    Route::patch('/setoran/{goalContribution}', [GoalContributionController::class, 'update'])
+        ->name('goals.contributions.update');
+    Route::delete('/setoran/{goalContribution}', [GoalContributionController::class, 'destroy'])
+        ->name('goals.contributions.destroy');
+
     Route::delete('/tujuan/{financialGoal}', [GoalController::class, 'destroy'])
         ->name('goals.destroy');
 });

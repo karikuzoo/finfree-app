@@ -37,6 +37,14 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
         ? { month: null, label: null, contributions: calendar, notes: [] }
         : (calendar ?? { contributions: [], notes: [] });
 
+    // Menyimpan TANGGALNYA saja (string), bukan salinan objek sel.
+    //
+    // Versi sebelumnya menyimpan objeknya, dan itu membeku: setelah menyimpan
+    // setoran, Inertia memuat ulang prop `calendar` dan `sel` dihitung ulang —
+    // tetapi dialog masih memegang objek lama, sehingga daftar "Setoran
+    // tercatat" tidak berubah sampai halaman dimuat ulang manual. Dengan
+    // menyimpan tanggalnya lalu mencari selnya tiap render, dialog selalu
+    // membaca data terbaru.
     const [tanggalTerpilih, setTanggalTerpilih] = useState(null);
 
     const setoranPerTanggal = useMemo(
@@ -126,6 +134,12 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
 
         return hasil;
     }, [tahun, bulanIndex, setoranPerTanggal, catatanPerTanggal, pengingatPerTanggal]);
+
+    // Dicari ulang tiap render dari `sel` yang baru dihitung, sehingga isi
+    // dialog ikut segar begitu prop dari server diperbarui.
+    const selTerpilih = tanggalTerpilih
+        ? (sel.find((s) => s.tgl === tanggalTerpilih) ?? null)
+        : null;
 
     const geserBulan = (arah) => {
         const target = new Date(tahun, bulanIndex + arah, 1);
@@ -234,7 +248,7 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
                             hariIni={s.tgl === hariIniStr}
                             nonaktif={placeholder}
                             onClick={() =>
-                                !placeholder && setTanggalTerpilih(s)
+                                !placeholder && setTanggalTerpilih(s.tgl)
                             }
                         />
                     ),
@@ -243,9 +257,9 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
 
             <Keterangan />
 
-            {tanggalTerpilih && (
+            {selTerpilih && (
                 <DialogCatatan
-                    sel={tanggalTerpilih}
+                    sel={selTerpilih}
                     goals={goals}
                     onClose={() => setTanggalTerpilih(null)}
                 />
@@ -420,9 +434,32 @@ function DialogCatatan({ sel, goals = [], onClose }) {
     return (
         <Modal show onClose={onClose} maxWidth="md">
             <div className="p-6">
-                <h3 className="text-base font-semibold text-text-primary">
-                    {tanggalPanjang}
-                </h3>
+                {/*
+                    Tombol tutup di pojok.
+
+                    Dialog ini memuat beberapa form sekaligus — setoran,
+                    catatan, pengingat — masing-masing dengan tombolnya
+                    sendiri. Tanpa satu jalan keluar yang jelas, pengguna yang
+                    selesai mengisi tidak tahu tombol mana yang menutupnya, dan
+                    "Batal" milik form catatan mudah disangka membatalkan
+                    seluruh isian.
+                */}
+                <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-base font-semibold text-text-primary">
+                        {tanggalPanjang}
+                    </h3>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Tutup"
+                        className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-text-muted transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+                    >
+                        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                            <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                    </button>
+                </div>
 
                 {sel.nominal > 0 && (
                     <div className="mt-3 rounded-lg border border-border bg-bg-cardAlt p-3">
@@ -432,21 +469,7 @@ function DialogCatatan({ sel, goals = [], onClose }) {
 
                         <ul className="mt-2 space-y-2">
                             {sel.entries.map((e, i) => (
-                                <li key={i} className="text-sm">
-                                    <div className="flex items-baseline justify-between gap-3">
-                                        <span className="text-text-secondary">
-                                            {e.goal}
-                                        </span>
-                                        <span className="num-tabular font-semibold text-lime-500">
-                                            {formatRupiah(e.amount)}
-                                        </span>
-                                    </div>
-                                    {e.note && (
-                                        <p className="mt-0.5 text-xs italic leading-relaxed text-text-muted">
-                                            “{e.note}”
-                                        </p>
-                                    )}
-                                </li>
+                                <BarisSetoran key={e.id ?? i} entri={e} />
                             ))}
                         </ul>
 
@@ -504,8 +527,11 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                             Hapus
                         </DangerButton>
                     )}
+                    {/* Menutup dialog, bukan membatalkan catatan saja —
+                        diberi nama "Tutup" supaya tidak rancu dengan tombol
+                        Batal pada form sunting setoran di atasnya. */}
                     <SecondaryButton type="button" onClick={onClose}>
-                        Batal
+                        Tutup
                     </SecondaryButton>
                     <PrimaryButton disabled={form.processing}>
                         {form.processing ? "Menyimpan…" : "Simpan"}
@@ -923,5 +949,137 @@ function SeksiCatatSetoran({ tgl, goals }) {
                 </p>
             )}
         </form>
+    );
+}
+
+/**
+ * Satu setoran di dalam dialog tanggal — bisa disunting dan dihapus (FR-33).
+ *
+ * Nominal dan catatan saja yang bisa diubah, TIDAK tanggalnya. Setoran
+ * disunting dari dialog tanggal; memindahkannya ke tanggal lain akan membuat
+ * barisnya lenyap dari dialog yang sedang terbuka — pengguna menekan simpan
+ * lalu melihat entrinya hilang tanpa penjelasan. Salah tanggal diperbaiki
+ * dengan menghapus lalu mencatat ulang di tanggal yang benar.
+ */
+function BarisSetoran({ entri }) {
+    const [sunting, setSunting] = useState(false);
+
+    const form = useForm({
+        amount: entri.amount,
+        note: entri.note ?? "",
+    });
+
+    const simpan = (e) => {
+        e.preventDefault();
+        form.patch(route("goals.contributions.update", entri.id), {
+            preserveScroll: true,
+            onSuccess: () => setSunting(false),
+        });
+    };
+
+    const hapus = () =>
+        router.delete(route("goals.contributions.destroy", entri.id), {
+            preserveScroll: true,
+        });
+
+    // Setoran lama (sebelum id dikirim ke frontend) tidak bisa disunting.
+    // Ditampilkan apa adanya, tanpa tombol yang pasti gagal saat ditekan.
+    if (!entri.id) {
+        return (
+            <li className="text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-text-secondary">{entri.goal}</span>
+                    <span className="num-tabular font-semibold text-lime-500">
+                        {formatRupiah(entri.amount)}
+                    </span>
+                </div>
+                {entri.note && (
+                    <p className="mt-0.5 text-xs italic leading-relaxed text-text-muted">
+                        “{entri.note}”
+                    </p>
+                )}
+            </li>
+        );
+    }
+
+    if (sunting) {
+        return (
+            <li>
+                <form onSubmit={simpan} className="space-y-2 rounded-lg border border-border-strong bg-bg-base p-2.5">
+                    <p className="text-xs text-text-muted">{entri.goal}</p>
+
+                    <CurrencyInput
+                        className="py-1.5 text-sm"
+                        value={form.data.amount}
+                        onChange={(v) => form.setData("amount", v)}
+                    />
+                    <InputError message={form.errors.amount} />
+
+                    <input
+                        type="text"
+                        maxLength={500}
+                        value={form.data.note}
+                        onChange={(e) => form.setData("note", e.target.value)}
+                        placeholder="Catatan (opsional)"
+                        aria-label="Catatan setoran"
+                        className="block w-full rounded-lg border-border-strong bg-bg-base py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
+                    />
+                    <InputError message={form.errors.note} />
+
+                    <div className="flex justify-end gap-2 pt-0.5">
+                        <SecondaryButton type="button" onClick={() => setSunting(false)}>
+                            Batal
+                        </SecondaryButton>
+                        <PrimaryButton disabled={form.processing}>
+                            {form.processing ? "Menyimpan…" : "Simpan"}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </li>
+        );
+    }
+
+    return (
+        <li className="group text-sm">
+            <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-text-secondary">
+                    {entri.goal}
+                </span>
+
+                <span className="num-tabular font-semibold text-lime-500">
+                    {formatRupiah(entri.amount)}
+                </span>
+
+                <span className="flex shrink-0 items-center gap-0.5">
+                    <button
+                        type="button"
+                        onClick={() => setSunting(true)}
+                        aria-label={`Ubah setoran ${formatRupiah(entri.amount)}`}
+                        className="rounded p-1 text-text-muted transition hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+                    >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M11.5 2.5a1.4 1.4 0 0 1 2 2L7 11l-2.5.5.5-2.5 6.5-6.5Z" />
+                        </svg>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={hapus}
+                        aria-label={`Hapus setoran ${formatRupiah(entri.amount)}`}
+                        className="rounded p-1 text-text-muted transition hover:text-state-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+                    >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                            <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                    </button>
+                </span>
+            </div>
+
+            {entri.note && (
+                <p className="mt-0.5 text-xs italic leading-relaxed text-text-muted">
+                    “{entri.note}”
+                </p>
+            )}
+        </li>
     );
 }
