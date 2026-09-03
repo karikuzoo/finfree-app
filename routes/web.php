@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\GoalExportController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\GoalDailySavingsTargetController;
 use App\Http\Controllers\ProfileAvatarController;
@@ -108,6 +109,13 @@ Route::middleware('auth')->group(function () {
     // pernah tertangkap sebagai ID tujuan.
     Route::get('/tujuan/buat', [GoalController::class, 'create'])
         ->name('goals.create');
+
+    // Ekspor (FR-38). Ditaruh SEBELUM rute bersegmen dinamis supaya
+    // "ekspor" tidak pernah tertangkap sebagai ID tujuan.
+    Route::get('/tujuan/ekspor/json', [GoalExportController::class, 'json'])
+        ->name('goals.export.json');
+    Route::get('/tujuan/ekspor/csv', [GoalExportController::class, 'csv'])
+        ->name('goals.export.csv');
     Route::post('/tujuan', [GoalController::class, 'store'])
         ->name('goals.store');
     Route::get('/tujuan/{financialGoal}/ubah', [GoalController::class, 'edit'])

@@ -4,7 +4,7 @@ import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import { formatRupiah } from "@/utils/format";
 import { Head, Link, router, useForm } from "@inertiajs/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Daftar tujuan finansial.
@@ -41,12 +41,16 @@ export default function GoalIndex({
                     </div>
 
                     {goals.length > 0 && (
-                        <Link
-                            href={route("goals.create")}
-                            className="rounded-lg bg-lime-500 px-4 py-2.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
-                        >
-                            Buat Tujuan
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <UnduhData />
+
+                            <Link
+                                href={route("goals.create")}
+                                className="rounded-lg bg-lime-500 px-4 py-2.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
+                            >
+                                Buat Tujuan
+                            </Link>
+                        </div>
                     )}
                 </div>
 
@@ -349,6 +353,105 @@ function KosongTanpaTujuan() {
                     Buat Tujuan Pertama
                 </Link>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Unduh data tujuan (PRD FR-38).
+ *
+ * Memakai <a> biasa, BUKAN <Link> Inertia. Link mengambil respons lewat XHR
+ * lalu berharap menerima halaman Inertia; berhadapan dengan unduhan berkas ia
+ * hanya diam — tidak ada yang terunduh dan tidak ada pesan kesalahan.
+ * Atribut `download` membuat browser menyimpan berkasnya alih-alih mencoba
+ * menampilkannya di tab baru.
+ */
+function UnduhData() {
+    const [buka, setBuka] = useState(false);
+    const bungkus = useRef(null);
+
+    useEffect(() => {
+        if (!buka) return;
+
+        const klikLuar = (e) => {
+            if (!bungkus.current?.contains(e.target)) setBuka(false);
+        };
+        const tekanEsc = (e) => e.key === "Escape" && setBuka(false);
+
+        document.addEventListener("mousedown", klikLuar);
+        document.addEventListener("keydown", tekanEsc);
+
+        return () => {
+            document.removeEventListener("mousedown", klikLuar);
+            document.removeEventListener("keydown", tekanEsc);
+        };
+    }, [buka]);
+
+    const kelasPilihan =
+        "block px-4 py-2.5 text-left text-sm transition hover:bg-bg-cardAlt focus:outline-none focus-visible:bg-bg-cardAlt";
+
+    return (
+        <div ref={bungkus} className="relative">
+            <button
+                type="button"
+                onClick={() => setBuka((s) => !s)}
+                aria-haspopup="menu"
+                aria-expanded={buka}
+                className={
+                    "flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-lime-500 " +
+                    (buka
+                        ? "border-lime-500 text-text-primary"
+                        : "border-border-strong text-text-secondary hover:border-text-muted hover:text-text-primary")
+                }
+            >
+                Unduh Data
+                <svg className="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 4.5 6 7.5l3-3" />
+                </svg>
+            </button>
+
+            {buka && (
+                <div
+                    role="menu"
+                    className="absolute right-0 z-30 mt-2 w-72 overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-xl"
+                >
+                    <a
+                        href={route("goals.export.json")}
+                        download
+                        role="menuitem"
+                        onClick={() => setBuka(false)}
+                        className={kelasPilihan}
+                    >
+                        <span className="font-semibold text-text-primary">JSON</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-text-muted">
+                            Lengkap dan berstruktur — tujuan, setoran, dan
+                            riwayat perhitungan. Untuk memindahkan atau
+                            mencadangkan.
+                        </span>
+                    </a>
+
+                    <div className="h-px bg-border" />
+
+                    <a
+                        href={route("goals.export.csv")}
+                        download
+                        role="menuitem"
+                        onClick={() => setBuka(false)}
+                        className={kelasPilihan}
+                    >
+                        <span className="font-semibold text-text-primary">CSV</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-text-muted">
+                            Daftar setoran saja, siap dibuka di Excel atau
+                            Google Sheets.
+                        </span>
+                    </a>
+
+                    <p className="border-t border-border bg-bg-cardAlt px-4 py-2.5 text-[11px] leading-relaxed text-text-muted">
+                        Data profil tidak disertakan — hanya tujuan dan setoran
+                        Anda.
+                    </p>
+                </div>
+            )}
         </div>
     );
 }
