@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\GoalStatus;
 use App\Enums\GoalType;
 use App\Http\Requests\StoreGoalRequest;
+use App\Http\Requests\UpdateGoalRequest;
 use App\Models\FinancialGoal;
 use App\Services\DashboardSummaryService;
 use App\Services\GoalCalculatorService;
@@ -16,10 +17,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Pembuatan tujuan finansial — alur "Buat Tujuan Pertama".
- *
- * Lingkupnya sengaja hanya create. Ubah, hapus, dan daftar tujuan adalah
- * pekerjaan terpisah; halaman Goal/Index milik rekan tim yang menyusunnya.
+ * Tujuan finansial: daftar, buat, ubah, dan hapus.
  *
  * Controller ini TIDAK memuat satu baris pun rumus — seluruh perhitungan
  * didelegasikan ke GoalCalculatorService, sama seperti kalkulator publik
@@ -155,6 +153,96 @@ class GoalController extends Controller
         return max(1, (int) ceil($months));
     }
 
+    public function edit(Request $request, FinancialGoal $financialGoal): Response
+    {
+        abort_unless($financialGoal->user_id === $request->user()->id, 403);
+
+        return Inertia::render('Goal/Edit', [
+            'goal' => [
+                'id' => $financialGoal->id,
+                'name' => $financialGoal->name,
+                'target_amount' => (float) $financialGoal->target_amount,
+                'initial_amount' => (float) $financialGoal->initial_amount,
+                'target_date' => $financialGoal->target_date?->toDateString(),
+                'estimated_return_rate' => (float) $financialGoal->estimated_return_rate,
+                'estimated_inflation_rate' => (float) $financialGoal->estimated_inflation_rate,
+            ],
+
+            // Dana yang sudah terkumpul membatasi apa yang masuk akal diubah:
+            // menurunkan target di bawah nominal ini membuat tujuan langsung
+            // tercapai. Dikirim supaya form bisa memperingatkan, bukan
+            // melarang — menurunkan target memang wajar bila rencananya
+            // berubah.
+            'currentAmount' => round(
+                (float) $financialGoal->initial_amount
+                + (float) $financialGoal->contributions()->sum('amount'),
+                2,
+            ),
+        ]);
+    }
+
+    /**
+     * Menyimpan perubahan, lalu MENGHITUNG ULANG snapshot perhitungannya.
+     *
+     * Snapshot lama tidak ditimpa melainkan ditambah baris baru: `formula_version`
+     * dan `calculation_snapshot` ada justru supaya angka yang pernah dijanjikan
+     * ke pengguna tetap bisa dijelaskan di kemudian hari (PRD D-6). Yang dibaca
+     * kartu tujuan adalah yang terbaru (relasi `latestCalculation`).
+     */
+    public function update(
+        UpdateGoalRequest $request,
+        FinancialGoal $financialGoal,
+        GoalCalculatorService $calculator,
+    ): RedirectResponse {
+        $data = $request->validated();
+
+        $targetDate = $data['target_date'] ?? null;
+        $initialAmount = (float) ($data['initial_amount'] ?? 0);
+        $inflationRate = (float) ($data['estimated_inflation_rate'] ?? 0);
+
+        DB::transaction(function () use (
+            $request, $financialGoal, $data, $targetDate, $initialAmount, $inflationRate, $calculator
+        ) {
+            $financialGoal->update([
+                'name' => $data['name'],
+                'target_amount' => $data['target_amount'],
+                'initial_amount' => $initialAmount,
+                'target_date' => $targetDate,
+                'estimated_return_rate' => $data['estimated_return_rate'],
+                'estimated_inflation_rate' => $inflationRate,
+            ]);
+
+            $months = $this->monthsUntil($targetDate);
+
+            if ($months !== null) {
+                $hasil = $calculator->calculateMonthlyContribution(
+                    targetAmount: (float) $data['target_amount'],
+                    currentAmount: $initialAmount,
+                    months: $months,
+                    annualReturnRate: (float) $data['estimated_return_rate'],
+                    annualInflationRate: $inflationRate,
+                );
+
+                $financialGoal->calculations()->create([
+                    'monthly_contribution_required' => $hasil['monthly_contribution_required'],
+                    'total_contribution_projection' => $hasil['total_contribution_projection'],
+                    'total_investment_growth_projection' => $hasil['total_investment_growth_projection'],
+                    'calculation_snapshot' => $hasil,
+                    'formula_version' => $hasil['formula_version'],
+                ]);
+            }
+
+            $request->user()->activities()->create([
+                'type' => 'goal_updated',
+                'goal_name' => $financialGoal->name,
+                'amount' => $financialGoal->target_amount,
+            ]);
+        });
+
+        return redirect()
+            ->route('goals.index')
+            ->with('status', "Tujuan \"{$financialGoal->name}\" berhasil diperbarui.");
+    }
     /**
      * Hapus tujuan beserta seluruh data terkait (setoran & kalkulasi).
      *

@@ -105,6 +105,10 @@ Route::middleware('auth')->group(function () {
         ->name('goals.create');
     Route::post('/tujuan', [GoalController::class, 'store'])
         ->name('goals.store');
+    Route::get('/tujuan/{financialGoal}/ubah', [GoalController::class, 'edit'])
+        ->name('goals.edit');
+    Route::patch('/tujuan/{financialGoal}', [GoalController::class, 'update'])
+        ->name('goals.update');
     Route::get('/dompet', function (\Illuminate\Http\Request $request, \App\Services\DashboardSummaryService $summary) {
         $ringkasan = $summary->forUser($request->user());
         return Inertia::render('Wallet/Index', [
