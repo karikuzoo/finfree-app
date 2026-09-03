@@ -154,10 +154,32 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
 
     return (
         <div>
-            <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-text-primary">
-                    Aktivitas Bulanan
-                </h2>
+            <div className="flex items-start justify-between gap-2">
+                <div>
+                    <h2 className="text-base font-semibold text-text-primary">
+                        Aktivitas Bulanan
+                    </h2>
+                    {/*
+                        Keterangan cakupan, bukan hiasan.
+
+                        Kartu-kartu lain di Dashboard (target utama, alokasi
+                        instrumen, grafik pertumbuhan) mengikuti tujuan yang
+                        dipilih; kalender ini TIDAK. Tanpa keterangan, bedanya
+                        terbaca sebagai ketidakkonsistenan.
+
+                        Kalender sengaja global karena isinya bercampur: setoran
+                        memang milik tujuan, tetapi catatan tanggal dan pengingat
+                        menempel pada TANGGAL, bukan pada tujuan mana pun.
+                        Menyaringnya per tujuan akan membuat dua dari tiga isinya
+                        kehilangan pijakan. Hitungan hari beruntun juga global,
+                        dan akan bertentangan dengan kalender yang tersaring.
+                    */}
+                    {!placeholder && (
+                        <p className="mt-0.5 text-xs text-text-muted">
+                            Seluruh tujuan
+                        </p>
+                    )}
+                </div>
 
                 {placeholder ? (
                     <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-muted">
