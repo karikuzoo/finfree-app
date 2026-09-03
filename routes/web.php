@@ -114,6 +114,8 @@ Route::middleware('auth')->group(function () {
         ->name('goals.edit');
     Route::patch('/tujuan/{financialGoal}', [GoalController::class, 'update'])
         ->name('goals.update');
+    Route::patch('/tujuan/{financialGoal}/utama', [GoalController::class, 'setPrimary'])
+        ->name('goals.primary');
     Route::get('/dompet', function (\Illuminate\Http\Request $request, \App\Services\DashboardSummaryService $summary) {
         $ringkasan = $summary->forUser($request->user());
         return Inertia::render('Wallet/Index', [

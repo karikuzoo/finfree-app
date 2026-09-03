@@ -3,7 +3,7 @@ import Modal from "@/Components/Modal";
 import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import { formatRupiah } from "@/utils/format";
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, Link, router, useForm } from "@inertiajs/react";
 import { useState } from "react";
 
 /**
@@ -23,6 +23,7 @@ export default function GoalIndex({
     totalTarget,
     totalAssets,
     overallProgress,
+    primaryGoalId,
 }) {
     return (
         <AuthenticatedLayout>
@@ -61,16 +62,16 @@ export default function GoalIndex({
                         />
 
                         <div className="mt-6 space-y-4">
-                            {goals.map((goal, urutan) => (
+                            {goals.map((goal) => (
                                 <KartuTujuan
                                     key={goal.id}
                                     goal={goal}
-                                    /* Tujuan tertua otomatis jadi tujuan utama
-                                       di Dashboard (DashboardSummaryService
-                                       mengurutkan berdasar created_at). Ditandai
-                                       di sini supaya pengguna paham kenapa
-                                       justru tujuan itu yang tampil di sana. */
-                                    utama={urutan === 0}
+                                    /* Ditandai berdasar ID, bukan urutan.
+                                       Tujuan utama kini bisa dipilih pengguna
+                                       (users.primary_goal_id), jadi ia tidak
+                                       selalu berada di posisi pertama —
+                                       daftarnya tetap urut menurut created_at. */
+                                    utama={goal.id === primaryGoalId}
                                 />
                             ))}
                         </div>
@@ -109,6 +110,19 @@ function RingkasanKeseluruhan({ totalAssets, totalTarget, overallProgress, jumla
 
 function KartuTujuan({ goal, utama }) {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+    const [menyetel, setMenyetel] = useState(false);
+
+    const jadikanUtama = () => {
+        setMenyetel(true);
+        router.patch(
+            route("goals.primary", goal.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setMenyetel(false),
+            },
+        );
+    };
     const { delete: destroy, processing } = useForm();
 
     const hapusTujuan = () => {
@@ -150,6 +164,26 @@ function KartuTujuan({ goal, utama }) {
                     <p className="text-lg font-bold text-text-primary num-tabular">
                         {goal.progress_percentage.toFixed(1)}%
                     </p>
+                    {/*
+                        Hanya muncul pada tujuan yang BUKAN utama. Menampilkan
+                        tombol "jadikan utama" pada tujuan yang sudah utama
+                        hanya menyodorkan aksi yang tidak mengubah apa pun.
+                    */}
+                    {!utama && (
+                        <button
+                            type="button"
+                            onClick={jadikanUtama}
+                            disabled={menyetel}
+                            title="Jadikan tujuan utama"
+                            aria-label={`Jadikan ${goal.name} sebagai tujuan utama`}
+                            className="rounded-lg p-1.5 text-text-muted transition hover:bg-bg-cardAlt hover:text-lime-500 disabled:opacity-50"
+                        >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M10 2.5l2.3 4.7 5.2.8-3.75 3.65.9 5.15L10 14.35 5.35 16.8l.9-5.15L2.5 8l5.2-.8L10 2.5Z" />
+                            </svg>
+                        </button>
+                    )}
+
                     <Link
                         href={route("goals.edit", goal.id)}
                         className="rounded-lg p-1.5 text-text-muted transition hover:bg-bg-cardAlt hover:text-text-primary"

@@ -77,9 +77,11 @@ class DashboardSummaryService
             // jadi frontend cukup ganti goal mana yang ditonjolkan tanpa
             // request tambahan.
             'goals' => $goalSummaries->values()->all(),
-            // Goal tertua (pertama dibuat) — dipilih GoalHeroCard secara
-            // default. NULL kalau belum ada goal aktif sama sekali.
-            'primary_goal' => $goalSummaries->first(),
+            // Tujuan yang DIPILIH pengguna (users.primary_goal_id); bila
+            // belum memilih atau pilihannya sudah dihapus, jatuh ke tujuan
+            // tertua. NULL kalau belum ada tujuan aktif sama sekali.
+            'primary_goal' => $goalSummaries->firstWhere('id', $user->primary_goal_id)
+                ?? $goalSummaries->first(),
             'streak_days' => $this->streakDays($user),
             'contribution_calendar' => $this->contributionCalendar($user),
             'recent_activity' => $this->recentActivity($user),

@@ -53,6 +53,11 @@ class GoalController extends Controller
             'totalTarget' => $ringkasan['total_target'],
             'totalAssets' => $ringkasan['total_assets'],
             'overallProgress' => $ringkasan['overall_progress_percentage'],
+            // Dikirim terpisah supaya kartu bisa menandai yang utama
+            // berdasar ID, bukan menebak dari urutan. Urutan daftar
+            // tetap menurut created_at, jadi tujuan utama tidak selalu
+            // berada di posisi pertama.
+            'primaryGoalId' => $ringkasan['primary_goal']['id'] ?? null,
         ]);
     }
 
@@ -242,6 +247,31 @@ class GoalController extends Controller
         return redirect()
             ->route('goals.index')
             ->with('status', "Tujuan \"{$financialGoal->name}\" berhasil diperbarui.");
+    }
+    /**
+     * Menjadikan sebuah tujuan sebagai tujuan utama di Dashboard.
+     *
+     * Sebelum ini tujuan utama selalu yang TERTUA, dan pengguna tidak punya
+     * cara mengubahnya — tujuan yang paling ia pedulikan bisa tertimbun di
+     * bawah hanya karena dibuat belakangan.
+     *
+     * Disimpan di users.primary_goal_id, bukan sebagai penanda di tiap tujuan:
+     * satu kolom membuat "dua tujuan utama sekaligus" mustahil terjadi.
+     */
+    public function setPrimary(Request $request, FinancialGoal $financialGoal): RedirectResponse
+    {
+        abort_unless($financialGoal->user_id === $request->user()->id, 403);
+
+        // Ditulis langsung, bukan lewat update(): primary_goal_id sengaja tidak
+        // masuk $fillable supaya tidak bisa ikut terbawa payload lain.
+        $user = $request->user();
+        $user->primary_goal_id = $financialGoal->id;
+        $user->save();
+
+        return back()->with(
+            'status',
+            "\"{$financialGoal->name}\" kini menjadi tujuan utama.",
+        );
     }
     /**
      * Hapus tujuan beserta seluruh data terkait (setoran & kalkulasi).

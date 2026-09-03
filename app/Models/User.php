@@ -6,6 +6,7 @@ use App\Enums\RiskProfile;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -126,6 +127,20 @@ class User extends Authenticatable implements MustVerifyEmail
     public function reminders(): HasMany
     {
         return $this->hasMany(Reminder::class);
+    }
+
+    /**
+     * Tujuan utama yang DIPILIH pengguna. NULL berarti belum memilih —
+     * DashboardSummaryService lalu jatuh ke tujuan tertua.
+     *
+     * Kolomnya sengaja TIDAK masuk $fillable: ia hanya boleh diubah lewat
+     * GoalController::setPrimary, yang memeriksa kepemilikan tujuannya.
+     * Bila fillable, ia bisa ikut terbawa payload pembaruan profil dan
+     * seseorang bisa menunjuk tujuan milik orang lain.
+     */
+    public function primaryGoal(): BelongsTo
+    {
+        return $this->belongsTo(FinancialGoal::class, 'primary_goal_id');
     }
 
     public function activities(): HasMany
