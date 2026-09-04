@@ -114,6 +114,7 @@ class DashboardSummaryService
         $targetAmount = round((float) $goal->target_amount, 2);
         $dailySavingsTarget = round((float) $goal->daily_savings_target, 2);
         $projectedAmount = round(min($targetAmount, $currentAmount + $dailySavingsTarget), 2);
+        $suggested = $this->allocations->forGoal($goal, $accountRiskProfile);
 
         return [
             'id' => $goal->id,
@@ -141,7 +142,14 @@ class DashboardSummaryService
                 ? max(0, (int) Carbon::now()->startOfDay()->diffInDays($goal->target_date, false))
                 : null,
             'on_track' => $this->onTrackStatus($goal, $currentAmount, $targetAmount),
-            'suggested_allocation' => $this->allocations->forGoal($goal, $accountRiskProfile),
+            'suggested_allocation' => $suggested,
+            // Perbandingan saran vs alokasi NYATA yang dicatat pengguna di
+            // halaman Dompet (financial_goals.asset_allocation). Dihitung di
+            // sini, bukan di React: persentase, selisih, dan ambang batas
+            // penyimpangan adalah aturan produk, dan menaruhnya di frontend
+            // berarti ia harus ditulis ulang di setiap tempat yang
+            // menampilkannya (CLAUDE.md §6.9).
+            'allocation_comparison' => $this->allocationComparison($goal, $suggested),
             'asset_allocation' => $goal->asset_allocation ?? [],
             'asset_growth_series' => [
                 'monthly' => $this->goalAssetGrowthSeriesMonthly($goal),
@@ -150,6 +158,108 @@ class DashboardSummaryService
         ];
     }
 
+    /**
+     * Menyandingkan alokasi yang disarankan dengan yang BENAR-BENAR dipegang
+     * pengguna (FR-52..FR-56).
+     *
+     * Alokasi nyata dicatat pengguna di halaman Dompet sebagai NOMINAL RUPIAH
+     * per instrumen, sementara saran berbentuk persentase — jadi keduanya
+     * disamakan ke persentase lebih dulu supaya bisa dibandingkan.
+     *
+     * Penyebutnya adalah total yang dialokasikan, BUKAN current_amount. Dana
+     * yang belum ditempatkan ke instrumen mana pun tidak boleh mengecilkan
+     * seluruh persentase — pengguna yang baru mencatat separuh dananya akan
+     * melihat semua angkanya timpang tanpa tahu sebabnya.
+     *
+     * @param  array<int, array{instrument: string, percentage: float}>  $suggested
+     * @return array{has_actual: bool, total_actual: float, rows: array<int, array>}
+     */
+    private function allocationComparison(FinancialGoal $goal, array $suggested): array
+    {
+        $nyata = $this->actualAllocationAmounts($goal);
+        $totalNyata = array_sum($nyata);
+
+        $saranPersen = [];
+        foreach ($suggested as $baris) {
+            $saranPersen[$baris['instrument']] = (float) $baris['percentage'];
+        }
+
+        // Gabungan keduanya: instrumen yang disarankan, yang dipegang, atau
+        // dua-duanya. Instrumen yang dipegang tetapi tidak disarankan — kas,
+        // atau instrumen yang ditambahkan sendiri — justru yang paling perlu
+        // terlihat, jadi tidak boleh terbuang hanya karena tak ada di saran.
+        $semua = array_unique([...array_keys($saranPersen), ...array_keys($nyata)]);
+
+        $rows = [];
+        foreach ($semua as $instrumen) {
+            $nominal = round((float) ($nyata[$instrumen] ?? 0), 2);
+            $persenNyata = $totalNyata > 0 ? round($nominal / $totalNyata * 100, 1) : 0.0;
+            $persenSaran = round($saranPersen[$instrumen] ?? 0, 1);
+
+            $rows[] = [
+                'instrument' => $instrumen,
+                'suggested_percentage' => $persenSaran,
+                'actual_percentage' => $persenNyata,
+                'actual_amount' => $nominal,
+                'delta' => round($persenNyata - $persenSaran, 1),
+                // Ambang ±10 poin persen (FR-54). Selisih kecil wajar terjadi
+                // dan menandainya hanya melatih pengguna mengabaikan peringatan.
+                'off_track' => $totalNyata > 0 && abs($persenNyata - $persenSaran) > 10,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['actual_amount'] <=> $a['actual_amount']
+            ?: $b['suggested_percentage'] <=> $a['suggested_percentage']);
+
+        return [
+            'has_actual' => $totalNyata > 0,
+            'total_actual' => round($totalNyata, 2),
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Nominal per instrumen dari kolom JSON asset_allocation.
+     *
+     * Kuncinya dinormalkan ke label yang sama dengan InvestmentAllocationService
+     * — tanpa itu "obligasi" dan "Obligasi/SBN" terhitung dua instrumen berbeda
+     * dan perbandingannya jadi tidak berarti.
+     *
+     * @return array<string, float>
+     */
+    private function actualAllocationAmounts(FinancialGoal $goal): array
+    {
+        $tersimpan = $goal->asset_allocation ?? [];
+
+        $peta = [
+            'tabungan' => 'Tabungan/Kas',
+            'saham' => 'Saham',
+            'obligasi' => 'Obligasi/SBN',
+            'deposito' => 'Deposito',
+            'emas' => 'Emas',
+        ];
+
+        $hasil = [];
+        foreach ($peta as $kunci => $label) {
+            $nominal = (float) ($tersimpan[$kunci] ?? 0);
+            if ($nominal > 0) {
+                $hasil[$label] = $nominal;
+            }
+        }
+
+        // Instrumen yang ditambahkan pengguna sendiri. Nama yang sama
+        // dijumlahkan, bukan saling menimpa.
+        foreach ($tersimpan['custom'] ?? [] as $item) {
+            $nama = trim((string) ($item['name'] ?? ''));
+            $nominal = (float) ($item['amount'] ?? 0);
+
+            if ($nama !== '' && $nominal > 0) {
+                $hasil[$nama] = ($hasil[$nama] ?? 0) + $nominal;
+            }
+        }
+
+        return $hasil;
+    }
     /**
      * @return array{status: string, gap_amount: float}|null
      */

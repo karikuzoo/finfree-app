@@ -205,6 +205,9 @@ export default function Dashboard() {
                                         allocation={
                                             selectedGoal.suggested_allocation
                                         }
+                                        comparison={
+                                            selectedGoal.allocation_comparison
+                                        }
                                     />
                                 </div>
                             </div>
