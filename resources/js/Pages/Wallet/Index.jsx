@@ -2,6 +2,8 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link } from "@inertiajs/react";
 import { formatRupiah } from "@/utils/format";
 
+import GoalWalletCard from "./GoalWalletCard";
+
 export default function WalletIndex({ totalAssets = 0, goals = [] }) {
     const activeGoals = goals.filter((g) => g.current_amount > 0);
 
@@ -34,33 +36,7 @@ export default function WalletIndex({ totalAssets = 0, goals = [] }) {
                 {totalAssets > 0 ? (
                     <div className="mt-8 space-y-6">
                         {activeGoals.map((goal) => (
-                            <div key={goal.id} className="rounded-card border border-border bg-bg-card p-5 sm:p-6">
-                                <div className="flex items-center justify-between border-b border-border pb-4">
-                                    <h2 className="text-lg font-bold text-text-primary">{goal.name}</h2>
-                                    <p className="text-xl font-bold text-text-primary num-tabular">
-                                        {formatRupiah(goal.current_amount)}
-                                    </p>
-                                </div>
-                                
-                                <div className="mt-4">
-                                    <p className="mb-3 text-sm font-semibold text-text-secondary">Saran Penyimpanan</p>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                        {goal.suggested_allocation?.map((alloc) => {
-                                            const amount = goal.current_amount * (alloc.percentage / 100);
-                                            return (
-                                                <div key={alloc.instrument} className="rounded-lg bg-bg-cardAlt p-3">
-                                                    <p className="text-xs text-text-muted">
-                                                        {alloc.instrument} <span className="font-semibold text-text-secondary">({alloc.percentage}%)</span>
-                                                    </p>
-                                                    <p className="mt-1 text-sm font-bold text-text-primary">
-                                                        {formatRupiah(amount)}
-                                                    </p>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
+                            <GoalWalletCard key={goal.id} goal={goal} />
                         ))}
                     </div>
                 ) : (

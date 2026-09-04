@@ -142,6 +142,7 @@ class DashboardSummaryService
                 : null,
             'on_track' => $this->onTrackStatus($goal, $currentAmount, $targetAmount),
             'suggested_allocation' => $this->allocations->forGoal($goal, $accountRiskProfile),
+            'asset_allocation' => $goal->asset_allocation ?? [],
             'asset_growth_series' => [
                 'monthly' => $this->goalAssetGrowthSeriesMonthly($goal),
                 'daily' => $this->goalAssetGrowthSeriesDaily($goal),

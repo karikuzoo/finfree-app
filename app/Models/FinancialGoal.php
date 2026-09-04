@@ -27,6 +27,7 @@ class FinancialGoal extends Model
         'target_amount',
         'initial_amount',
         'daily_savings_target',
+        'asset_allocation',
         'target_date',
         'estimated_return_rate',
         'estimated_inflation_rate',
@@ -46,6 +47,7 @@ class FinancialGoal extends Model
             'estimated_return_rate' => 'decimal:2',
             'estimated_inflation_rate' => 'decimal:2',
             'target_date' => 'date',
+            'asset_allocation' => 'array',
         ];
     }
 

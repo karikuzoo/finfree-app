@@ -21,6 +21,10 @@ class GoalContributionController extends Controller
     {
         $contribution = $financialGoal->contributions()->create($request->validated());
 
+        $alloc = $financialGoal->asset_allocation ?? [];
+        $alloc['tabungan'] = ($alloc['tabungan'] ?? 0) + $contribution->amount;
+        $financialGoal->update(['asset_allocation' => $alloc]);
+
         $request->user()->activities()->create([
             'type' => 'contribution_recorded',
             'goal_name' => $financialGoal->name,
@@ -52,7 +56,12 @@ class GoalContributionController extends Controller
             'note.max' => 'Catatan maksimal 500 karakter.',
         ]);
 
+        $diff = $data['amount'] - $goalContribution->amount;
         $goalContribution->update($data);
+
+        $alloc = $goalContribution->financialGoal->asset_allocation ?? [];
+        $alloc['tabungan'] = max(0, ($alloc['tabungan'] ?? 0) + $diff);
+        $goalContribution->financialGoal->update(['asset_allocation' => $alloc]);
 
         return back();
     }
@@ -61,7 +70,12 @@ class GoalContributionController extends Controller
     {
         $this->pastikanMilikPengguna($request, $goalContribution);
 
+        $amount = $goalContribution->amount;
         $goalContribution->delete();
+
+        $alloc = $goalContribution->financialGoal->asset_allocation ?? [];
+        $alloc['tabungan'] = max(0, ($alloc['tabungan'] ?? 0) - $amount);
+        $goalContribution->financialGoal->update(['asset_allocation' => $alloc]);
 
         return back();
     }

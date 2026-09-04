@@ -148,6 +148,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/tujuan/{financialGoal}/target-harian', [GoalDailySavingsTargetController::class, 'update'])
         ->name('goals.daily-savings-target.update');
 
+    Route::patch('/tujuan/{financialGoal}/alokasi-aset', [\App\Http\Controllers\GoalAssetAllocationController::class, 'update'])
+        ->name('goals.asset-allocation.update');
+
     Route::post('/tujuan/{financialGoal}/setoran', [GoalContributionController::class, 'store'])
         ->name('goals.contributions.store');
 
