@@ -25,6 +25,8 @@ export default function Login({ status, canResetPassword }) {
     return (
         <GuestLayout>
             <Head title="Masuk" />
+            <h2 className="text-2xl font-semibold tracking-tight">Selamat datang kembali</h2>
+            <p className="mb-7 mt-2 text-sm leading-7 text-text-secondary">Masuk untuk melanjutkan rencana keuanganmu.</p>
 
             {status && (
                 <div className="mb-4 text-sm font-medium text-state-success">
@@ -80,7 +82,7 @@ export default function Login({ status, canResetPassword }) {
                     </label>
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
                     {canResetPassword && (
                         <Link
                             href={route('password.request')}
@@ -90,11 +92,12 @@ export default function Login({ status, canResetPassword }) {
                         </Link>
                     )}
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
+                    <PrimaryButton className="px-8" disabled={processing}>
                         Masuk
                     </PrimaryButton>
                 </div>
             </form>
+            <p className="mt-7 border-t border-border pt-6 text-center text-sm text-text-secondary">Belum punya akun? <Link href={route('register')} className="font-medium text-lime-500">Daftar sekarang</Link></p>
         </GuestLayout>
     );
 }

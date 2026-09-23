@@ -18,7 +18,7 @@ export default function GoalHeroCard({
     const progressWidth = Math.min(100, goal.progress_percentage ?? 0);
 
     return (
-        <div className="relative scroll-mt-24 rounded-card border border-border bg-bg-card p-6">
+        <div className="relative scroll-mt-24 rounded-card border border-[#48755f] bg-gradient-to-br from-[#244c3c] via-[#203e33] to-bg-card p-6">
             {placeholder && (
                 <span className="absolute right-6 top-6 rounded-full bg-bg-cardAlt px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                     Contoh tampilan

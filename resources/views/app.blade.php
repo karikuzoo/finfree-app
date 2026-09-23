@@ -7,7 +7,7 @@
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
         <meta name="color-scheme" content="dark">
-        <meta name="theme-color" content="#0B0C0B">
+        <meta name="theme-color" content="#101719">
 
         <!-- Fonts — Plus Jakarta Sans untuk teks, JetBrains Mono untuk angka finansial -->
         <link rel="preconnect" href="https://fonts.bunny.net">

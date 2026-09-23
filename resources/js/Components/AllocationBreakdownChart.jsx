@@ -22,12 +22,12 @@ import { formatRupiah } from "@/utils/format";
  * di urutan pertama agar potongan terbesar selaras dengan warna merek.
  */
 const COLORS = [
-    "#CFF04A", // lime — warna merek
-    "#38BDF8", // biru langit
-    "#FB923C", // oranye
-    "#C084FC", // ungu
-    "#2DD4BF", // toska
-    "#FB7185", // merah muda
+    "#98EDCE", // lime — warna merek
+    "#83B8F4", // biru langit
+    "#F1CC80", // oranye
+    "#B29BFA", // ungu
+    "#A8DAC3", // toska
+    "#F29DA5", // merah muda
 ];
 
 const RADIAN = Math.PI / 180;
@@ -60,7 +60,7 @@ function renderInsideLabel({
             dominantBaseline="central"
             fontSize={12}
             fontWeight={600}
-            fill="#10130A"
+            fill="#102C22"
         >
             {value}%
         </text>
@@ -165,19 +165,19 @@ export default function AllocationBreakdownChart({
                             <Tooltip
                                 formatter={(value) => `${value}%`}
                                 contentStyle={{
-                                    backgroundColor: "#16181A",
-                                    border: "1px solid #282C28",
+                                    backgroundColor: "#182124",
+                                    border: "1px solid #2C383B",
                                     borderRadius: 8,
                                     fontSize: 12,
                                 }}
-                                itemStyle={{ color: "#F0F1EC" }}
+                                itemStyle={{ color: "#EFF5F3" }}
                             />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}
                                 wrapperStyle={{
                                     fontSize: 12,
-                                    color: "#A3A99E",
+                                    color: "#B2C2C3",
                                 }}
                             />
                         </PieChart>

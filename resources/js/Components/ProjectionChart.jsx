@@ -33,38 +33,38 @@ export default function ProjectionChart({ data, className = '' }) {
                 >
                     <defs>
                         <linearGradient id="isiLime" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#CFF04A" stopOpacity={0.55} />
-                            <stop offset="100%" stopColor="#CFF04A" stopOpacity={0.08} />
+                            <stop offset="0%" stopColor="#98EDCE" stopOpacity={0.55} />
+                            <stop offset="100%" stopColor="#98EDCE" stopOpacity={0.08} />
                         </linearGradient>
                     </defs>
 
-                    <CartesianGrid stroke="#282C28" vertical={false} />
+                    <CartesianGrid stroke="#2C383B" vertical={false} />
 
                     <XAxis
                         dataKey="month"
                         tickFormatter={(m) => (m % 12 === 0 ? `${m / 12} th` : '')}
-                        stroke="#282C28"
-                        tick={{ fill: '#8B917F', fontSize: 11 }}
+                        stroke="#2C383B"
+                        tick={{ fill: '#A1B1B3', fontSize: 11 }}
                         tickLine={false}
                         interval="preserveStartEnd"
                         minTickGap={16}
                     />
                     <YAxis
                         tickFormatter={formatCompactRupiah}
-                        stroke="#282C28"
-                        tick={{ fill: '#8B917F', fontSize: 11 }}
+                        stroke="#2C383B"
+                        tick={{ fill: '#A1B1B3', fontSize: 11 }}
                         tickLine={false}
                         width={72}
                     />
 
                     <Tooltip
                         contentStyle={{
-                            background: '#16181A',
-                            border: '1px solid #666D61',
+                            background: '#182124',
+                            border: '1px solid #708780',
                             borderRadius: 10,
                             fontSize: 12,
                         }}
-                        labelStyle={{ color: '#A3A99E', marginBottom: 4 }}
+                        labelStyle={{ color: '#B2C2C3', marginBottom: 4 }}
                         itemStyle={{ padding: 0 }}
                         labelFormatter={(m) =>
                             m === 0 ? 'Awal' : formatDuration(m)
@@ -77,8 +77,8 @@ export default function ProjectionChart({ data, className = '' }) {
                         dataKey="contributed"
                         name="Setoran Anda"
                         stackId="1"
-                        stroke="#6E756A"
-                        fill="#4A4F47"
+                        stroke="#B29BFA"
+                        fill="#526E69"
                         fillOpacity={0.9}
                     />
                     <Area
@@ -86,7 +86,7 @@ export default function ProjectionChart({ data, className = '' }) {
                         dataKey="growth"
                         name="Hasil pengembangan"
                         stackId="1"
-                        stroke="#CFF04A"
+                        stroke="#98EDCE"
                         strokeWidth={2}
                         fill="url(#isiLime)"
                     />
@@ -95,7 +95,7 @@ export default function ProjectionChart({ data, className = '' }) {
 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-text-secondary">
                 <span className="flex items-center gap-2">
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#4A4F47]" />
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#526E69]" />
                     Setoran Anda
                 </span>
                 <span className="flex items-center gap-2">

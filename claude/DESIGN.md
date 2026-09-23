@@ -1,3 +1,5 @@
+> Pembaruan desain: arah visual Arus kini dijelaskan di `docs/ARUS-REDESIGN.md`. Palet, font, dan shell lama di bawah adalah referensi historis; aturan interaksi dan validasi tetap berlaku.
+
 # DESIGN.md — FinGoal (Kalkulator Tujuan Finansial)
 
 > Dokumen desain UI/UX untuk aplikasi manajemen keuangan pribadi dengan kalkulator tujuan finansial (dana pensiun, beli rumah, beli kendaraan) beserta rekomendasi instrumen investasi.

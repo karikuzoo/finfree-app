@@ -1,3 +1,4 @@
+import { GoalIcon, WalletIcon, CalculatorIcon } from "@/Components/Icons";
 import SummaryCard from "@/Components/SummaryCard";
 import GoalHeroCard from "@/Components/GoalHeroCard";
 import ActivityCalendar from "@/Components/ActivityCalendar";
@@ -13,30 +14,7 @@ import { todayInJakarta } from "@/utils/timezone";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
-/**
- * Dashboard bercabang menjadi dua tampilan berdasarkan `summary.active_goals_count`
- * yang dikirim DashboardController lewat DashboardSummaryService (CLAUDE.md §6.9):
- *
- * - Kosong (0 goal): GoalHeroCard & ActivityCalendar tetap dirender, tapi
- *   dengan data contoh/dummy (placeholderGoal, placeholderCalendar) —
- *   bukan dari backend — supaya pengguna baru langsung melihat bentuk
- *   tampilannya sebelum membuat goal sungguhan. Diberi label "Contoh" di
- *   tiap kartu (lihat prop `placeholder`) agar tidak disangka data asli.
- *   Tombol "Buat Tujuan Pertama" masih non-fungsional (fitur CRUD Goal
- *   belum ada — DESIGN.md §9.1), tapi sengaja diberi warna solid
- *   (sama seperti CTA "Coba kalkulatornya" di Welcome) supaya lebih
- *   terlihat, bukan warna redup seperti versi sebelumnya.
- * - Terisi: kartu utama (target goal tertua + progres, badge on-track,
- *   hitung mundur, streak, dan form catat setoran — semuanya di
- *   GoalHeroCard), banner pengingat harian (DailyReminderBanner, murni
- *   in-app, hitung dari data yang sama, bukan notifikasi push/email),
- *   kalender aktivitas bulan berjalan dan pie chart breakdown alokasi
- *   instrumen (ActivityCalendar & AllocationBreakdownChart) — dua kartu
- *   terpisah tapi sebaris lewat grid, grafik pertumbuhan aset, daftar
- *   progress tujuan, dan aktivitas terbaru — semuanya murni menampilkan
- *   apa yang sudah diagregasi backend, tidak menghitung ulang apa pun
- *   di sini.
- */
+/** Ringkasan memakai props backend; setoran tetap dicatat lewat kalender. */
 export default function Dashboard() {
     const { auth, summary, calendar, todayReminders } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
@@ -87,16 +65,17 @@ export default function Dashboard() {
         <AuthenticatedLayout>
             <Head title="Dashboard" />
 
-            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                <h1 className="text-2xl font-bold leading-tight text-text-primary">
-                    Halo, {auth.user.name.split(" ")[0]}
-                </h1>
-                <p className="mt-1 text-sm text-text-secondary">
-                    Ringkasan perencanaan keuangan Anda.
-                </p>
-            </div>
-
-            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-[1600px] px-4 pb-4 pt-8 sm:px-8">
+                <div className="mb-7 flex flex-wrap items-center justify-between gap-5">
+                    <div><p className="mb-2 text-xs font-semibold tracking-[.15em] text-text-muted">DASHBOARD KEUANGAN</p><h1 className="text-3xl font-semibold leading-tight tracking-tight">Halo, {auth.user.name.split(" ")[0]}</h1><p className="mt-2 text-sm text-text-secondary">Lihat perkembangan dana dan langkah berikutnya untuk tujuanmu.</p></div>
+                    <Link href={route('goals.create')} className="inline-flex items-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-onPrimary hover:bg-lime-400"><span aria-hidden="true">＋</span> Tujuan baru</Link>
+                </div>
+                {hasGoals && <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-card border border-[#48755f] bg-gradient-to-br from-[#244c3c] to-[#203e33] p-6"><div className="flex items-center justify-between gap-3 text-sm text-[#d2e9da]"><span>Dana terkumpul di tujuan</span><WalletIcon className="h-5 w-5"/></div><p className="num-tabular mt-5 break-words text-3xl font-semibold tracking-tight">{formatRupiah(summary.total_assets)}</p><p className="mt-4 border-t border-[#48755f] pt-3 text-xs leading-6 text-[#c0d9c9]">Dana awal dan setoran tujuan aktif</p></div>
+                    <SummaryCard label="Total target aktif" value={formatRupiah(summary.total_target)} icon={GoalIcon} hint="Gabungan nominal target tujuan"/>
+                    <SummaryCard label="Progres keseluruhan" value={`${summary.overall_progress_percentage.toFixed(1)}%`} icon={CalculatorIcon} tone="lilac" hint="Dana terkumpul dibanding total target"/>
+                    <SummaryCard label="Tujuan aktif" value={String(summary.active_goals_count)} icon={GoalIcon} tone="blue" hint="Wujudkan satu per satu"/>
+                </div>}
                 {!hasGoals ? (
                     <div className="space-y-6">
                         <GoalHeroCard 
@@ -105,7 +84,7 @@ export default function Dashboard() {
                             placeholder 
                         />
                         
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
                             <div className="rounded-card border border-border bg-bg-card p-5">
                                 <ActivityCalendar
                                     calendar={placeholderCalendar}
@@ -160,7 +139,7 @@ export default function Dashboard() {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
                         <div className="space-y-6">
                             <DailyReminderBanner
                                 goal={selectedGoal}
@@ -180,7 +159,7 @@ export default function Dashboard() {
                                 todayContributionAmount={todayContributionAmount}
                             />
 
-                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
                                 {/*
                                     Anchor #catat-setoran menempel di sini, bukan
                                     di kartu form tersendiri: setoran kini dicatat
@@ -210,21 +189,6 @@ export default function Dashboard() {
                                         }
                                     />
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                <SummaryCard
-                                    label="Target Keseluruhan"
-                                    value={formatRupiah(summary.total_target)}
-                                />
-                                <SummaryCard
-                                    label="Progress Keseluruhan"
-                                    value={`${summary.overall_progress_percentage.toFixed(1)}%`}
-                                />
-                                <SummaryCard
-                                    label="Tujuan Aktif"
-                                    value={`${summary.active_goals_count}`}
-                                />
                             </div>
 
                             <div className="rounded-card border border-border bg-bg-card p-5">

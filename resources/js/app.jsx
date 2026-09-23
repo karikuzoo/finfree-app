@@ -22,6 +22,6 @@ createInertiaApp({
     // Garis tipis di tepi atas layar saat berpindah halaman.
     // Warnanya disamakan dengan lime-500 tema Malam (DESIGN.md §2).
     progress: {
-        color: '#CFF04A',
+        color: '#98EDCE',
     },
 });

@@ -57,17 +57,17 @@ export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
             <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
                 <defs>
                     <linearGradient id="assetGrowthFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#CFF04A" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#CFF04A" stopOpacity={0.05} />
+                        <stop offset="0%" stopColor="#98EDCE" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#98EDCE" stopOpacity={0.05} />
                     </linearGradient>
                 </defs>
 
-                <CartesianGrid stroke="#282C28" vertical={false} />
+                <CartesianGrid stroke="#2C383B" vertical={false} />
 
                 <XAxis
                     dataKey="label"
-                    stroke="#282C28"
-                    tick={{ fill: '#8B917F', fontSize: 11 }}
+                    stroke="#2C383B"
+                    tick={{ fill: '#A1B1B3', fontSize: 11 }}
                     tickLine={false}
                     // Harian = sampai 30 titik, gampang berdesakan — lompati
                     // sebagian label otomatis, biarkan recharts yang atur.
@@ -75,28 +75,28 @@ export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
                 />
                 <YAxis
                     tickFormatter={formatCompactRupiah}
-                    stroke="#282C28"
-                    tick={{ fill: '#8B917F', fontSize: 11 }}
+                    stroke="#2C383B"
+                    tick={{ fill: '#A1B1B3', fontSize: 11 }}
                     tickLine={false}
                     width={72}
                 />
 
                 <Tooltip
                     contentStyle={{
-                        background: '#16181A',
-                        border: '1px solid #666D61',
+                        background: '#182124',
+                        border: '1px solid #708780',
                         borderRadius: 10,
                         fontSize: 12,
                     }}
-                    labelStyle={{ color: '#A3A99E', marginBottom: 4 }}
-                    itemStyle={{ padding: 0, color: '#CFF04A' }}
+                    labelStyle={{ color: '#B2C2C3', marginBottom: 4 }}
+                    itemStyle={{ padding: 0, color: '#98EDCE' }}
                     formatter={(value) => [formatRupiah(value), 'Total aset']}
                 />
 
                 <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#CFF04A"
+                    stroke="#98EDCE"
                     strokeWidth={2}
                     fill="url(#assetGrowthFill)"
                 />
