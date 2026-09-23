@@ -4,8 +4,6 @@ Aplikasi web manajemen keuangan pribadi dengan **kalkulator tujuan finansial**: 
 
 Produk ini punya dua pilar. **Tujuan** adalah intinya — target tersimpan yang punya progres dan dipantau berbulan-bulan. **Kalkulator** adalah pendukungnya — alat hitung sekali pakai untuk pertanyaan cepat seperti simulasi cicilan KPR. Keduanya dijembatani tombol "Jadikan Tujuan".
 
-> **Status: scaffolding awal selesai, fitur FinGoal belum dimulai.** Dokumen produk, desain, dan konteks teknis sudah selesai. Repo sudah berisi skeleton **Laravel Breeze + Inertia.js + React** (auth register/login/logout/profil sudah berfungsi) — ini titik mulai implementasi, bukan project kosong. Belum ada satu pun fitur FinGoal (kalkulator, tujuan, dashboard, news) yang dikerjakan.
-
 FinGoal adalah alat **simulasi dan perencanaan**, bukan aplikasi transaksi. Aplikasi ini tidak membeli/menjual instrumen apa pun, tidak terhubung ke rekening bank, dan tidak memberi nasihat investasi personal.
 
 ---
