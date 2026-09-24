@@ -6,6 +6,7 @@ use App\Http\Controllers\AvatarFileController;
 use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DebtController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalContributionController;
 use App\Http\Controllers\GoalController;
@@ -147,6 +148,18 @@ Route::middleware('auth')->group(function () {
     // untuk jenis yang nilainya bergerak sendiri. Lihat controller-nya.
     Route::get('/investasi', [InvestmentController::class, 'index'])
         ->name('investments.index');
+
+    // Utang & cicilan. Pembayaran pokoknya TIDAK punya route sendiri — ia
+    // transaksi berjenis `payment` lewat transactions.store; lihat komentar
+    // di DebtController.
+    Route::get('/utang', [DebtController::class, 'index'])
+        ->name('debts.index');
+    Route::post('/utang', [DebtController::class, 'store'])
+        ->name('debts.store');
+    Route::patch('/utang/{debt}', [DebtController::class, 'update'])
+        ->name('debts.update');
+    Route::delete('/utang/{debt}', [DebtController::class, 'destroy'])
+        ->name('debts.destroy');
 
     Route::get('/transaksi', [TransactionController::class, 'index'])
         ->name('transactions.index');

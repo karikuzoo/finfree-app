@@ -16,6 +16,7 @@ const groups = [
         ['Riwayat', 'history.index', 'history.*', HistoryIcon],
     ] },
     { title: 'RENCANAKAN MASA DEPAN', items: [
+        ['Utang & cicilan', 'debts.index', 'debts.*', HistoryIcon],
         ['Kalkulator', 'calculator.index', 'calculator.*', CalculatorIcon],
         ['Berita keuangan', 'news.index', 'news.*', NewsIcon],
         ['Profil & pengaturan', 'profile.edit', 'profile.*', UserIcon],
