@@ -157,7 +157,7 @@ function Angka({ label, nilai, semula, utama = false }) {
             </p>
             <p
                 className={
-                    'num-tabular mt-1 font-mono font-bold leading-tight ' +
+                    'num-tabular mt-1 font-bold leading-tight ' +
                     (utama
                         ? 'text-3xl text-lime-500'
                         : 'text-2xl text-text-primary')

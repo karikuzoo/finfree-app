@@ -12,12 +12,12 @@
         <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
         <meta name="description" content="Arus — rencanakan tujuan, pantau dana, dan wujudkan masa depan finansialmu.">
 
-        {{-- JetBrains Mono SAJA. Teks memakai font sistem (lihat tailwind.config.js),
-             jadi Plus Jakarta Sans tidak lagi diunduh — dulu ikut termuat padahal
-             tidak pernah dipakai sejak palet Arus. Mono tetap perlu diunduh karena
-             angka rupiah memakainya lewat .num-tabular + font-mono. --}}
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=jetbrains-mono:500,700&display=swap" rel="stylesheet" />
+        {{-- Tidak ada font web sama sekali. Teks dan angka sama-sama memakai font
+             sistem (lihat tailwind.config.js); angka dirapikan lewat .num-tabular,
+             yang mengatur LEBAR digit, bukan jenis hurufnya. Plus Jakarta Sans dan
+             JetBrains Mono dulu diunduh tiap muat halaman padahal praktis tidak
+             terpakai — dan mono yang hanya dipakai di dua tempat justru membuat
+             angka yang sama terlihat beda antar halaman. --}}
 
         <!-- Scripts -->
         @routes

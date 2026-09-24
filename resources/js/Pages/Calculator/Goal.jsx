@@ -338,7 +338,7 @@ function FullResult({ result }) {
                 <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
                     Setoran bulanan
                 </p>
-                <p className="num-tabular mt-1 font-mono text-4xl font-bold leading-tight text-lime-500">
+                <p className="num-tabular mt-1 text-4xl font-bold leading-tight text-lime-500">
                     {formatRupiah(result.monthly_contribution_required)}
                 </p>
             </div>

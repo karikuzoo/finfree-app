@@ -14,7 +14,10 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Segoe UI', ...defaultTheme.fontFamily.sans],
-                mono: ['JetBrains Mono', ...defaultTheme.fontFamily.mono],
+                // JetBrains Mono dikeluarkan dari tumpukan: fontnya tidak lagi
+                // diunduh (lihat app.blade.php), jadi menyebutnya di sini hanya
+                // menjanjikan sesuatu yang tidak pernah tiba.
+                mono: [...defaultTheme.fontFamily.mono],
             },
 
             // Tema Arus — lihat docs/ARUS-REDESIGN.md.
