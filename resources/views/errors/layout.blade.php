@@ -8,7 +8,7 @@
     paling dibutuhkan. Berkas ini tidak bergantung pada hasil build sama sekali,
     jadi ia tetap tampil meski seluruh pipeline frontend mati.
 
-    Warnanya disalin dari tema "Malam" di tailwind.config.js. Duplikasi ini
+    Warnanya disalin dari tema "Arus" di tailwind.config.js. Duplikasi ini
     disengaja dan merupakan harga dari kemandirian di atas — bila token tema
     berubah, berkas ini ikut disesuaikan manual.
 --}}
@@ -19,30 +19,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
 
-    <title>@yield('judul') · {{ config('app.name', 'FinGoal') }}</title>
+    <title>@yield('judul') · {{ config('app.name', 'Arus') }}</title>
 
     <meta name="color-scheme" content="dark">
-    <meta name="theme-color" content="#0B0C0B">
+    <meta name="theme-color" content="#101719">
 
     {{-- Font boleh gagal dimuat tanpa merusak apa pun — tumpukan cadangannya nyata. --}}
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,600,700,800|jetbrains-mono:700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
 
     <style>
         :root {
-            --bg-base: #0B0C0B;
-            --bg-card: #16181A;
-            --bg-alt: #252825;
-            --line: #282C28;
-            --line-strong: #666D61;
-            --lime-500: #CFF04A;
-            --lime-400: #DEF76F;
-            --lime-soft: #1E2610;
-            --on-primary: #10130A;
-            --tx-1: #F0F1EC;
-            --tx-2: #A3A99E;
-            --tx-3: #8B917F;
-            --sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --bg-base: #101719;
+            --bg-card: #182124;
+            --bg-alt: #253235;
+            --line: #2C383B;
+            --line-strong: #708780;
+            --lime-500: #98EDCE;
+            --lime-400: #B0F6DC;
+            --lime-soft: #223932;
+            --on-primary: #102C22;
+            --tx-1: #EFF5F3;
+            --tx-2: #B2C2C3;
+            --tx-3: #A1B1B3;
+            --sans: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
             --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
         }
 
@@ -168,13 +167,8 @@
 
     <div class="bar">
         <a class="mark" href="{{ url('/') }}">
-            <svg width="21" height="21" viewBox="0 0 32 32" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <circle cx="16" cy="16" r="12"></circle>
-                <circle cx="16" cy="16" r="6.5"></circle>
-                <circle cx="16" cy="16" r="1.5"></circle>
-            </svg>
-            {{ config('app.name', 'FinGoal') }}
+            <img src="{{ asset('favicon.svg') }}" width="32" height="32" alt="">
+            {{ config('app.name', 'Arus') }}
         </a>
     </div>
 

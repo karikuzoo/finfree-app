@@ -46,12 +46,16 @@ class ErrorPageTest extends TestCase
     /**
      * @dataProvider kodeError
      */
-    public function test_halaman_error_memakai_tema_malam_dan_bahasa_indonesia(string $kode): void
+    public function test_halaman_error_memakai_tema_arus_dan_bahasa_indonesia(string $kode): void
     {
         $html = View::make("errors.{$kode}", ['exception' => null])->render();
 
-        // Warna latar tema Malam — bukti layout-nya benar-benar terpakai.
-        $this->assertStringContainsString('#0B0C0B', $html);
+        // Warna latar tema Arus — bukti layout-nya benar-benar terpakai.
+        // Hex-nya memang dipatok di sini: halaman error tidak boleh bergantung
+        // pada Vite, jadi paletnya disalin manual ke layout-nya (lihat komentar
+        // di errors/layout.blade.php). Test ini yang menangkap kalau salinan itu
+        // ketinggalan saat tailwind.config.js berubah.
+        $this->assertStringContainsString('#101719', $html);
 
         // Bahasa halaman, bukan bawaan Laravel yang berbahasa Inggris.
         $this->assertStringContainsString('lang="id"', $html);
@@ -68,7 +72,7 @@ class ErrorPageTest extends TestCase
 
         $response->assertNotFound();
         $response->assertSee('Halaman tidak ditemukan');
-        $response->assertSee('FinGoal');
+        $response->assertSee('Arus');
         $response->assertDontSee('Not Found', false);
     }
 

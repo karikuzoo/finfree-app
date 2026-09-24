@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  *
  * JSON sempat disediakan karena ia satu-satunya format yang memuat semuanya —
  * tetapi lengkap dalam format yang tidak bisa dibuka penggunanya bukan lengkap
- * sama sekali. Pengguna FinGoal mengklik ganda berkas .json dan mendapat
+ * sama sekali. Pengguna Arus mengklik ganda berkas .json dan mendapat
  * Notepad berisi teks mentah. CSV bisa dibuka, tetapi tidak punya sheet,
  * sehingga hanya memuat setoran dan meninggalkan tujuannya sendiri.
  *
@@ -41,7 +41,7 @@ class GoalExportController extends Controller
         // openToBrowser(), dan itu bertabrakan dengan header yang sudah
         // disiapkan Laravel. Menulis ke disk lebih dulu menghindari tabrakan
         // itu, dan tetap hemat memori karena OpenSpout mengalir ke berkas.
-        $jalur = tempnam(sys_get_temp_dir(), 'fingoal-').'.xlsx';
+        $jalur = tempnam(sys_get_temp_dir(), 'arus-').'.xlsx';
 
         $writer = new Writer();
         $writer->openToFile($jalur);
@@ -53,7 +53,7 @@ class GoalExportController extends Controller
         $writer->close();
 
         return response()
-            ->download($jalur, 'fingoal-'.now()->format('Y-m-d').'.xlsx', [
+            ->download($jalur, 'arus-'.now()->format('Y-m-d').'.xlsx', [
                 // Berkas berisi data keuangan — jangan sampai tersimpan di
                 // cache proxy atau riwayat browser bersama.
                 'Cache-Control' => 'no-store, no-cache, must-revalidate',

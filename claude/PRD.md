@@ -1,8 +1,8 @@
-# PRD.md — FinGoal: Aplikasi Kalkulator & Perencanaan Tujuan Finansial
+# PRD.md — Arus: Aplikasi Kalkulator & Perencanaan Tujuan Finansial
 
 ## 1. Ringkasan Produk
 
-**FinGoal** adalah aplikasi manajemen keuangan pribadi berbasis web yang membantu pengguna menghitung berapa nominal yang harus disisihkan secara berkala untuk mencapai tujuan finansial tertentu (dana pensiun, membeli rumah, membeli kendaraan, dana darurat, dana pendidikan), lengkap dengan rekomendasi alokasi instrumen investasi (saham, reksa dana, obligasi/SBN, deposito, emas) agar target tersebut realistis dicapai. Aplikasi juga menyajikan berita & analisis keuangan terkini sebagai konteks pengambilan keputusan.
+**Arus** adalah aplikasi manajemen keuangan pribadi berbasis web yang membantu pengguna menghitung berapa nominal yang harus disisihkan secara berkala untuk mencapai tujuan finansial tertentu (dana pensiun, membeli rumah, membeli kendaraan, dana darurat, dana pendidikan), lengkap dengan rekomendasi alokasi instrumen investasi (saham, reksa dana, obligasi/SBN, deposito, emas) agar target tersebut realistis dicapai. Aplikasi juga menyajikan berita & analisis keuangan terkini sebagai konteks pengambilan keputusan.
 
 ### Dua Pilar Produk
 
@@ -213,7 +213,7 @@ dilupakan begitu semangat awal habis.
 - FR-62: Dashboard menampilkan panel pengingat **hari ini**, dengan jam yang sudah lewat tanpa ditandai selesai ditonjolkan — bukan disembunyikan.
 
 **Batas yang disengaja: pengingat ini murni di dalam aplikasi.** Ia tampil saat
-pengguna membuka FinGoal, dan tidak mengirim notifikasi ke perangkat saat
+pengguna membuka Arus, dan tidak mengirim notifikasi ke perangkat saat
 aplikasi tertutup. Teks di antarmuka sengaja menyebutkan hal ini apa adanya,
 bukan menjanjikan lebih dari yang dilakukan.
 

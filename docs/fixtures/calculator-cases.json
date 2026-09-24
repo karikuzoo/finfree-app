@@ -1,5 +1,5 @@
 {
-    "$schema_note": "Test vector bersama untuk mesin kalkulator tujuan FinGoal. Dipakai oleh test PHP (backend, sumber kebenaran) DAN test JavaScript (preview real-time di frontend). Kedua implementasi WAJIB lolos berkas yang sama — lihat CLAUDE.md 6.6.",
+    "$schema_note": "Test vector bersama untuk mesin kalkulator tujuan Arus. Dipakai oleh test PHP (backend, sumber kebenaran) DAN test JavaScript (preview real-time di frontend). Kedua implementasi WAJIB lolos berkas yang sama — lihat CLAUDE.md 6.6.",
     "aturan": {
         "D-1": "Inflasi MENAIKKAN nominal target: future_value_target = target_amount * (1+inflasi)^(months/12). Return yang dipakai adalah return NOMINAL. Dilarang memotong return dengan inflasi juga — itu perhitungan ganda.",
         "D-2": "Ordinary annuity: setoran di AKHIR bulan.",

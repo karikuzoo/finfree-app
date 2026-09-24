@@ -88,7 +88,7 @@ function renderInsideLabel({
  *
  * BUKAN breakdown "Kebutuhan/Keinginan/Tabungan" ala aplikasi budget
  * harian — itu butuh modul kategorisasi transaksi yang tidak ada di
- * data model FinGoal (goal-based saving, bukan pencatat pengeluaran
+ * data model Arus (goal-based saving, bukan pencatat pengeluaran
  * harian).
  */
 export default function AllocationBreakdownChart({

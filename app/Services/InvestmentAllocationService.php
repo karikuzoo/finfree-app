@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  * untuk melengkapi tampilan Dashboard — BUKAN hasil kajian
  * produk/kepatuhan yang sudah direview. Sebelum dipakai pengguna
  * sungguhan, tabel ini wajib divalidasi oleh yang berwenang menyusun
- * kebijakan alokasi FinGoal (lihat catatan "simulasi edukatif, bukan
+ * kebijakan alokasi Arus (lihat catatan "simulasi edukatif, bukan
  * nasihat investasi" di PRD §keputusan desain).
  *
  * Aturan: jangka waktu ke target_date dikelompokkan jadi 3 horizon

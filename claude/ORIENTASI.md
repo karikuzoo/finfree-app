@@ -1,4 +1,4 @@
-# ORIENTASI.md — Panduan Membaca Kode FinGoal
+# ORIENTASI.md — Panduan Membaca Kode Arus
 
 Dokumen ini untuk anggota tim yang **baru pertama kali** masuk ke kode ini. Tujuannya satu: setelah membaca ini, Anda tahu berkas mana yang harus dibuka saat ingin mengubah sesuatu — dan tidak lagi merasa harus memahami semuanya sekaligus.
 
@@ -96,7 +96,7 @@ Mulai dari yang kecil supaya polanya terlihat lebih dulu.
 | 4 | [Pages/Welcome.jsx](../resources/js/Pages/Welcome.jsx) | 137 | Halaman nyata: tautan, perulangan daftar |
 | 5 | [Layouts/PublicLayout.jsx](../resources/js/Layouts/PublicLayout.jsx) | 145 | Bingkai bersama + menu yang bisa dibuka-tutup |
 
-**Belum perlu dibaca sekarang:** `AuthenticatedLayout.jsx`, `Pages/Auth/`, `Pages/Profile/`, dan `Components/TextInput.jsx`. Semuanya bawaan Laravel Breeze yang sudah berfungsi. Tidak ada yang bisa dipelajari dari situ tentang FinGoal.
+**Belum perlu dibaca sekarang:** `AuthenticatedLayout.jsx`, `Pages/Auth/`, `Pages/Profile/`, dan `Components/TextInput.jsx`. Semuanya bawaan Laravel Breeze yang sudah berfungsi. Tidak ada yang bisa dipelajari dari situ tentang Arus.
 
 ---
 

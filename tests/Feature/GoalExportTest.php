@@ -139,7 +139,7 @@ class GoalExportTest extends TestCase
 
         $this->assertStringContainsString('attachment', $disposisi);
         $this->assertStringContainsString(
-            'fingoal-'.now()->format('Y-m-d').'.xlsx',
+            'arus-'.now()->format('Y-m-d').'.xlsx',
             $disposisi,
         );
     }

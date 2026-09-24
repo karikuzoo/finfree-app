@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
  * punya banyak pengingat — masing-masing dengan jam sendiri.
  *
  * Pengingat ini murni DI DALAM APLIKASI: ia tampil saat pengguna membuka
- * FinGoal, dan tidak mengirim notifikasi apa pun ke perangkat. Mengirim
+ * Arus, dan tidak mengirim notifikasi apa pun ke perangkat. Mengirim
  * notifikasi meski aplikasi tertutup menuntut Web Push atau email terjadwal —
  * keduanya keputusan tersendiri, bukan sesuatu yang boleh menyelinap masuk.
  */

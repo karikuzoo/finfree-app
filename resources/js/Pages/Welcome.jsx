@@ -24,12 +24,12 @@ export default function Welcome() {
                         </span>
 
                         <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-text-primary sm:text-5xl">
-                            Berapa yang harus Anda sisihkan tiap bulan?
+                            Uang lebih terarah. Hidup lebih tenang.
                         </h1>
 
                         <p className="mt-5 max-w-xl text-base leading-relaxed text-text-secondary">
                             Tentukan tujuan finansial Anda — dana pensiun,
-                            rumah, kendaraan, dana darurat, pendidikan. FinGoal
+                            rumah, kendaraan, dana darurat, pendidikan. Arus
                             menghitung setoran bulanannya, menyarankan alokasi
                             instrumen yang masuk akal untuk jangka waktu itu,
                             lalu memantau progresnya.
@@ -57,7 +57,7 @@ export default function Welcome() {
                         </p>
                     </div>
 
-                    <div className="rounded-card border border-border bg-bg-card p-6">
+                    <div className="rounded-card border border-[#48755f] bg-gradient-to-br from-[#244c3c] to-bg-card p-8">
                         <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
                             Contoh perhitungan
                         </p>
@@ -91,7 +91,7 @@ export default function Welcome() {
                             <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
                                 Setoran bulanan
                             </p>
-                            <p className="num-tabular mt-1 font-mono text-3xl font-bold text-lime-500">
+                            <p className="num-tabular mt-1 text-3xl font-semibold text-lime-500">
                                 Rp 2.775.862
                             </p>
                         </div>

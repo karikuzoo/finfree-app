@@ -34,7 +34,7 @@ export default function UpdatePreferencesForm({ className = '' }) {
                     Preferensi Investasi
                 </h2>
                 <p className="mt-1 text-sm text-text-secondary">
-                    Dipakai sebagai nilai awal saat FinGoal menyarankan alokasi
+                    Dipakai sebagai nilai awal saat Arus menyarankan alokasi
                     instrumen untuk tujuan Anda. Tiap tujuan tetap bisa memakai
                     profil risiko yang berbeda.
                 </p>

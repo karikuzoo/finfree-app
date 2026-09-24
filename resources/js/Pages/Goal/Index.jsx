@@ -359,7 +359,7 @@ function KosongTanpaTujuan() {
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
                 Tentukan apa yang ingin Anda capai — dana darurat, DP rumah, atau
-                pensiun — lalu FinGoal menghitung berapa yang perlu disisihkan
+                pensiun — lalu Arus menghitung berapa yang perlu disisihkan
                 tiap bulan dan memantau progresnya di sini.
             </p>
 

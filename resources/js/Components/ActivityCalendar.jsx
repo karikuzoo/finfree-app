@@ -553,7 +553,7 @@ function DialogCatatan({ sel, goals = [], onClose }) {
  * kolom judul justru menyimpan catatan.
  *
  * Pengingat ini murni di dalam aplikasi — ia tampil saat pengguna membuka
- * FinGoal, dan tidak mengirim notifikasi ke perangkat.
+ * Arus, dan tidak mengirim notifikasi ke perangkat.
  */
 function SeksiPengingat({ tgl, pengingat }) {
     const form = useForm({
@@ -576,7 +576,7 @@ function SeksiPengingat({ tgl, pengingat }) {
                 Pengingat
             </h4>
             <p className="mt-0.5 text-xs text-text-muted">
-                Muncul di Dashboard saat Anda membuka FinGoal pada hari itu.
+                Muncul di Dashboard saat Anda membuka Arus pada hari itu.
             </p>
 
             {pengingat.length > 0 && (

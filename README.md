@@ -1,10 +1,10 @@
-# FinGoal
+# Arus
 
 Aplikasi web manajemen keuangan pribadi dengan **kalkulator tujuan finansial**: hitung berapa yang harus disisihkan tiap bulan untuk mencapai target (dana pensiun, rumah, kendaraan, dana darurat, pendidikan), lengkap dengan rekomendasi alokasi instrumen investasi dan pemantauan progres.
 
 Produk ini punya dua pilar. **Tujuan** adalah intinya — target tersimpan yang punya progres dan dipantau berbulan-bulan. **Kalkulator** adalah pendukungnya — alat hitung sekali pakai untuk pertanyaan cepat seperti simulasi cicilan KPR. Keduanya dijembatani tombol "Jadikan Tujuan".
 
-FinGoal adalah alat **simulasi dan perencanaan**, bukan aplikasi transaksi. Aplikasi ini tidak membeli/menjual instrumen apa pun, tidak terhubung ke rekening bank, dan tidak memberi nasihat investasi personal.
+Arus adalah alat **simulasi dan perencanaan**, bukan aplikasi transaksi. Aplikasi ini tidak membeli/menjual instrumen apa pun, tidak terhubung ke rekening bank, dan tidak memberi nasihat investasi personal.
 
 ---
 

@@ -1,4 +1,4 @@
-# CONTRIBUTING.md — Cara Kerja Tim FinGoal
+# CONTRIBUTING.md — Cara Kerja Tim Arus
 
 Dokumen ini mengatur **bagaimana** tim bekerja. Untuk **apa** yang dibangun, baca [PRD.md](PRD.md); untuk konteks teknis, [CLAUDE.md](CLAUDE.md); untuk tampilan, [DESIGN.md](DESIGN.md).
 

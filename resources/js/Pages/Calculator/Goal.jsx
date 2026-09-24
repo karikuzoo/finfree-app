@@ -239,7 +239,7 @@ export default function CalculatorGoal({ input, result }) {
                             <p className="text-xs leading-relaxed text-text-muted">
                                 Isi imbal hasil sesuai instrumen yang Anda
                                 rencanakan — deposito, obligasi, reksa dana, dan
-                                saham punya kisaran yang berbeda jauh. FinGoal
+                                saham punya kisaran yang berbeda jauh. Arus
                                 tidak mengisikan angka apa pun untuk Anda karena
                                 angka itulah yang paling menentukan hasilnya.
                             </p>

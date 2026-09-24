@@ -1,4 +1,4 @@
-import ApplicationLogo from "@/Components/ApplicationLogo";
+import Brand from '@/Components/Brand';
 import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
@@ -52,10 +52,7 @@ function GuestTopNav({ children }) {
                         href={route("home")}
                         className="flex shrink-0 items-center gap-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-surface"
                     >
-                        <ApplicationLogo className="h-8 w-8 text-lime-500" />
-                        <span className="text-lg font-bold tracking-tight text-text-primary">
-                            FinGoal
-                        </span>
+                        <Brand/>
                     </Link>
 
                     <div className="hidden items-center gap-1 md:flex">
@@ -145,7 +142,7 @@ function GuestTopNav({ children }) {
 
             <footer className="border-t border-border">
                 <div className="mx-auto max-w-7xl px-4 py-6 text-xs text-text-muted sm:px-6 lg:px-8">
-                    FinGoal — alat simulasi dan perencanaan. Tidak menjual,
+                    Arus — alat simulasi dan perencanaan. Tidak menjual,
                     membeli, atau menyalurkan produk investasi apa pun.
                 </div>
             </footer>

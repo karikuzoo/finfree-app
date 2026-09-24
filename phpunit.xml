@@ -25,7 +25,7 @@
         <env name="CACHE_STORE" value="array"/>
         <!--
             Test berjalan di PostgreSQL, bukan SQLite in-memory bawaan Laravel.
-            Alasannya: skema FinGoal memakai jsonb (calculation_snapshot) dan
+            Alasannya: skema Arus memakai jsonb (calculation_snapshot) dan
             tipe enum, yang tidak didukung SQLite dan diam-diam jatuh jadi text.
             Kalau test berjalan di SQLite, migrasi bisa lolos semua test lalu
             gagal saat pertama dijalankan sungguhan — persis kegagalan yang

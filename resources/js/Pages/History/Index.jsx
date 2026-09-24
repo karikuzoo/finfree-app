@@ -73,7 +73,7 @@ export default function HistoryIndex({ activities }) {
                     Riwayat
                 </h1>
                 <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                    Semua aktivitas Anda di FinGoal, dikelompokkan per hari —
+                    Semua aktivitas Anda di Arus, dikelompokkan per hari —
                     tiap setoran yang dicatat dan tiap tujuan yang dibuat atau
                     dihapus.
                 </p>

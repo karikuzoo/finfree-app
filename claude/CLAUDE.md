@@ -1,12 +1,12 @@
 # CLAUDE.md — Panduan Konteks Project untuk Claude Code
 
-Dokumen ini adalah konteks kerja untuk Claude (atau developer lain) saat membangun/mengembangkan project **FinGoal**. Baca bersama `PRD.md` (requirement produk) dan `DESIGN.md` (design system) di folder `claude/` yang sama.
+Dokumen ini adalah konteks kerja untuk Claude (atau developer lain) saat membangun/mengembangkan project **Arus**. Baca bersama `PRD.md` (requirement produk) dan `DESIGN.md` (design system) di folder `claude/` yang sama.
 
 > **Catatan migrasi arsitektur (2026-08-25):** versi dokumen ini sebelumnya mengasumsikan React SPA terpisah + Laravel REST API (Sanctum bearer token, dua origin, dua proses dev). Repo yang sebenarnya sudah di-scaffold sebagai **Laravel Breeze + Inertia.js + React** — satu aplikasi, session auth, tanpa lapisan API terpisah. Dokumen ini ditulis ulang mengikuti kenyataan kode yang sudah ada (lihat keputusan **D-9** di §8, menggantikan D-5). Kalau kamu membaca versi lama dokumen ini dari riwayat chat/git, anggap §2, §3, §6.9, §7, §8, §9, dan §10 di bawah ini sebagai versi yang berlaku.
 
 ## 1. Ringkasan Project
 
-FinGoal adalah aplikasi web manajemen keuangan pribadi dengan fitur utama **kalkulator tujuan finansial** (dana pensiun, beli rumah, beli kendaraan, dana darurat, dana pendidikan) yang menghasilkan nominal setoran bulanan yang dibutuhkan beserta **rekomendasi alokasi instrumen investasi** (saham, reksa dana, obligasi/SBN, deposito, emas). Dilengkapi dashboard progres tujuan dan modul berita finansial dari Currents API.
+Arus adalah aplikasi web manajemen keuangan pribadi dengan fitur utama **kalkulator tujuan finansial** (dana pensiun, beli rumah, beli kendaraan, dana darurat, dana pendidikan) yang menghasilkan nominal setoran bulanan yang dibutuhkan beserta **rekomendasi alokasi instrumen investasi** (saham, reksa dana, obligasi/SBN, deposito, emas). Dilengkapi dashboard progres tujuan dan modul berita finansial dari Currents API.
 
 Tema visual: **"Malam"** — near-black dipadu lime listrik, dark-first (lihat `DESIGN.md` untuk token warna & komponen).
 
@@ -102,7 +102,7 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 
 Konfigurasi Tailwind sudah ada di root: `tailwind.config.js`, memakai Tailwind v3 (config-based, bukan CSS `@theme` v4) — pastikan tidak tercampur dengan paket `@tailwindcss/vite` v4 yang ikut ter-list di `package.json` devDependencies tapi **tidak dipakai** oleh `vite.config.js` saat ini; abaikan/boleh dihapus paket itu agar tidak membingungkan.
 
-Breeze memasang font default **Figtree** di `theme.extend.fontFamily.sans` — ganti ke `Plus Jakarta Sans`/`Inter` sesuai DESIGN.md sebelum mulai styling halaman FinGoal.
+Breeze memasang font default **Figtree** di `theme.extend.fontFamily.sans` — ganti ke `Plus Jakarta Sans`/`Inter` sesuai DESIGN.md sebelum mulai styling halaman Arus.
 
 Tambahkan token warna berikut ke `tailwind.config.js` (`theme.extend.colors`):
 
@@ -245,7 +245,7 @@ reminders                                     -- FR-57..FR-62, pengingat kalende
   -- supaya kalender bulan lalu tetap memperlihatkan apa yang sudah dikerjakan.
   --
   -- Pengingat ini murni DI DALAM APLIKASI: tampil saat pengguna membuka
-  -- FinGoal, tanpa notifikasi ke perangkat. Mengirim notifikasi meski aplikasi
+  -- Arus, tanpa notifikasi ke perangkat. Mengirim notifikasi meski aplikasi
   -- tertutup menuntut Web Push atau email terjadwal — keduanya keputusan
   -- tersendiri, jangan diselipkan diam-diam.
 
@@ -441,11 +441,11 @@ Satu `.env` di root project — **tidak ada `.env` terpisah untuk frontend**, ka
 >
 > **Tindak lanjut:** baris keputusan **D-5 di `PRD.md` §13** mencatat keputusan lama ini dan perlu diperbarui juga supaya kedua dokumen tidak saling bertentangan — lihat catatan di bagian akhir dokumen ini.
 
-**Kondisi sekarang:** `.env.example` sudah diperbarui ke `APP_NAME=FinGoal` dan `DB_CONNECTION=pgsql` dengan kredensial PostgreSQL default. Variabel `CURRENTS_*` belum ditambahkan karena modul News baru dikerjakan di Rilis 3.
+**Kondisi sekarang:** `.env.example` sudah diperbarui ke `APP_NAME=Arus` dan `DB_CONNECTION=pgsql` dengan kredensial PostgreSQL default. Variabel `CURRENTS_*` belum ditambahkan karena modul News baru dikerjakan di Rilis 3.
 
-**`.env` lengkap untuk development FinGoal:**
+**`.env` lengkap untuk development Arus:**
 ```
-APP_NAME=FinGoal
+APP_NAME=Arus
 APP_ENV=local
 APP_URL=http://localhost:8000
 

@@ -1,4 +1,4 @@
-# FinGoal — desain Arus
+# Arus — desain Arus
 
 Perubahan ini menerapkan arah visual Arus ke aplikasi Laravel + Inertia existing.
 Basis: `baaab87f0607adeaaf2d6a02b3a9d63a8bc96063` (branch `main`).

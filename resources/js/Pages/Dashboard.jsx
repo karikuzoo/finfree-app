@@ -124,7 +124,7 @@ export default function Dashboard() {
                             <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
                                 Angka di atas hanyalah contoh. Tentukan target
                                 Anda sendiri — dana darurat, DP rumah, atau
-                                pensiun — lalu FinGoal menghitung berapa yang
+                                pensiun — lalu Arus menghitung berapa yang
                                 perlu disisihkan tiap bulan.
                             </p>
 

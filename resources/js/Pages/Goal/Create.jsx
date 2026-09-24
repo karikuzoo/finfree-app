@@ -200,7 +200,7 @@ export default function GoalCreate({ isFirstGoal }) {
                             : "Buat tujuan baru"}
                     </h1>
                     <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                        Tentukan apa yang ingin dicapai dan kapan. FinGoal
+                        Tentukan apa yang ingin dicapai dan kapan. Arus
                         menghitung berapa yang perlu Anda sisihkan tiap bulan,
                         lalu memantau progresnya di Dashboard.
                     </p>

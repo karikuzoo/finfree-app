@@ -7,7 +7,7 @@ import { router } from "@inertiajs/react";
  * yang sedang dilihat, panel ini selalu soal hari ini — bahkan saat pengguna
  * sedang menengok bulan lalu.
  *
- * Ini pengingat DI DALAM APLIKASI. Ia tampil ketika pengguna membuka FinGoal,
+ * Ini pengingat DI DALAM APLIKASI. Ia tampil ketika pengguna membuka Arus,
  * dan tidak mengirim notifikasi ke perangkat saat aplikasi tertutup — itu
  * menuntut Web Push atau email terjadwal, yang belum dibangun. Teksnya sengaja
  * tidak menjanjikan lebih dari yang benar-benar dilakukan.
@@ -94,7 +94,7 @@ export default function TodayReminders({ reminders }) {
             </ul>
 
             <p className="mt-3 text-xs text-text-muted">
-                Pengingat tampil saat Anda membuka FinGoal. Buat lewat kalender
+                Pengingat tampil saat Anda membuka Arus. Buat lewat kalender
                 — klik tanggalnya.
             </p>
         </div>

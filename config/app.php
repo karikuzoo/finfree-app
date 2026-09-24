@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Arus'),
 
     /*
     |--------------------------------------------------------------------------
@@ -59,7 +59,7 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Zona waktu aplikasi. FinGoal melayani pengguna Indonesia, dan seluruh
+    | Zona waktu aplikasi. Arus melayani pengguna Indonesia, dan seluruh
     | tanggalnya bermakna waktu setempat — bukan waktu server.
     |
     | Bawaan Laravel adalah UTC, dan itu keliru di sini: UTC tertinggal 7 jam

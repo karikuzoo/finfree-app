@@ -79,6 +79,8 @@ export default function Register() {
     return (
         <GuestLayout>
             <Head title="Daftar" />
+            <h2 className="mb-2 text-2xl font-semibold tracking-tight">Mulai bersama Arus</h2>
+            <p className="mb-7 text-sm leading-7 text-text-secondary">Buat akun untuk menyimpan dan memantau tujuanmu.</p>
 
             <form onSubmit={submit} noValidate>
                 <div>
