@@ -8,6 +8,9 @@ import { DashboardIcon, GoalIcon, WalletIcon, HistoryIcon, CalculatorIcon, NewsI
 const groups = [
     { title: 'KEUANGAN PRIBADI', items: [
         ['Dashboard', 'dashboard', 'dashboard', DashboardIcon],
+        ['Transaksi', 'transactions.index', 'transactions.*', HistoryIcon],
+        ['Rekening & aset', 'accounts.index', 'accounts.*', WalletIcon],
+        ['Investasi', 'investments.index', 'investments.*', CalculatorIcon],
         ['Tujuan saya', 'goals.index', 'goals.*', GoalIcon],
         ['Dompet & aset', 'wallet.index', 'wallet.*', WalletIcon],
         ['Riwayat', 'history.index', 'history.*', HistoryIcon],

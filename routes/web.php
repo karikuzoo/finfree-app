@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AccountValuationController;
 use App\Http\Controllers\AvatarFileController;
+use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GoalCalculatorController;
@@ -13,6 +16,7 @@ use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -122,6 +126,37 @@ Route::middleware('auth')->group(function () {
         ->name('goals.update');
     Route::patch('/tujuan/{financialGoal}/utama', [GoalController::class, 'setPrimary'])
         ->name('goals.primary');
+    // Rekening & aset dan Transaksi (PRD FR-63..FR-69). Keduanya lapisan
+    // baru di bawah Tujuan: target menandai sebagian saldo rekening, bukan
+    // menyimpan uangnya sendiri.
+    Route::get('/rekening', [AccountController::class, 'index'])
+        ->name('accounts.index');
+    Route::post('/rekening', [AccountController::class, 'store'])
+        ->name('accounts.store');
+    Route::patch('/rekening/{account}', [AccountController::class, 'update'])
+        ->name('accounts.update');
+    Route::delete('/rekening/{account}', [AccountController::class, 'destroy'])
+        ->name('accounts.destroy');
+
+    // Penilaian ulang: yang dikirim nilai TOTAL terkini, selisihnya dihitung
+    // controller lalu disimpan sebagai transaksi penyesuaian.
+    Route::post('/rekening/{account}/nilai', [AccountValuationController::class, 'store'])
+        ->name('accounts.valuation.store');
+
+    // Investasi bukan tabel tersendiri — ini penyaringan atas `accounts`
+    // untuk jenis yang nilainya bergerak sendiri. Lihat controller-nya.
+    Route::get('/investasi', [InvestmentController::class, 'index'])
+        ->name('investments.index');
+
+    Route::get('/transaksi', [TransactionController::class, 'index'])
+        ->name('transactions.index');
+    Route::post('/transaksi', [TransactionController::class, 'store'])
+        ->name('transactions.store');
+    Route::patch('/transaksi/{transaction}', [TransactionController::class, 'update'])
+        ->name('transactions.update');
+    Route::delete('/transaksi/{transaction}', [TransactionController::class, 'destroy'])
+        ->name('transactions.destroy');
+
     Route::get('/dompet', function (\Illuminate\Http\Request $request, \App\Services\DashboardSummaryService $summary) {
         $ringkasan = $summary->forUser($request->user());
         return Inertia::render('Wallet/Index', [

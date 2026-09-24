@@ -147,4 +147,20 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(UserActivity::class);
     }
+
+    /** Rekening dan aset — bank, tunai, saham, reksa dana, emas. */
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(Account::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function debts(): HasMany
+    {
+        return $this->hasMany(Debt::class);
+    }
 }
