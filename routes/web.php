@@ -8,7 +8,6 @@ use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\GoalCalculatorController;
-use App\Http\Controllers\GoalContributionController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\GoalExportController;
 use App\Http\Controllers\HistoryController;
@@ -17,6 +16,7 @@ use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePreferenceController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\SavingsPlanController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -102,7 +102,7 @@ Route::middleware('auth')->group(function () {
     // diakses tanpa login.
     //
     // Path "/tujuan" dipilih supaya konsisten dengan prefix yang dipakai
-    // dua route di bawah (target-harian, setoran) untuk aksi per-goal —
+    // dua route di bawah (target-harian, alokasi) untuk aksi per-goal —
     // /tujuan sebagai index, /tujuan/{id}/... sebagai aksi. Urutan
     // definisinya tidak masalah karena jumlah segmen path beda, Laravel
     // tidak menganggapnya bentrok.
@@ -148,6 +148,15 @@ Route::middleware('auth')->group(function () {
     // untuk jenis yang nilainya bergerak sendiri. Lihat controller-nya.
     Route::get('/investasi', [InvestmentController::class, 'index'])
         ->name('investments.index');
+
+    // Rencana menabung (FR-74..FR-78). Tiga route, satu halaman: melihat
+    // rencananya, mengubah anggarannya, dan mengubah alokasi satu target.
+    Route::get('/rencana-menabung', [SavingsPlanController::class, 'index'])
+        ->name('savings-plan.index');
+    Route::patch('/rencana-menabung/anggaran', [SavingsPlanController::class, 'updateBudget'])
+        ->name('savings-plan.budget.update');
+    Route::patch('/tujuan/{financialGoal}/alokasi', [SavingsPlanController::class, 'updateAllocation'])
+        ->name('goals.allocation.update');
 
     // Utang & cicilan. Pembayaran pokoknya TIDAK punya route sendiri — ia
     // transaksi berjenis `payment` lewat transactions.store; lihat komentar
@@ -198,16 +207,6 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/tujuan/{financialGoal}/alokasi-aset', [\App\Http\Controllers\GoalAssetAllocationController::class, 'update'])
         ->name('goals.asset-allocation.update');
-
-    Route::post('/tujuan/{financialGoal}/setoran', [GoalContributionController::class, 'store'])
-        ->name('goals.contributions.store');
-
-    // Ubah & hapus setoran (FR-33). Disunting dari dialog tanggal di
-    // kalender, jadi tanggalnya tidak ikut bisa diubah — lihat controller.
-    Route::patch('/setoran/{goalContribution}', [GoalContributionController::class, 'update'])
-        ->name('goals.contributions.update');
-    Route::delete('/setoran/{goalContribution}', [GoalContributionController::class, 'destroy'])
-        ->name('goals.contributions.destroy');
 
     Route::delete('/tujuan/{financialGoal}', [GoalController::class, 'destroy'])
         ->name('goals.destroy');

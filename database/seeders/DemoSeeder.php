@@ -2,11 +2,15 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AccountKind;
+use App\Enums\GoalPriority;
 use App\Enums\GoalStatus;
 use App\Enums\GoalType;
 use App\Enums\RiskProfile;
+use App\Enums\TransactionType;
+use App\Models\Account;
 use App\Models\FinancialGoal;
-use App\Models\GoalContribution;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -22,9 +26,9 @@ use Illuminate\Support\Facades\Hash;
  *
  * Datanya sengaja tidak acak. Tiga tujuan di bawah dipilih agar mewakili
  * keadaan yang berbeda-beda: satu hampir tercapai, satu di tengah jalan, satu
- * baru dimulai dengan jangka sangat panjang. Setoran disebar ke belakang
- * selama 12 bulan supaya grafik pertumbuhan aset punya kurva sungguhan, bukan
- * satu titik.
+ * baru dimulai dengan jangka sangat panjang. Transaksi disebar ke belakang
+ * selama 12 bulan supaya grafik pertumbuhan kekayaan punya kurva sungguhan,
+ * bukan satu titik.
  *
  * Aman dijalankan berulang: akun dicari berdasarkan email, dan tujuan lamanya
  * dihapus lebih dulu agar tidak menumpuk.
@@ -57,18 +61,24 @@ class DemoSeeder extends Seeder
             ],
         );
 
-        // Bersihkan tujuan lama milik akun demo saja. Akun lain tidak disentuh.
+        // Bersihkan data lama milik akun demo saja. Akun lain tidak disentuh.
+        // Transaksi lebih dulu: rekening yang masih punya riwayat ditolak
+        // dihapus oleh foreign key-nya.
         $user->goals()->delete();
+        $user->transactions()->delete();
+        $user->accounts()->delete();
 
-        $this->danaDarurat($user);
-        $this->dpRumah($user);
-        $this->danaPensiun($user);
+        $rekening = $this->rekening($user);
+
+        $this->danaDarurat($user, $rekening);
+        $this->dpRumah($user, $rekening);
+        $this->danaPensiun($user, $rekening);
 
         $this->command?->info('Akun demo siap: '.self::EMAIL.' / '.self::PASSWORD);
     }
 
     /** Hampir tercapai — memperlihatkan progress bar yang nyaris penuh. */
-    private function danaDarurat(User $user): void
+    private function danaDarurat(User $user, Account $rekening): void
     {
         $goal = $user->goals()->create([
             'type' => GoalType::Emergency,
@@ -84,11 +94,15 @@ class DemoSeeder extends Seeder
             'status' => GoalStatus::Active,
         ]);
 
-        $this->setoranBulanan($goal, jumlah: 12, nominal: 3_500_000, catatan: 'Setoran rutin');
+        $goal->update([
+            'account_id' => $rekening->id,
+            'allocated_amount' => 52_000_000,
+            'priority' => GoalPriority::High->value,
+        ]);
     }
 
     /** Di tengah jalan — keadaan paling umum. */
-    private function dpRumah(User $user): void
+    private function dpRumah(User $user, Account $rekening): void
     {
         $goal = $user->goals()->create([
             'type' => GoalType::House,
@@ -101,11 +115,15 @@ class DemoSeeder extends Seeder
             'status' => GoalStatus::Active,
         ]);
 
-        $this->setoranBulanan($goal, jumlah: 10, nominal: 4_000_000, catatan: 'Sisihan gaji');
+        $goal->update([
+            'account_id' => $rekening->id,
+            'allocated_amount' => 45_000_000,
+            'priority' => GoalPriority::Medium->value,
+        ]);
     }
 
     /** Baru dimulai, jangka sangat panjang — progresnya sengaja kecil. */
-    private function danaPensiun(User $user): void
+    private function danaPensiun(User $user, Account $rekening): void
     {
         $goal = $user->goals()->create([
             'type' => GoalType::Retirement,
@@ -119,59 +137,68 @@ class DemoSeeder extends Seeder
             'status' => GoalStatus::Active,
         ]);
 
-        $this->setoranBulanan($goal, jumlah: 6, nominal: 2_000_000, catatan: 'Reksa dana saham');
+        $goal->update([
+            'account_id' => $rekening->id,
+            'allocated_amount' => 10_000_000,
+            'priority' => GoalPriority::Low->value,
+        ]);
     }
 
     /**
-     * Setoran disebar mundur satu per bulan dari bulan ini, supaya deret
-     * pertumbuhan aset 12 bulan di dashboard terisi merata dan grafiknya
-     * menanjak, bukan melompat di satu titik.
+     * Satu rekening bank berikut riwayat setahun terakhir.
+     *
+     * Transaksinya disebar mundur satu per bulan supaya grafik pertumbuhan
+     * kekayaan di dashboard terisi merata dan menanjak, bukan melompat di
+     * bukan satu titik. Saldonya sengaja dibuat cukup untuk menampung seluruh dana
+     * yang ditandai ketiga tujuan — kalau tidak, LedgerGuard akan menolaknya
+     * dan seeder gagal di tengah jalan.
      */
-    private function setoranBulanan(
-        FinancialGoal $goal,
-        int $jumlah,
-        int $nominal,
-        string $catatan,
-    ): void {
+    private function rekening(User $user): Account
+    {
+        $rekening = $user->accounts()->create([
+            'name' => 'BCA Utama',
+            'kind' => AccountKind::Bank->value,
+            'institution' => 'Bank BCA',
+            'opening_balance' => 45_000_000,
+        ]);
+
         $baris = [];
+        $sekarang = Carbon::now();
 
-        $setoranPertama = Carbon::today()
-            ->subMonthsNoOverflow($jumlah - 1)
-            ->startOfMonth()
-            ->addDays(4);
+        for ($i = 11; $i >= 0; $i--) {
+            $tanggal = Carbon::today()->startOfMonth()->subMonths($i)->addDays(4);
 
-        for ($i = $jumlah - 1; $i >= 0; $i--) {
-            $tanggal = Carbon::today()->subMonthsNoOverflow($i)->startOfMonth()->addDays(4);
+            if ($tanggal->isFuture()) {
+                continue;
+            }
 
             $baris[] = [
-                'financial_goal_id' => $goal->id,
-                'amount' => $nominal,
-                'contributed_on' => $tanggal,
-                'note' => $catatan,
-                // Dicatat pada tanggal setorannya, bukan hari ini. Aplikasi
-                // hanya mengizinkan mencatat setoran untuk hari berjalan, jadi
-                // created_at yang seragam "sekarang" menggambarkan keadaan yang
-                // tidak mungkin terjadi.
-                'created_at' => $tanggal,
-                'updated_at' => $tanggal,
+                'user_id' => $user->id,
+                'account_id' => $rekening->id,
+                'type' => TransactionType::Income->value,
+                'name' => 'Gaji bulanan',
+                'amount' => 15_000_000,
+                'category' => 'Gaji',
+                'occurred_on' => $tanggal->toDateString(),
+                'created_at' => $sekarang,
+                'updated_at' => $sekarang,
+            ];
+
+            $baris[] = [
+                'user_id' => $user->id,
+                'account_id' => $rekening->id,
+                'type' => TransactionType::Expense->value,
+                'name' => 'Biaya hidup bulanan',
+                'amount' => 9_000_000,
+                'category' => 'Kebutuhan',
+                'occurred_on' => $tanggal->copy()->addDay()->toDateString(),
+                'created_at' => $sekarang,
+                'updated_at' => $sekarang,
             ];
         }
 
-        GoalContribution::insert($baris);
+        Transaction::insert($baris);
 
-        // Tujuannya harus lahir SEBELUM setoran pertamanya.
-        //
-        // Sebelum ini, seeder membuat tujuan dengan created_at = sekarang tetapi
-        // setorannya bertanggal sampai 12 bulan ke belakang — keadaan yang
-        // mustahil, karena aplikasi hanya mengizinkan mencatat setoran untuk
-        // hari berjalan. Grafik pertumbuhan aset membentang dari bulan tujuan
-        // dibuat, sehingga seluruh setoran "sebelum tujuan ada" jatuh di luar
-        // rentang dan hilang dari totalnya: kartu progres menunjukkan Rp 53 juta
-        // sementara grafiknya berhenti di Rp 14,5 juta. Grafiknya benar; data
-        // seeder-nya yang keliru.
-        $goal->forceFill([
-            'created_at' => $setoranPertama->copy()->subDay(),
-            'updated_at' => $setoranPertama->copy()->subDay(),
-        ])->saveQuietly();
+        return $rekening;
     }
 }

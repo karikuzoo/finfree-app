@@ -56,11 +56,22 @@ class DemoSeederTest extends TestCase
         $this->assertGreaterThan(0, $ringkasan['total_assets']);
         $this->assertCount(3, $ringkasan['goals']);
 
-        // Grafik pertumbuhan aset kini dihitung PER TUJUAN, bukan sebagai satu
-        // deret untuk seluruh akun. Seeder menyebar setoran ke belakang selama
-        // berbulan-bulan justru supaya grafiknya punya kurva — satu titik saja
-        // membuat grafiknya tidak berguna.
-        $this->assertGreaterThan(1, count($ringkasan['goals'][0]['asset_growth_series']['monthly']));
+        // Grafik pertumbuhan kekayaan dihitung dari riwayat transaksi seluruh
+        // akun. Seeder menyebar transaksi ke belakang selama berbulan-bulan
+        // justru supaya grafiknya punya kurva — deret yang datar membuatnya
+        // tidak berguna, dan itu tidak akan terlihat dari jumlah titiknya saja.
+        $deret = array_column($ringkasan['asset_growth_series']['monthly'], 'cumulative_amount');
+
+        $this->assertCount(12, $deret);
+        $this->assertGreaterThan($deret[0], end($deret), 'Grafiknya datar, seeder tidak menghasilkan kurva.');
+
+        // Dana tujuan ditandai dari saldo rekening, jadi seluruh alokasi harus
+        // muat di dalamnya — kalau tidak, LedgerGuard akan menolaknya dan
+        // seeder gagal separuh jalan tanpa terlihat di sini.
+        $this->assertGreaterThanOrEqual(
+            $ringkasan['total_assets'],
+            app(\App\Services\AccountBalanceService::class)->totalAssets($user),
+        );
     }
 
     public function test_dijalankan_dua_kali_tidak_menggandakan_data(): void

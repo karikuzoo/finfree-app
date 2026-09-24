@@ -48,7 +48,7 @@ class GoalExportController extends Controller
 
         $this->sheetRingkasan($writer, $goals);
         $this->sheetTujuan($writer, $goals);
-        $this->sheetSetoran($writer, $goals);
+        $this->sheetTransaksi($writer, $user);
 
         $writer->close();
 
@@ -69,9 +69,7 @@ class GoalExportController extends Controller
     {
         $writer->getCurrentSheet()->setName('Ringkasan');
 
-        $terkumpul = $goals->sum(
-            fn (FinancialGoal $g) => (float) $g->initial_amount + (float) $g->contributions->sum('amount'),
-        );
+        $terkumpul = $goals->sum(fn (FinancialGoal $g) => (float) $g->allocated_amount);
         $target = $goals->sum(fn (FinancialGoal $g) => (float) $g->target_amount);
 
         $writer->addRow(Row::fromValuesWithStyle(['Ringkasan Tujuan Finansial'], $this->tebal()));
@@ -95,20 +93,21 @@ class GoalExportController extends Controller
         $writer->addNewSheetAndMakeItCurrent()->setName('Tujuan');
 
         $writer->addRow(Row::fromValuesWithStyle([
-            'Nama', 'Nominal target', 'Dana awal', 'Terkumpul', 'Progres (%)',
-            'Tanggal target', 'Imbal hasil (%)', 'Inflasi (%)', 'Status', 'Dibuat',
+            'Nama', 'Nominal target', 'Dana ditandai', 'Progres (%)', 'Rekening',
+            'Prioritas', 'Tanggal target', 'Imbal hasil (%)', 'Inflasi (%)', 'Status', 'Dibuat',
         ], $this->tebal()));
 
         foreach ($goals as $goal) {
-            $terkumpul = (float) $goal->initial_amount + (float) $goal->contributions->sum('amount');
+            $terkumpul = (float) $goal->allocated_amount;
             $target = (float) $goal->target_amount;
 
             $writer->addRow(Row::fromValues([
                 $goal->name,
                 $target,
-                (float) $goal->initial_amount,
                 $terkumpul,
                 $target > 0 ? round($terkumpul / $target * 100, 1) : 0,
+                $goal->account?->name ?? 'Belum ditandai',
+                $goal->priority->label(),
                 // Tanggal ditulis sebagai teks ISO, bukan objek tanggal.
                 // Excel menampilkan objek tanggal menurut locale mesin
                 // pembacanya, sehingga 3 September bisa terbaca 9 Maret di
@@ -122,25 +121,43 @@ class GoalExportController extends Controller
         }
     }
 
-    private function sheetSetoran(Writer $writer, $goals): void
+    /**
+     * Dulu sheet ini berisi setoran per tujuan. Sejak pencatatan setoran
+     * dipensiunkan, catatan uang yang sebenarnya ada di `transactions` —
+     * dan itu yang diekspor. Isinya lebih lengkap daripada sebelumnya:
+     * bukan hanya uang yang masuk ke tujuan, tetapi seluruh pemasukan,
+     * pengeluaran, transfer, penyesuaian nilai, dan pembayaran utang.
+     */
+    private function sheetTransaksi(Writer $writer, User $user): void
     {
-        $writer->addNewSheetAndMakeItCurrent()->setName('Setoran');
+        $writer->addNewSheetAndMakeItCurrent()->setName('Transaksi');
 
         $writer->addRow(Row::fromValuesWithStyle(
-            ['Tanggal', 'Tujuan', 'Nominal', 'Catatan'],
+            ['Tanggal', 'Nama', 'Jenis', 'Rekening', 'Ke rekening', 'Utang', 'Kategori', 'Nominal'],
             $this->tebal(),
         ));
 
-        foreach ($goals as $goal) {
-            foreach ($goal->contributions as $setoran) {
-                $writer->addRow(Row::fromValues([
-                    $setoran->contributed_on->toDateString(),
-                    $goal->name,
-                    (float) $setoran->amount,
-                    $setoran->note ?? '',
-                ]));
-            }
-        }
+        // Dialirkan per potongan, bukan dimuat seluruhnya: riwayat transaksi
+        // tumbuh tanpa batas atas, dan ekspor menyentuh SEMUANYA sekaligus —
+        // justru di sinilah memori paling mudah habis.
+        $user->transactions()
+            ->with(['account:id,name', 'toAccount:id,name', 'debt:id,name'])
+            ->orderBy('occurred_on')
+            ->orderBy('id')
+            ->chunk(500, function ($transaksi) use ($writer) {
+                foreach ($transaksi as $t) {
+                    $writer->addRow(Row::fromValues([
+                        $t->occurred_on->toDateString(),
+                        $t->name,
+                        $t->type->label(),
+                        $t->account?->name ?? '',
+                        $t->toAccount?->name ?? '',
+                        $t->debt?->name ?? '',
+                        $t->category ?? '',
+                        (float) $t->amount,
+                    ]));
+                }
+            });
     }
 
     private function tebal(): Style
@@ -155,7 +172,7 @@ class GoalExportController extends Controller
             // Di-eager load supaya jumlah kueri tidak ikut bertambah seiring
             // banyaknya tujuan — ekspor menyentuh seluruh riwayat sekaligus,
             // justru di sinilah N+1 paling terasa.
-            ->with(['contributions' => fn ($q) => $q->orderBy('contributed_on')])
+            ->with('account:id,name')
             ->orderBy('created_at')
             ->get();
     }

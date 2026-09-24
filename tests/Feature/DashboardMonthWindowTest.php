@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Enums\GoalStatus;
-use App\Enums\GoalType;
+use App\Enums\AccountKind;
+use App\Models\Account;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\DashboardSummaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,8 +12,8 @@ use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
- * Menjaga perhitungan rentang bulan pada grafik pertumbuhan aset dari luberan
- * tanggal.
+ * Menjaga perhitungan rentang bulan pada grafik pertumbuhan kekayaan dari
+ * luberan tanggal.
  *
  * Operasi bulan pada tanggal 29–31 mudah meleset ke bulan berikutnya: "31
  * September" tidak ada, jadi menjadi 1 Oktober. Bug seperti itu tidak
@@ -20,11 +21,10 @@ use Tests\TestCase;
  * diakses di akhir bulan. Seluruh test di sini MEMBEKUKAN waktu di tanggal 31;
  * tanpa itu semuanya lolos pada 28 dari 31 hari dalam sebulan.
  *
- * Deretnya kini dihitung PER TUJUAN, membentang dari bulan tujuan dibuat sampai
- * bulan berjalan — bukan lagi jendela tetap 12 bulan untuk seluruh akun. Versi
- * sebelumnya memakai `subMonths(11)->startOfMonth()` yang bisa meleset; versi
- * sekarang memotong ke awal bulan lebih dulu, sehingga kursornya selalu
- * bertanggal 1 dan tidak pernah meluber. Test ini mengunci sifat itu.
+ * Sumber deretnya berubah: dulu dari setoran per tujuan, kini dari riwayat
+ * transaksi seluruh akun (setoran harian sudah dipensiunkan). Jendelanya tetap
+ * 12 bulan, dan cara menghitung kursornya — `startOfMonth()` lebih dulu, baru
+ * `subMonths()` — tetap yang dijaga di sini.
  */
 class DashboardMonthWindowTest extends TestCase
 {
@@ -37,117 +37,137 @@ class DashboardMonthWindowTest extends TestCase
         parent::tearDown();
     }
 
-    private function buatTujuan(User $user, string $dibuatPada): \App\Models\FinancialGoal
-    {
-        $sebelumnya = Carbon::getTestNow();
-        Carbon::setTestNow($dibuatPada);
-
-        $goal = $user->goals()->create([
-            'type' => GoalType::Emergency->value,
-            'name' => 'Dana Darurat',
-            'target_amount' => 60000000,
-            'initial_amount' => 0,
-            'target_date' => null,
-            'estimated_return_rate' => 4,
-            'estimated_inflation_rate' => 0,
-            'status' => GoalStatus::Active->value,
-        ]);
-
-        Carbon::setTestNow($sebelumnya);
-
-        return $goal;
-    }
-
-    /** @return array<int, array{month: string, cumulative_amount: float}> */
     private function deret(User $user): array
     {
-        return app(DashboardSummaryService::class)->forUser($user)['goals'][0]['asset_growth_series']['monthly'];
+        return app(DashboardSummaryService::class)->forUser($user)['asset_growth_series']['monthly'];
     }
 
-    public function test_deret_membentang_dari_bulan_tujuan_dibuat_sampai_bulan_ini(): void
+    private function rekening(User $user, float $awal = 0): Account
     {
-        Carbon::setTestNow('2026-08-31 09:00:00');
+        return Account::factory()->for($user)->jenis(AccountKind::Bank)
+            ->create(['opening_balance' => $awal]);
+    }
+
+    public function test_deret_selalu_dua_belas_bulan_berurutan(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
 
         $user = User::factory()->create();
-        $this->buatTujuan($user, '2026-05-14 09:00:00');
+        $this->rekening($user, 1_000_000);
 
-        $bulan = array_column($this->deret($user), 'month');
+        $deret = $this->deret($user);
 
-        $this->assertSame(['2026-05', '2026-06', '2026-07', '2026-08'], $bulan);
+        $this->assertCount(12, $deret);
+        $this->assertSame('2025-09', $deret[0]['month']);
+        $this->assertSame('2026-08', $deret[11]['month']);
     }
 
     /**
-     * Inti test ini: tidak ada bulan yang hilang di tengah deret, meski
-     * diaksesnya pada tanggal 31 dan meski jalur bulannya melewati bulan-bulan
-     * berisi 30 hari — Juni, September, November — yang dulu jadi korban
-     * luberan.
+     * Inti berkas ini. `subMonths(11)` pada 31 Agustus memberi 31 September
+     * yang tidak ada, sehingga kursornya meluber dan satu bulan hilang dari
+     * deret. Memotong ke awal bulan lebih dulu membuat kursornya selalu
+     * bertanggal 1.
      */
     public function test_tidak_ada_bulan_yang_terlewat_saat_diakses_tanggal_31(): void
     {
-        Carbon::setTestNow('2026-12-31 09:00:00');
+        Carbon::setTestNow(Carbon::parse('2026-08-31 23:59:00'));
 
         $user = User::factory()->create();
-        $this->buatTujuan($user, '2026-01-31 09:00:00');
+        $this->rekening($user, 1_000_000);
 
         $bulan = array_column($this->deret($user), 'month');
 
         $this->assertSame([
-            '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06',
-            '2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12',
+            '2025-09', '2025-10', '2025-11', '2025-12',
+            '2026-01', '2026-02', '2026-03', '2026-04',
+            '2026-05', '2026-06', '2026-07', '2026-08',
         ], $bulan);
     }
 
-    /**
-     * Bulan dengan 31 hari tidak pernah meluber, jadi tanggal 30 adalah
-     * pembanding yang berguna: hasilnya harus sama persis dengan tanggal 31.
-     */
     public function test_hasilnya_sama_baik_diakses_tanggal_30_maupun_31(): void
     {
         $user = User::factory()->create();
+        $rekening = $this->rekening($user, 5_000_000);
+        Transaction::factory()->for($user)->for($rekening)->pemasukan(1_000_000)
+            ->pada('2026-03-10')->create();
 
-        Carbon::setTestNow('2026-08-30 09:00:00');
-        $this->buatTujuan($user, '2026-02-15 09:00:00');
-        $tanggal30 = array_column($this->deret($user), 'month');
+        Carbon::setTestNow(Carbon::parse('2026-08-30 08:00:00'));
+        $tanggal30 = $this->deret($user);
 
-        Carbon::setTestNow('2026-08-31 09:00:00');
-        $tanggal31 = array_column($this->deret($user), 'month');
+        Carbon::setTestNow(Carbon::parse('2026-08-31 08:00:00'));
+        $tanggal31 = $this->deret($user);
 
         $this->assertSame($tanggal30, $tanggal31);
     }
 
     /**
-     * Setoran di bulan pertama harus ikut terhitung. Bila batas bawah rentang
-     * meleset satu bulan, setoran itulah yang pertama hilang dari total
-     * kumulatif — dan hilangnya tidak terlihat karena grafiknya tetap tergambar.
+     * Titik pertama memuat SELURUH kekayaan sebelum jendela dimulai — saldo
+     * awal rekening ditambah transaksi yang lebih tua. Tanpa itu grafiknya
+     * seolah berangkat dari nol dan memperlihatkan lonjakan yang tidak
+     * pernah terjadi.
      */
-    public function test_setoran_di_bulan_pertama_ikut_terhitung(): void
+    public function test_titik_pertama_memuat_kekayaan_sebelum_jendela(): void
     {
-        Carbon::setTestNow('2026-08-31 09:00:00');
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
 
         $user = User::factory()->create();
-        $goal = $this->buatTujuan($user, '2026-05-14 09:00:00');
-        $goal->contributions()->create([
-            'amount' => 2000000,
-            'contributed_on' => '2026-05-20',
-        ]);
+        $rekening = $this->rekening($user, 10_000_000);
+        Transaction::factory()->for($user)->for($rekening)->pemasukan(2_000_000)
+            ->pada('2024-01-15')->create();
 
-        $deret = collect($this->deret($user));
+        $deret = $this->deret($user);
 
-        $this->assertSame(2000000.0, $deret->firstWhere('month', '2026-05')['cumulative_amount']);
-        $this->assertSame(2000000.0, $deret->last()['cumulative_amount']);
+        $this->assertSame(12_000_000.0, $deret[0]['cumulative_amount']);
+    }
+
+    public function test_deret_menumpuk_dan_bukan_nilai_per_bulan(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
+
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 0);
+
+        Transaction::factory()->for($user)->for($rekening)->pemasukan(1_000_000)
+            ->pada('2026-06-05')->create();
+        Transaction::factory()->for($user)->for($rekening)->pemasukan(1_000_000)
+            ->pada('2026-07-05')->create();
+
+        $deret = collect($this->deret($user))->keyBy('month');
+
+        $this->assertSame(0.0, $deret['2026-05']['cumulative_amount']);
+        $this->assertSame(1_000_000.0, $deret['2026-06']['cumulative_amount']);
+        $this->assertSame(2_000_000.0, $deret['2026-07']['cumulative_amount']);
+        $this->assertSame(2_000_000.0, $deret['2026-08']['cumulative_amount']);
     }
 
     /**
-     * Tujuan yang baru dibuat hari ini tetap menghasilkan satu titik, bukan
-     * deret kosong — grafik tanpa titik sama sekali terbaca sebagai kerusakan.
+     * Transfer memindahkan uang antar rekening milik pengguna yang sama, jadi
+     * kekayaannya tidak berubah. Menghitungnya membuat tiap pemindahan dana
+     * tampak sebagai lonjakan pada grafik.
      */
-    public function test_tujuan_yang_baru_dibuat_tetap_punya_satu_titik(): void
+    public function test_transfer_tidak_menggerakkan_grafik(): void
     {
-        Carbon::setTestNow('2026-08-31 09:00:00');
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
 
         $user = User::factory()->create();
-        $this->buatTujuan($user, '2026-08-31 08:00:00');
+        $asal = $this->rekening($user, 5_000_000);
+        $tujuan = $this->rekening($user, 0);
 
-        $this->assertCount(1, $this->deret($user));
+        Transaction::factory()->for($user)->for($asal)->transfer(2_000_000, $tujuan)
+            ->pada('2026-07-05')->create();
+
+        foreach ($this->deret($user) as $titik) {
+            $this->assertSame(5_000_000.0, $titik['cumulative_amount']);
+        }
+    }
+
+    public function test_pengguna_tanpa_rekening_mendapat_deret_nol(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
+
+        $deret = $this->deret(User::factory()->create());
+
+        $this->assertCount(12, $deret);
+        $this->assertSame(0.0, $deret[11]['cumulative_amount']);
     }
 }

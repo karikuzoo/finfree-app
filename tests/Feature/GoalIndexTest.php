@@ -45,7 +45,7 @@ class GoalIndexTest extends TestCase
     public function test_menampilkan_tujuan_beserta_progresnya(): void
     {
         $user = User::factory()->create();
-        $goal = $this->buatTujuan($user, ['initial_amount' => 50000000]);
+        $goal = $this->buatTujuan($user, ['allocated_amount' => 50000000]);
 
         $this->actingAs($user)
             ->get(route('goals.index'))
@@ -68,11 +68,7 @@ class GoalIndexTest extends TestCase
     public function test_progres_konsisten_dengan_dashboard(): void
     {
         $user = User::factory()->create();
-        $goal = $this->buatTujuan($user, ['initial_amount' => 30000000]);
-        $goal->contributions()->create([
-            'amount' => 20000000,
-            'contributed_on' => Carbon::now()->toDateString(),
-        ]);
+        $this->buatTujuan($user, ['allocated_amount' => 50000000]);
 
         $daftar = $this->actingAs($user)->get(route('goals.index'))
             ->viewData('page')['props']['goals'][0];
@@ -88,12 +84,12 @@ class GoalIndexTest extends TestCase
     public function test_ringkasan_keseluruhan_menjumlahkan_semua_tujuan(): void
     {
         $user = User::factory()->create();
-        $this->buatTujuan($user, ['target_amount' => 100000000, 'initial_amount' => 25000000]);
+        $this->buatTujuan($user, ['target_amount' => 100000000, 'allocated_amount' => 25000000]);
         $this->buatTujuan($user, [
             'name' => 'Dana Darurat',
             'type' => GoalType::Emergency->value,
             'target_amount' => 60000000,
-            'initial_amount' => 15000000,
+            'allocated_amount' => 15000000,
             'target_date' => null,
         ]);
 

@@ -4,7 +4,6 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import InputError from "@/Components/InputError";
-import { formatCompactRupiah, formatRupiah } from "@/utils/format";
 import { nowInJakartaParts } from "@/utils/timezone";
 import { router, useForm } from "@inertiajs/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -30,33 +29,22 @@ const HARI = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const iso = (tahun, bulan, tanggal) =>
     `${tahun}-${String(bulan + 1).padStart(2, "0")}-${String(tanggal).padStart(2, "0")}`;
 
-export default function ActivityCalendar({ calendar, goals = [], placeholder = false }) {
+export default function ActivityCalendar({ calendar, placeholder = false }) {
     // Saat placeholder, `calendar` masih berbentuk array lama (data contoh).
     // Dinormalkan supaya sisa komponen hanya mengenal satu bentuk.
     const data = Array.isArray(calendar)
-        ? { month: null, label: null, contributions: calendar, notes: [] }
-        : (calendar ?? { contributions: [], notes: [] });
+        ? { month: null, label: null, notes: [] }
+        : (calendar ?? { notes: [] });
 
     // Menyimpan TANGGALNYA saja (string), bukan salinan objek sel.
     //
     // Versi sebelumnya menyimpan objeknya, dan itu membeku: setelah menyimpan
-    // setoran, Inertia memuat ulang prop `calendar` dan `sel` dihitung ulang —
-    // tetapi dialog masih memegang objek lama, sehingga daftar "Setoran
-    // tercatat" tidak berubah sampai halaman dimuat ulang manual. Dengan
+    // catatan atau pengingat, Inertia memuat ulang prop `calendar` dan `sel`
+    // dihitung ulang — tetapi dialog masih memegang objek lama, sehingga
+    // isinya tidak berubah sampai halaman dimuat ulang manual. Dengan
     // menyimpan tanggalnya lalu mencari selnya tiap render, dialog selalu
     // membaca data terbaru.
     const [tanggalTerpilih, setTanggalTerpilih] = useState(null);
-
-    const setoranPerTanggal = useMemo(
-        () =>
-            Object.fromEntries(
-                (data.contributions ?? []).map((i) => [
-                    i.date,
-                    { amount: i.amount, entries: i.entries ?? [] },
-                ]),
-            ),
-        [data.contributions],
-    );
 
     const catatanPerTanggal = useMemo(
         () => Object.fromEntries((data.notes ?? []).map((n) => [n.date, n])),
@@ -104,23 +92,14 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
 
         for (let d = 1; d <= jumlahHari; d++) {
             const tgl = iso(tahun, bulanIndex, d);
-            const setoran = setoranPerTanggal[tgl];
-            const entries = setoran?.entries ?? [];
 
             hasil.push({
                 tanggal: d,
                 tgl,
                 luarBulan: false,
                 hariMinggu: new Date(tahun, bulanIndex, d).getDay() === 0,
-                nominal: setoran?.amount ?? 0,
-                entries,
                 catatan: catatanPerTanggal[tgl] ?? null,
-                // Catatan bisa datang dari dua tempat: catatan bebas milik
-                // tanggal, atau catatan yang menempel pada salah satu setoran.
-                // Keduanya sama-sama layak diberi penanda.
-                adaCatatan:
-                    Boolean(catatanPerTanggal[tgl]) ||
-                    entries.some((e) => e.note),
+                adaCatatan: Boolean(catatanPerTanggal[tgl]),
                 pengingat: pengingatPerTanggal[tgl] ?? [],
                 key: tgl,
             });
@@ -133,7 +112,7 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
         }
 
         return hasil;
-    }, [tahun, bulanIndex, setoranPerTanggal, catatanPerTanggal, pengingatPerTanggal]);
+    }, [tahun, bulanIndex, catatanPerTanggal, pengingatPerTanggal]);
 
     // Dicari ulang tiap render dari `sel` yang baru dihitung, sehingga isi
     // dialog ikut segar begitu prop dari server diperbarui.
@@ -181,12 +160,10 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
                         dipilih; kalender ini TIDAK. Tanpa keterangan, bedanya
                         terbaca sebagai ketidakkonsistenan.
 
-                        Kalender sengaja global karena isinya bercampur: setoran
-                        memang milik tujuan, tetapi catatan tanggal dan pengingat
+                        Kalender sengaja global: catatan tanggal dan pengingat
                         menempel pada TANGGAL, bukan pada tujuan mana pun.
-                        Menyaringnya per tujuan akan membuat dua dari tiga isinya
-                        kehilangan pijakan. Hitungan hari beruntun juga global,
-                        dan akan bertentangan dengan kalender yang tersaring.
+                        Menyaringnya per tujuan akan membuat keduanya kehilangan
+                        pijakan.
                     */}
                     {!placeholder && (
                         <p className="mt-0.5 text-xs text-text-muted">
@@ -260,7 +237,6 @@ export default function ActivityCalendar({ calendar, goals = [], placeholder = f
             {selTerpilih && (
                 <DialogCatatan
                     sel={selTerpilih}
-                    goals={goals}
                     onClose={() => setTanggalTerpilih(null)}
                 />
             )}
@@ -297,14 +273,12 @@ function TombolGeser({ arah, onClick }) {
 }
 
 function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
-    const adaSetoran = sel.nominal > 0;
     const adaCatatan = Boolean(sel.adaCatatan);
     const pengingat = sel.pengingat ?? [];
     const belumSelesai = pengingat.filter((p) => !p.completed).length;
 
     const keterangan = [
         `Tanggal ${sel.tanggal}`,
-        adaSetoran ? `setoran ${formatRupiah(sel.nominal)}` : null,
         adaCatatan ? "ada catatan" : null,
         pengingat.length ? `${pengingat.length} pengingat` : null,
     ]
@@ -316,7 +290,7 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
             type="button"
             onClick={onClick}
             disabled={nonaktif}
-            title={sel.catatan?.body || sel.entries?.find((e) => e.note)?.note || undefined}
+            title={sel.catatan?.body || undefined}
             aria-label={keterangan}
             className={
                 "group flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 " +
@@ -349,9 +323,6 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
                 bergeser naik-turun antar minggu.
             */}
             <span className="flex h-1.5 items-center gap-0.5">
-                {adaSetoran && (
-                    <span className="block h-1 w-5 rounded-full bg-lime-500" />
-                )}
                 {adaCatatan && (
                     <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 )}
@@ -372,13 +343,6 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
                 )}
             </span>
 
-            {adaSetoran ? (
-                <span className="text-[10px] font-semibold text-lime-500">
-                    {formatCompactRupiah(sel.nominal)}
-                </span>
-            ) : (
-                <span className="text-[10px] text-transparent">.</span>
-            )}
         </button>
     );
 }
@@ -386,10 +350,6 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
 function Keterangan() {
     return (
         <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-3 text-[11px] text-text-muted">
-            <span className="flex items-center gap-1.5">
-                <span className="block h-1 w-5 rounded-full bg-lime-500" />
-                Ada setoran
-            </span>
             <span className="flex items-center gap-1.5">
                 <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 Ada catatan
@@ -403,7 +363,7 @@ function Keterangan() {
     );
 }
 
-function DialogCatatan({ sel, goals = [], onClose }) {
+function DialogCatatan({ sel, onClose }) {
     const sudahAda = Boolean(sel.catatan);
 
     const form = useForm({
@@ -437,9 +397,8 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                 {/*
                     Tombol tutup di pojok.
 
-                    Dialog ini memuat beberapa form sekaligus — setoran,
-                    catatan, pengingat — masing-masing dengan tombolnya
-                    sendiri. Tanpa satu jalan keluar yang jelas, pengguna yang
+                    Dialog ini memuat dua form sekaligus — catatan dan
+                    pengingat — masing-masing dengan tombolnya sendiri. Tanpa satu jalan keluar yang jelas, pengguna yang
                     selesai mengisi tidak tahu tombol mana yang menutupnya, dan
                     "Batal" milik form catatan mudah disangka membatalkan
                     seluruh isian.
@@ -461,33 +420,6 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                     </button>
                 </div>
 
-                {sel.nominal > 0 && (
-                    <div className="mt-3 rounded-lg border border-border bg-bg-cardAlt p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
-                            Setoran tercatat
-                        </p>
-
-                        <ul className="mt-2 space-y-2">
-                            {sel.entries.map((e, i) => (
-                                <BarisSetoran key={e.id ?? i} entri={e} />
-                            ))}
-                        </ul>
-
-                        {sel.entries.length > 1 && (
-                            <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2 text-sm">
-                                <span className="text-text-secondary">
-                                    Total
-                                </span>
-                                <span className="num-tabular font-semibold text-text-primary">
-                                    {formatRupiah(sel.nominal)}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <SeksiCatatSetoran tgl={sel.tgl} goals={goals} />
-
                 <form onSubmit={simpan}>
                 <label
                     htmlFor="catatan"
@@ -495,10 +427,6 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                 >
                     Catatan tanggal ini
                 </label>
-                <p className="mt-0.5 text-xs text-text-muted">
-                    Berdiri sendiri, terpisah dari catatan yang menempel pada
-                    setoran di atas.
-                </p>
                 <textarea
                     id="catatan"
                     rows={3}
@@ -506,7 +434,7 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                     maxLength={500}
                     value={form.data.body}
                     onChange={(e) => form.setData("body", e.target.value)}
-                    placeholder="Gajian, bayar pajak kendaraan, naikkan setoran bulan depan…"
+                    placeholder="Gajian, bayar pajak kendaraan, cek tagihan listrik…"
                     className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
                 />
 
@@ -529,7 +457,7 @@ function DialogCatatan({ sel, goals = [], onClose }) {
                     )}
                     {/* Menutup dialog, bukan membatalkan catatan saja —
                         diberi nama "Tutup" supaya tidak rancu dengan tombol
-                        Batal pada form sunting setoran di atasnya. */}
+                        Batal pada form sunting pengingat di bawahnya. */}
                     <SecondaryButton type="button" onClick={onClose}>
                         Tutup
                     </SecondaryButton>
@@ -803,260 +731,11 @@ function KolomWaktu({ judul, pilihan, terpilih, onPilih }) {
 }
 
 /**
- * Catat setoran pada tanggal yang sedang dibuka.
- *
- * Inilah cara pengguna memilih tanggal setoran (PRD FR-32) tanpa perlu mengetik
- * tanggal sama sekali — tanggalnya sudah ditentukan oleh sel kalender yang
- * diklik. Form ringkas di Dashboard hanya bisa mencatat untuk hari berjalan;
- * lewat kalender, setoran yang baru sempat dicatat beberapa hari kemudian tetap
- * jatuh di tanggal yang benar.
- *
- * Tanggal MASA DEPAN tidak menampilkan form ini: uang yang belum disetor bukan
- * setoran, dan server menolaknya lewat aturan `before_or_equal:today`. Yang
- * ditampilkan sebagai gantinya adalah penjelasan singkat — bukan form yang
- * dipastikan gagal saat ditekan.
- */
-function SeksiCatatSetoran({ tgl, goals }) {
-    const { tahun, bulan, tanggal } = nowInJakartaParts();
-    const masaDepan = tgl > iso(tahun, bulan, tanggal);
-
-    const form = useForm({
-        amount: "",
-        contributed_on: tgl,
-        note: "",
-        financial_goal_id: goals[0]?.id ?? "",
-    });
-
-    if (goals.length === 0) {
-        return null;
-    }
-
-    if (masaDepan) {
-        return (
-            <p className="mt-4 rounded-lg border border-border bg-bg-cardAlt px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
-                Setoran hanya bisa dicatat untuk tanggal yang sudah lewat atau
-                hari ini. Untuk merencanakan setoran di tanggal ini, buat
-                pengingat di bawah.
-            </p>
-        );
-    }
-
-    const simpan = (e) => {
-        e.preventDefault();
-
-        form.post(route("goals.contributions.store", form.data.financial_goal_id), {
-            preserveScroll: true,
-            onSuccess: () => form.reset("amount", "note"),
-        });
-    };
-
-    return (
-        <form onSubmit={simpan} className="mt-4 rounded-lg border border-border bg-bg-cardAlt p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
-                Catat setoran di tanggal ini
-            </p>
-
-            <div className="mt-2.5 space-y-2.5">
-                {/*
-                    Pemilih tujuan hanya muncul bila tujuannya lebih dari satu.
-                    Menampilkan menu berisi satu pilihan hanya menambah langkah
-                    tanpa memberi pilihan apa pun.
-                */}
-                {goals.length > 1 && (
-                    <div>
-                        <select
-                            value={form.data.financial_goal_id}
-                            onChange={(e) => form.setData("financial_goal_id", e.target.value)}
-                            aria-label="Tujuan"
-                            className="block w-full rounded-lg border-border-strong bg-bg-base py-2 text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
-                        >
-                            {goals.map((g) => (
-                                <option key={g.id} value={g.id}>
-                                    {g.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
-                <div className="flex flex-wrap items-start gap-2">
-                    <div className="w-36">
-                        <CurrencyInput
-                            className="py-2 text-sm"
-                            placeholder="50.000"
-                            value={form.data.amount}
-                            onChange={(v) => form.setData("amount", v)}
-                        />
-                        <InputError message={form.errors.amount} className="mt-1" />
-                    </div>
-
-                    <input
-                        type="text"
-                        maxLength={500}
-                        value={form.data.note}
-                        onChange={(e) => form.setData("note", e.target.value)}
-                        placeholder="Catatan (opsional)"
-                        aria-label="Catatan setoran"
-                        className="min-w-0 flex-1 rounded-lg border-border-strong bg-bg-base py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
-                    />
-
-                    <SecondaryButton
-                        type="submit"
-                        disabled={form.processing || form.data.amount === ""}
-                    >
-                        Simpan
-                    </SecondaryButton>
-                </div>
-
-                <InputError message={form.errors.contributed_on} />
-            </div>
-
-            {goals.length === 1 && (
-                <p className="mt-2 text-[11px] text-text-muted">
-                    Masuk ke tujuan {goals[0].name}.
-                </p>
-            )}
-        </form>
-    );
-}
-
-/**
- * Satu setoran di dalam dialog tanggal — bisa disunting dan dihapus (FR-33).
- *
- * Nominal dan catatan saja yang bisa diubah, TIDAK tanggalnya. Setoran
- * disunting dari dialog tanggal; memindahkannya ke tanggal lain akan membuat
- * barisnya lenyap dari dialog yang sedang terbuka — pengguna menekan simpan
- * lalu melihat entrinya hilang tanpa penjelasan. Salah tanggal diperbaiki
- * dengan menghapus lalu mencatat ulang di tanggal yang benar.
- */
-function BarisSetoran({ entri }) {
-    const [sunting, setSunting] = useState(false);
-
-    const form = useForm({
-        amount: entri.amount,
-        note: entri.note ?? "",
-    });
-
-    const simpan = (e) => {
-        e.preventDefault();
-        form.patch(route("goals.contributions.update", entri.id), {
-            preserveScroll: true,
-            onSuccess: () => setSunting(false),
-        });
-    };
-
-    const hapus = () =>
-        router.delete(route("goals.contributions.destroy", entri.id), {
-            preserveScroll: true,
-        });
-
-    // Setoran lama (sebelum id dikirim ke frontend) tidak bisa disunting.
-    // Ditampilkan apa adanya, tanpa tombol yang pasti gagal saat ditekan.
-    if (!entri.id) {
-        return (
-            <li className="text-sm">
-                <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-text-secondary">{entri.goal}</span>
-                    <span className="num-tabular font-semibold text-lime-500">
-                        {formatRupiah(entri.amount)}
-                    </span>
-                </div>
-                {entri.note && (
-                    <p className="mt-0.5 text-xs italic leading-relaxed text-text-muted">
-                        “{entri.note}”
-                    </p>
-                )}
-            </li>
-        );
-    }
-
-    if (sunting) {
-        return (
-            <li>
-                <form onSubmit={simpan} className="space-y-2 rounded-lg border border-border-strong bg-bg-base p-2.5">
-                    <p className="text-xs text-text-muted">{entri.goal}</p>
-
-                    <CurrencyInput
-                        className="py-1.5 text-sm"
-                        value={form.data.amount}
-                        onChange={(v) => form.setData("amount", v)}
-                    />
-                    <InputError message={form.errors.amount} />
-
-                    <input
-                        type="text"
-                        maxLength={500}
-                        value={form.data.note}
-                        onChange={(e) => form.setData("note", e.target.value)}
-                        placeholder="Catatan (opsional)"
-                        aria-label="Catatan setoran"
-                        className="block w-full rounded-lg border-border-strong bg-bg-base py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-lime-500 focus:ring-lime-500"
-                    />
-                    <InputError message={form.errors.note} />
-
-                    <div className="flex justify-end gap-2 pt-0.5">
-                        <SecondaryButton type="button" onClick={() => setSunting(false)}>
-                            Batal
-                        </SecondaryButton>
-                        <PrimaryButton disabled={form.processing}>
-                            {form.processing ? "Menyimpan…" : "Simpan"}
-                        </PrimaryButton>
-                    </div>
-                </form>
-            </li>
-        );
-    }
-
-    return (
-        <li className="group text-sm">
-            <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-text-secondary">
-                    {entri.goal}
-                </span>
-
-                <span className="num-tabular font-semibold text-lime-500">
-                    {formatRupiah(entri.amount)}
-                </span>
-
-                <span className="flex shrink-0 items-center gap-0.5">
-                    <button
-                        type="button"
-                        onClick={() => setSunting(true)}
-                        aria-label={`Ubah setoran ${formatRupiah(entri.amount)}`}
-                        className="rounded p-1 text-text-muted transition hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
-                    >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M11.5 2.5a1.4 1.4 0 0 1 2 2L7 11l-2.5.5.5-2.5 6.5-6.5Z" />
-                        </svg>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={hapus}
-                        aria-label={`Hapus setoran ${formatRupiah(entri.amount)}`}
-                        className="rounded p-1 text-text-muted transition hover:text-state-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
-                    >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                            <path d="M4 4l8 8M12 4l-8 8" />
-                        </svg>
-                    </button>
-                </span>
-            </div>
-
-            {entri.note && (
-                <p className="mt-0.5 text-xs italic leading-relaxed text-text-muted">
-                    “{entri.note}”
-                </p>
-            )}
-        </li>
-    );
-}
-/**
  * Satu pengingat — bisa ditandai selesai, disunting, dan dihapus.
  *
- * Judul dan jam saja yang bisa diubah, TIDAK tanggalnya. Alasannya sama
- * dengan setoran: pengingat disunting dari dialog tanggal, dan memindahkannya
- * ke hari lain membuat barisnya lenyap dari dialog yang sedang terbuka.
+ * Judul dan jam saja yang bisa diubah, TIDAK tanggalnya: pengingat disunting
+ * dari dialog tanggal, dan memindahkannya ke hari lain membuat barisnya lenyap
+ * dari dialog yang sedang terbuka.
  */
 function BarisPengingat({ pengingat }) {
     const [sunting, setSunting] = useState(false);

@@ -5,8 +5,6 @@ export default function GoalHeroCard({
     goals = [],
     selectedGoal,
     onGoalChange,
-    streakDays = 0,
-    todayContributionAmount = 0,
     placeholder = false,
 }) {
     const goal = selectedGoal;
@@ -67,11 +65,6 @@ export default function GoalHeroCard({
                             </Dropdown>
                         )}
 
-                        {!placeholder && streakDays > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-bg-cardAlt px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
-                                🔥 {streakDays} hari beruntun
-                            </span>
-                        )}
                     </div>
 
                     <p className="mt-2 text-3xl font-bold text-text-primary">

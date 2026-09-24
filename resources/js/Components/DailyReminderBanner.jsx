@@ -1,55 +1,44 @@
-import { formatRupiah } from '@/utils/format';
+import { Link } from "@inertiajs/react";
 
 /**
- * Pengingat sederhana di Dashboard — BUKAN notifikasi push/email (itu ada
- * di roadmap pasca-MVP PRD, butuh scheduler + queue + preferensi channel
- * yang belum dibangun). Ini murni banner in-app, dihitung dari data yang
- * sudah ada di summary, tanpa infrastruktur baru:
+ * Dorongan di atas Dashboard saat sebuah tujuan tertinggal dari rencananya.
  *
- * - Belum ada setoran hari ini & goal berstatus "behind" → dorong
- *   mencatat setoran hari ini.
- * - Streak sedang jalan tapi belum ada setoran hari ini → dorong supaya
- *   streak tidak putus besok.
+ * Murni IN-APP, bukan notifikasi push atau email — ia hanya muncul saat
+ * pengguna membuka dashboard (PRD FR-30).
  *
- * Kalau tidak ada kondisi yang relevan, komponen ini tidak me-render apa
- * pun (bukan menampilkan pesan "semua aman" generik yang lama-lama
- * diabaikan pengguna). Tombolnya mengarah ke #catat-setoran — anchor id
- * yang kini dipasang pada kartu kalender aktivitas di Dashboard, bukan
- * navigasi halaman baru. Setoran dicatat dengan mengklik tanggal di kalender
- * (PRD FR-32); kartu form tersendiri sudah tidak ada.
+ * Dulu banner ini berdiri di atas hari beruntun dan setoran harian: "jangan
+ * putus streak-mu". Keduanya hilang bersama pencatatan setoran — dana tujuan
+ * kini ditandai dari saldo rekening, bukan disetor sedikit demi sedikit tiap
+ * hari, sehingga tidak ada lagi kebiasaan harian yang bisa putus.
+ *
+ * Yang tersisa justru dorongan yang lebih berguna: memberi tahu bahwa
+ * targetnya tertinggal, lalu mengantar ke tempat yang bisa memperbaikinya.
+ * Tombolnya mengarah ke Rencana menabung, karena di sanalah prioritas dan
+ * alokasi disesuaikan — bukan ke form yang sudah tidak ada.
  */
-export default function DailyReminderBanner({ goal, streakDays, contributedToday }) {
-    if (!goal || contributedToday) {
-        return null;
-    }
-
-    const isBehind = goal.on_track?.status === 'behind';
-
-    if (!isBehind && streakDays <= 0) {
+export default function DailyReminderBanner({ goal }) {
+    if (goal?.on_track?.status !== "behind") {
         return null;
     }
 
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-state-warning/30 bg-state-warning/10 px-5 py-4">
-            <div>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-lime-softBg px-5 py-4">
+            <div className="min-w-0">
                 <p className="text-sm font-semibold text-text-primary">
-                    {isBehind
-                        ? `Progres "${goal.name}" tertinggal ${formatRupiah(goal.on_track.gap_amount)} dari rencana.`
-                        : `Jangan putus — streak ${streakDays} hari Anda menanti setoran hari ini.`}
+                    {goal.name} sedang tertinggal dari rencananya.
                 </p>
-                <p className="mt-0.5 text-xs text-text-secondary">
-                    {isBehind
-                        ? 'Catat setoran hari ini untuk mengejar kembali targetnya.'
-                        : 'Catat setoran kecil pun cukup untuk menjaga kebiasaan menabung Anda.'}
+                <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+                    Naikkan prioritasnya, tambah dana yang ditandai, atau
+                    mundurkan tenggatnya — mana pun yang paling masuk akal.
                 </p>
             </div>
 
-            <a
-                href="#catat-setoran"
-                className="shrink-0 rounded-lg bg-state-warning px-4 py-2 text-sm font-semibold text-onPrimary transition hover:opacity-90"
+            <Link
+                href={route("savings-plan.index")}
+                className="shrink-0 rounded-lg bg-lime-500 px-4 py-2.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
             >
-                Catat Setoran
-            </a>
+                Buka rencana
+            </Link>
         </div>
     );
 }

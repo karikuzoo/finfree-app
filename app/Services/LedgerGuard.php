@@ -33,6 +33,48 @@ class LedgerGuard
     {
         $this->assertAccountsNotOverdrawn($user, $field);
         $this->assertDebtsNotOverpaid($user, $field);
+        $this->assertAllocationsWithinBalance($user, $field);
+    }
+
+    /**
+     * Total dana yang ditandai untuk target pada sebuah rekening tidak boleh
+     * melebihi saldonya.
+     *
+     * Alokasi hanya MENANDAI saldo, tidak memindahkan uang. Tanpa aturan ini,
+     * uang yang sama bisa ditandai untuk DP rumah sekaligus dana darurat, dan
+     * kedua target tampak berjalan sesuai rencana padahal hanya satu yang
+     * benar-benar bisa dipenuhi.
+     *
+     * Diperiksa dari DUA arah: saat alokasi bertambah, dan saat saldo
+     * rekeningnya berkurang karena pengeluaran. Keduanya lewat sini karena
+     * keduanya memanggil assertConsistent().
+     */
+    private function assertAllocationsWithinBalance(User $user, string $field): void
+    {
+        $ditandai = $user->goals()
+            ->whereNotNull('account_id')
+            ->selectRaw('account_id, SUM(allocated_amount) AS total')
+            ->groupBy('account_id')
+            ->pluck('total', 'account_id');
+
+        if ($ditandai->isEmpty()) {
+            return;
+        }
+
+        $saldo = $this->saldo->forUser($user);
+
+        foreach ($ditandai as $accountId => $total) {
+            if ((float) $total <= ($saldo[$accountId] ?? 0)) {
+                continue;
+            }
+
+            $nama = $user->accounts()->whereKey($accountId)->value('name');
+
+            throw ValidationException::withMessages([
+                $field => "Saldo {$nama} sudah ditandai untuk target lain. "
+                    .'Kurangi alokasi target terlebih dahulu.',
+            ]);
+        }
     }
 
     /**

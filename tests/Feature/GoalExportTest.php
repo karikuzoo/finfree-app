@@ -35,17 +35,12 @@ class GoalExportTest extends TestCase
             'type' => GoalType::Custom->value,
             'name' => $nama,
             'target_amount' => 200000000,
-            'initial_amount' => 10000000,
+            'initial_amount' => 0,
+            'allocated_amount' => 11500000,
             'target_date' => '2031-01-01',
             'estimated_return_rate' => 5,
             'estimated_inflation_rate' => 3,
             'status' => GoalStatus::Active->value,
-        ]);
-
-        $goal->contributions()->create([
-            'amount' => 1500000,
-            'contributed_on' => '2026-09-01',
-            'note' => 'Bonus tahunan',
         ]);
 
         return $goal;
@@ -123,7 +118,7 @@ class GoalExportTest extends TestCase
         $this->buatTujuan($user);
 
         $this->assertSame(
-            ['Ringkasan', 'Tujuan', 'Setoran'],
+            ['Ringkasan', 'Tujuan', 'Transaksi'],
             $this->namaSheet($this->unduh($user)),
         );
     }
@@ -153,7 +148,7 @@ class GoalExportTest extends TestCase
 
         $isi = $this->isiBerkas($this->unduh($user));
 
-        foreach (['DP Rumah', '200000000', '2031-01-01', 'Bonus tahunan'] as $harus) {
+        foreach (['DP Rumah', '200000000', '2031-01-01'] as $harus) {
             $this->assertStringContainsString($harus, $isi, "Tidak menemukan: {$harus}");
         }
     }
@@ -199,7 +194,7 @@ class GoalExportTest extends TestCase
         // Berkas kosong tetap harus punya ketiga sheet — pengguna yang belum
         // punya tujuan sebaiknya menerima berkas yang wajar, bukan galat.
         $this->assertSame(
-            ['Ringkasan', 'Tujuan', 'Setoran'],
+            ['Ringkasan', 'Tujuan', 'Transaksi'],
             $this->namaSheet($this->unduh($user)),
         );
     }

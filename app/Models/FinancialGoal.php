@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GoalPriority;
 use App\Enums\GoalStatus;
 use App\Enums\GoalType;
 use App\Enums\RiskProfile;
@@ -22,10 +23,13 @@ class FinancialGoal extends Model
 
     protected $fillable = [
         'user_id',
+        'account_id',
         'type',
         'name',
         'target_amount',
         'initial_amount',
+        'allocated_amount',
+        'priority',
         'daily_savings_target',
         'asset_allocation',
         'target_date',
@@ -43,6 +47,8 @@ class FinancialGoal extends Model
             'risk_profile_override' => RiskProfile::class,
             'target_amount' => 'decimal:2',
             'initial_amount' => 'decimal:2',
+            'allocated_amount' => 'decimal:2',
+            'priority' => GoalPriority::class,
             'daily_savings_target' => 'decimal:2',
             'estimated_return_rate' => 'decimal:2',
             'estimated_inflation_rate' => 'decimal:2',
@@ -56,6 +62,23 @@ class FinancialGoal extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Rekening tempat dana target ini ditandai.
+     *
+     * NULL berarti targetnya belum punya dana yang ditandai di mana pun —
+     * masih rencana murni. Itu keadaan yang sah dan memang jadi titik awal
+     * setiap target baru.
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * Riwayat setoran lama — TIDAK AKTIF, lihat docblock GoalContribution.
+     * Progres tujuan sekarang dibaca dari `allocated_amount`, bukan dari sini.
+     * Relasi ini tinggal dipakai saat menghapus tujuan.
+     */
     public function contributions(): HasMany
     {
         return $this->hasMany(GoalContribution::class);

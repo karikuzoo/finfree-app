@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Enums\GoalStatus;
 use App\Enums\RiskProfile;
+use App\Enums\TransactionType;
 use App\Models\CalendarNote;
 use App\Models\FinancialGoal;
 use App\Models\GoalCalculation;
-use App\Models\GoalContribution;
 use App\Models\Reminder;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -18,11 +18,11 @@ use Illuminate\Support\Collection;
  * (CLAUDE.md §6.9). Frontend (Dashboard.jsx) hanya menampilkan apa yang
  * dikembalikan di sini; jangan menjumlahkan ulang di React.
  *
- * "current_amount" tiap goal = initial_amount + SUM(goal_contributions.amount).
- * Nilai ini sengaja TIDAK disimpan sebagai kolom — dihitung tiap kali di
- * sini supaya tidak ada dua sumber kebenaran yang bisa saling menyimpang
- * begitu ada setoran diedit atau dihapus (lihat catatan di migrasi
- * goal_contributions).
+ * "current_amount" tiap goal = financial_goals.allocated_amount — dana yang
+ * DITANDAI untuk tujuan itu di sebuah rekening. Sebelumnya ia dijumlahkan dari
+ * setoran harian; pencatatan setoran sudah dipensiunkan dan digantikan model
+ * alokasi, supaya uang yang sama tidak bisa dihitung dua kali di tempat
+ * berbeda (lihat migrasi add_allocation_to_financial_goals_table).
  */
 class DashboardSummaryService
 {
@@ -45,9 +45,7 @@ class DashboardSummaryService
      *     active_goals_count: int,
      *     goals: array<int, array>,
      *     primary_goal: array|null,
-     *     streak_days: int,
-     *     asset_growth_series: array<int, array{month: string, cumulative_amount: float}>,
-     *     contribution_calendar: array<int, array{date: string, amount: float}>,
+     *     asset_growth_series: array{monthly: array<int, array>, daily: array<int, array>},
      *     recent_activity: array<int, array>,
      * }
      */
@@ -55,8 +53,7 @@ class DashboardSummaryService
     {
         $activeGoals = $user->goals()
             ->where('status', GoalStatus::Active->value)
-            ->withSum('contributions as contributions_sum', 'amount')
-            ->with(['latestCalculation', 'contributions'])
+            ->with('latestCalculation')
             ->orderBy('created_at')
             ->get();
 
@@ -82,8 +79,14 @@ class DashboardSummaryService
             // tertua. NULL kalau belum ada tujuan aktif sama sekali.
             'primary_goal' => $goalSummaries->firstWhere('id', $user->primary_goal_id)
                 ?? $goalSummaries->first(),
-            'streak_days' => $this->streakDays($user),
-            'contribution_calendar' => $this->contributionCalendar($user),
+            // Pertumbuhan kekayaan dari RIWAYAT TRANSAKSI, bukan dari
+            // setoran per tujuan. Alokasi target hanya menandai saldo dan
+            // tidak punya riwayat waktu; yang benar-benar bergerak dari
+            // hari ke hari adalah saldo rekeningnya sendiri.
+            'asset_growth_series' => [
+                'monthly' => $this->assetGrowthMonthly($user),
+                'daily' => $this->assetGrowthDaily($user),
+            ],
             'recent_activity' => $this->recentActivity($user),
         ];
     }
@@ -110,7 +113,11 @@ class DashboardSummaryService
      */
     private function summarizeGoal(FinancialGoal $goal, RiskProfile $accountRiskProfile): array
     {
-        $currentAmount = round((float) $goal->initial_amount + (float) ($goal->contributions_sum ?? 0), 2);
+        // Dana yang DITANDAI untuk tujuan ini di sebuah rekening. Dulu ini
+        // dijumlahkan dari setoran (initial_amount + SUM(contributions));
+        // sejak pencatatan setoran dipensiunkan, satu-satunya sumbernya
+        // adalah alokasi — lihat migrasi add_allocation_to_financial_goals.
+        $currentAmount = round((float) $goal->allocated_amount, 2);
         $targetAmount = round((float) $goal->target_amount, 2);
         $dailySavingsTarget = round((float) $goal->daily_savings_target, 2);
         $projectedAmount = round(min($targetAmount, $currentAmount + $dailySavingsTarget), 2);
@@ -151,10 +158,6 @@ class DashboardSummaryService
             // menampilkannya (CLAUDE.md §6.9).
             'allocation_comparison' => $this->allocationComparison($goal, $suggested),
             'asset_allocation' => $goal->asset_allocation ?? [],
-            'asset_growth_series' => [
-                'monthly' => $this->goalAssetGrowthSeriesMonthly($goal),
-                'daily' => $this->goalAssetGrowthSeriesDaily($goal),
-            ],
         ];
     }
 
@@ -297,162 +300,6 @@ class DashboardSummaryService
     }
 
     /**
-     * Jumlah hari berturut-turut (sampai hari ini atau kemarin) pengguna
-     * mencatat setidaknya satu setoran, digabung dari seluruh goal aktif.
-     * Dihitung dari tanggal setoran (`contributed_on`), bukan waktu
-     * pencatatannya (`created_at`) — mencatat telat untuk kemarin tetap
-     * dihitung untuk kemarin.
-     *
-     * Kalau setoran terakhir lebih dari 1 hari yang lalu, streak dianggap
-     * putus (0) — bukan "0 hari lagi sampai putus", supaya sederhana bagi
-     * pengguna: hari ini belum menabung TIDAK memutus streak-nya (dianggap
-     * masih ada kesempatan sampai tengah malam), tapi absen 2 hari sudah
-     * dianggap putus.
-     */
-    private function streakDays(User $user): int
-    {
-        $dates = GoalContribution::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->distinct()
-            ->orderByDesc('goal_contributions.contributed_on')
-            ->pluck('goal_contributions.contributed_on')
-            ->map(fn ($date) => Carbon::parse($date)->toDateString())
-            ->unique()
-            ->values();
-
-        if ($dates->isEmpty()) {
-            return 0;
-        }
-
-        $mostRecent = Carbon::parse($dates->first());
-
-        if ($mostRecent->diffInDays(Carbon::today()) > 1) {
-            return 0;
-        }
-
-        $streak = 1;
-        $cursor = $mostRecent;
-
-        for ($i = 1; $i < $dates->count(); $i++) {
-            $expectedPrevious = $cursor->copy()->subDay()->toDateString();
-
-            if ($dates[$i] !== $expectedPrevious) {
-                break;
-            }
-
-            $streak++;
-            $cursor = Carbon::parse($dates[$i]);
-        }
-
-        return $streak;
-    }
-
-    /**
-     * Akumulasi BULANAN dari dana awal + setoran, dibatasi sejak tujuan
-     * dibuat sampai bulan berjalan — array ini tidak boleh tumbuh tanpa
-     * batas (goal lama tetap dibatasi wajar karena bulan cuma bertambah
-     * ~12 poin/tahun).
-     *
-     * Pengelompokan per bulan dilakukan di PHP, bukan lewat fungsi tanggal
-     * SQL (strftime()/to_char() berbeda sintaks antar driver). Volume
-     * datanya kecil — setoran satu user dalam setahun — jadi ini bukan
-     * masalah performa.
-     */
-    private function goalAssetGrowthSeriesMonthly(FinancialGoal $goal): array
-    {
-        $start = Carbon::parse($goal->created_at)->startOfMonth();
-        $end = Carbon::now()->startOfMonth();
-
-        // Menyaring dari relasi yang SUDAH di-eager load, bukan kueri baru.
-        //
-        // Versi sebelumnya memanggil $goal->contributions()->where(...)->get()
-        // di dalam perulangan per tujuan — satu kueri tambahan untuk tiap
-        // tujuan (N+1). Tidak terasa saat menguji dengan dua tujuan, dan baru
-        // menggigit ketika penggunanya punya belasan.
-        //
-        // Batas bawahnya berbeda-beda per tujuan (mengikuti created_at
-        // masing-masing), jadi tidak bisa dijadikan satu kondisi eager load.
-        // Menyaring di PHP aman di sini: volumenya kecil — setoran satu
-        // pengguna dalam setahun.
-        $contributionsByMonth = $goal->contributions
-            ->filter(fn ($row) => $row->contributed_on->greaterThanOrEqualTo($start))
-            ->groupBy(fn ($row) => $row->contributed_on->format('Y-m'))
-            ->map(fn (Collection $rows) => (float) $rows->sum('amount'));
-
-        $series = [];
-        $cumulative = (float) $goal->initial_amount;
-        $cursor = $start->copy();
-
-        while ($cursor->lessThanOrEqualTo($end)) {
-            $key = $cursor->format('Y-m');
-            $cumulative += (float) ($contributionsByMonth[$key] ?? 0);
-
-            $series[] = [
-                'month' => $key,
-                'cumulative_amount' => round($cumulative, 2),
-            ];
-
-            $cursor->addMonth();
-        }
-
-        return $series;
-    }
-
-    /**
-     * Sama seperti versi bulanan di atas, tapi per HARI dan dibatasi
-     * jendela {self::ASSET_GROWTH_DAYS} hari terakhir (bukan sejak goal
-     * dibuat) — goal yang sudah berjalan bertahun-tahun kalau ditampilkan
-     * harian penuh akan jadi ratusan/ribuan titik, tidak terbaca di
-     * grafik dan berat dikirim. 30 hari cukup untuk melihat pola setoran
-     * belakangan tanpa membebani.
-     *
-     * Titik pertama jendela TIDAK mulai dari nol — nilainya `baseline`,
-     * yaitu initial_amount + seluruh setoran SEBELUM jendela ini, supaya
-     * grafik tetap menunjukkan akumulasi total yang benar (bukan
-     * seolah-olah baru mulai menabung 30 hari lalu).
-     */
-    private function goalAssetGrowthSeriesDaily(FinancialGoal $goal): array
-    {
-        $goalCreatedAt = Carbon::parse($goal->created_at)->startOfDay();
-        $today = Carbon::now()->startOfDay();
-        $windowStart = $today->copy()->subDays(self::ASSET_GROWTH_DAYS - 1)->max($goalCreatedAt);
-
-        $baseline = (float) $goal->initial_amount + (float) $goal->contributions
-            ->filter(fn ($row) => $row->contributed_on->lessThan($windowStart))
-            ->sum('amount');
-
-        $contributionsByDay = $goal->contributions
-            ->filter(fn ($row) => $row->contributed_on->greaterThanOrEqualTo($windowStart))
-            ->groupBy(fn ($row) => $row->contributed_on->toDateString())
-            ->map(fn (Collection $rows) => (float) $rows->sum('amount'));
-
-        $series = [];
-        $cumulative = $baseline;
-        $cursor = $windowStart->copy();
-
-        while ($cursor->lessThanOrEqualTo($today)) {
-            $key = $cursor->toDateString();
-            $cumulative += (float) ($contributionsByDay[$key] ?? 0);
-
-            $series[] = [
-                'date' => $key,
-                'cumulative_amount' => round($cumulative, 2),
-            ];
-
-            $cursor->addDay();
-        }
-
-        return $series;
-    }
-
-    /**
-     * Total setoran per tanggal untuk BULAN BERJALAN saja (bukan histori
-     * penuh) — dipakai kalender "Aktivitas Bulan Ini" di Dashboard.
-     * Digabung dari seluruh goal aktif milik user, bukan cuma primary
-     * goal, supaya kalender tetap benar begitu goal kedua/ketiga ada.
-     */
-    /**
      * Data kalender untuk SATU bulan tertentu — setoran beserta catatan
      * pengguna di tanggal-tanggal bulan itu.
      *
@@ -464,55 +311,21 @@ class DashboardSummaryService
      * mahal dan tidak berubah sama sekali saat pengguna sekadar melihat bulan
      * lalu.
      *
-     * Tiap tanggal membawa `entries` — rincian setoran satu per satu beserta
-     * catatan dan nama tujuannya. Tanpa itu, catatan yang ditulis pengguna di
-     * form "Catat Setoran" tidak pernah terlihat lagi di mana pun: kalender
-     * hanya menampilkan totalnya, dan halaman riwayat setoran belum ada.
+     * TIDAK lagi memuat setoran. Pencatatan setoran harian dipensiunkan dan
+     * digantikan alokasi dari rekening — kalender kini murni untuk catatan
+     * dan pengingat, dan uang tidak lagi dicatat lewat mengklik tanggal.
      *
      * @return array{
      *     month: string,
      *     label: string,
-     *     contributions: array<int, array{
-     *         date: string,
-     *         amount: float,
-     *         entries: array<int, array{amount: float, note: string|null, goal: string}>
-     *     }>,
-     *     notes: array<int, array{id: int, date: string, body: string}>
+     *     notes: array<int, array{id: int, date: string, body: string}>,
+     *     reminders: array<int, array>
      * }
      */
     public function calendarForMonth(User $user, Carbon $month): array
     {
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
-
-        $contributions = GoalContribution::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->whereBetween('goal_contributions.contributed_on', [$start->toDateString(), $end->toDateString()])
-            ->orderBy('goal_contributions.contributed_on')
-            ->orderBy('goal_contributions.id')
-            ->get([
-                'goal_contributions.id',
-                'goal_contributions.contributed_on',
-                'goal_contributions.amount',
-                'goal_contributions.note',
-                'financial_goals.name as goal_name',
-            ])
-            ->groupBy(fn ($row) => Carbon::parse($row->contributed_on)->toDateString())
-            ->map(fn (Collection $rows, string $date) => [
-                'date' => $date,
-                'amount' => round((float) $rows->sum('amount'), 2),
-                'entries' => $rows->map(fn ($row) => [
-                    // id dikirim supaya setoran bisa disunting & dihapus dari
-                    // dialog tanggal (FR-33).
-                    'id' => $row->id,
-                    'amount' => round((float) $row->amount, 2),
-                    'note' => $row->note,
-                    'goal' => $row->goal_name,
-                ])->values()->all(),
-            ])
-            ->values()
-            ->all();
 
         $notes = CalendarNote::query()
             ->where('user_id', $user->id)
@@ -543,7 +356,6 @@ class DashboardSummaryService
         return [
             'month' => $start->format('Y-m'),
             'label' => $start->translatedFormat('F Y'),
-            'contributions' => $contributions,
             'notes' => $notes,
             'reminders' => $reminders,
         ];
@@ -579,21 +391,108 @@ class DashboardSummaryService
             ->all();
     }
 
-    private function contributionCalendar(User $user): array
+    /**
+     * Pertumbuhan kekayaan 12 bulan terakhir, dari RIWAYAT TRANSAKSI.
+     *
+     * Dulu deret ini dibangun dari setoran per tujuan. Sejak pencatatan
+     * setoran dipensiunkan, sumbernya berpindah ke transaksi — dan itu
+     * sebenarnya yang lebih benar: alokasi target hanya menandai saldo dan
+     * tidak punya riwayat waktu, sedangkan saldo rekeningnya sendiri memang
+     * bergerak dari hari ke hari.
+     *
+     * Titik pertama memuat SELURUH saldo awal rekening ditambah transaksi
+     * sebelum jendela 12 bulan. Tanpa itu, grafiknya seolah dimulai dari nol
+     * dan memperlihatkan lonjakan yang tidak pernah terjadi.
+     *
+     * @return array<int, array{month: string, cumulative_amount: float}>
+     */
+    private function assetGrowthMonthly(User $user): array
     {
-        $start = Carbon::now()->startOfMonth()->toDateString();
-        $end = Carbon::now()->endOfMonth()->toDateString();
+        $awal = Carbon::now(config('app.timezone'))->startOfMonth()->subMonths(self::ASSET_GROWTH_MONTHS - 1);
 
-        return GoalContribution::query()
-            ->join('financial_goals', 'financial_goals.id', '=', 'goal_contributions.financial_goal_id')
-            ->where('financial_goals.user_id', $user->id)
-            ->whereBetween('goal_contributions.contributed_on', [$start, $end])
-            ->get(['goal_contributions.contributed_on', 'goal_contributions.amount'])
-            ->groupBy(fn ($row) => Carbon::parse($row->contributed_on)->toDateString())
-            ->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2))
-            ->map(fn (float $amount, string $date) => ['date' => $date, 'amount' => $amount])
-            ->values()
+        $kumulatif = $this->openingPosition($user, $awal);
+        $perBulan = $this->netChangeGroupedBy($user, $awal, 'Y-m');
+
+        $deret = [];
+        $bulan = $awal->copy();
+
+        for ($i = 0; $i < self::ASSET_GROWTH_MONTHS; $i++) {
+            $kunci = $bulan->format('Y-m');
+            $kumulatif = round($kumulatif + ($perBulan[$kunci] ?? 0), 2);
+            $deret[] = ['month' => $kunci, 'cumulative_amount' => $kumulatif];
+            $bulan->addMonthNoOverflow();
+        }
+
+        return $deret;
+    }
+
+    /**
+     * Sama seperti versi bulanan, tetapi 30 hari terakhir.
+     *
+     * @return array<int, array{month: string, cumulative_amount: float}>
+     */
+    private function assetGrowthDaily(User $user): array
+    {
+        $awal = Carbon::now(config('app.timezone'))->startOfDay()->subDays(self::ASSET_GROWTH_DAYS - 1);
+
+        $kumulatif = $this->openingPosition($user, $awal);
+        $perHari = $this->netChangeGroupedBy($user, $awal, 'Y-m-d');
+
+        $deret = [];
+        $hari = $awal->copy();
+
+        for ($i = 0; $i < self::ASSET_GROWTH_DAYS; $i++) {
+            $kunci = $hari->toDateString();
+            $kumulatif = round($kumulatif + ($perHari[$kunci] ?? 0), 2);
+            $deret[] = ['month' => $kunci, 'cumulative_amount' => $kumulatif];
+            $hari->addDay();
+        }
+
+        return $deret;
+    }
+
+    /** Total kekayaan tepat sebelum `$sejak` — saldo awal + transaksi lampau. */
+    private function openingPosition(User $user, Carbon $sejak): float
+    {
+        $saldoAwal = (float) $user->accounts()->sum('opening_balance');
+
+        $lampau = $user->transactions()
+            ->where('occurred_on', '<', $sejak->toDateString())
+            ->get(['type', 'amount']);
+
+        return round($saldoAwal + $this->netChange($lampau), 2);
+    }
+
+    /**
+     * Perubahan bersih kekayaan per periode sejak `$sejak`.
+     *
+     * TRANSFER diabaikan sepenuhnya: ia memindahkan uang antar rekening
+     * milik pengguna yang sama, jadi tidak mengubah total kekayaannya sama
+     * sekali. Menghitungnya akan membuat setiap pemindahan dana tampak
+     * sebagai lonjakan lalu penurunan pada grafik yang sama.
+     *
+     * @return array<string, float>
+     */
+    private function netChangeGroupedBy(User $user, Carbon $sejak, string $format): array
+    {
+        return $user->transactions()
+            ->where('occurred_on', '>=', $sejak->toDateString())
+            ->get(['type', 'amount', 'occurred_on'])
+            ->groupBy(fn ($t) => $t->occurred_on->format($format))
+            ->map(fn (Collection $baris) => $this->netChange($baris))
             ->all();
+    }
+
+    /** @param  Collection<int, \App\Models\Transaction>  $transaksi */
+    private function netChange(Collection $transaksi): float
+    {
+        return round($transaksi->sum(function ($t) {
+            if ($t->type === TransactionType::Transfer) {
+                return 0;
+            }
+
+            return $t->type->menambahSaldo() ? (float) $t->amount : -(float) $t->amount;
+        }), 2);
     }
 
     /**

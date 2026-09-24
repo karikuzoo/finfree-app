@@ -14,7 +14,13 @@ import { todayInJakarta } from "@/utils/timezone";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
-/** Ringkasan memakai props backend; setoran tetap dicatat lewat kalender. */
+/**
+ * Ringkasan memakai props backend apa adanya (CLAUDE.md §6.9).
+ *
+ * Dana tujuan ditandai dari saldo rekening di Rencana menabung, bukan dicatat
+ * sebagai setoran harian lewat kalender — kalender kini murni untuk catatan
+ * dan pengingat.
+ */
 export default function Dashboard() {
     const { auth, summary, calendar, todayReminders } = usePage().props;
     const hasGoals = summary.active_goals_count > 0;
@@ -23,9 +29,6 @@ export default function Dashboard() {
     const selectedGoal = summary.goals?.find(g => g.id == selectedGoalId) || summary.primary_goal;
 
     const todayIso = todayInJakarta();
-    const todayContributionAmount = hasGoals
-        ? summary.contribution_calendar.find(item => item.date === todayIso)?.amount || 0
-        : 0;
 
     const [assetGrowthGranularity, setAssetGrowthGranularity] = useState('monthly');
 
@@ -71,7 +74,7 @@ export default function Dashboard() {
                     <Link href={route('goals.create')} className="inline-flex items-center gap-2 rounded-lg bg-lime-500 px-4 py-3 text-sm font-semibold text-onPrimary hover:bg-lime-400"><span aria-hidden="true">＋</span> Tujuan baru</Link>
                 </div>
                 {hasGoals && <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-card border border-[#48755f] bg-gradient-to-br from-[#244c3c] to-[#203e33] p-6"><div className="flex items-center justify-between gap-3 text-sm text-[#d2e9da]"><span>Dana terkumpul di tujuan</span><WalletIcon className="h-5 w-5"/></div><p className="num-tabular mt-5 break-words text-3xl font-semibold tracking-tight">{formatRupiah(summary.total_assets)}</p><p className="mt-4 border-t border-[#48755f] pt-3 text-xs leading-6 text-[#c0d9c9]">Dana awal dan setoran tujuan aktif</p></div>
+                    <div className="rounded-card border border-[#48755f] bg-gradient-to-br from-[#244c3c] to-[#203e33] p-6"><div className="flex items-center justify-between gap-3 text-sm text-[#d2e9da]"><span>Dana ditandai untuk tujuan</span><WalletIcon className="h-5 w-5"/></div><p className="num-tabular mt-5 break-words text-3xl font-semibold tracking-tight">{formatRupiah(summary.total_assets)}</p><p className="mt-4 border-t border-[#48755f] pt-3 text-xs leading-6 text-[#c0d9c9]">Dana yang ditandai pada tujuan aktif</p></div>
                     <SummaryCard label="Total target aktif" value={formatRupiah(summary.total_target)} icon={GoalIcon} hint="Gabungan nominal target tujuan"/>
                     <SummaryCard label="Progres keseluruhan" value={`${summary.overall_progress_percentage.toFixed(1)}%`} icon={CalculatorIcon} tone="lilac" hint="Dana terkumpul dibanding total target"/>
                     <SummaryCard label="Tujuan aktif" value={String(summary.active_goals_count)} icon={GoalIcon} tone="blue" hint="Wujudkan satu per satu"/>
@@ -141,42 +144,17 @@ export default function Dashboard() {
                 ) : (
                     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
                         <div className="space-y-6">
-                            <DailyReminderBanner
-                                goal={selectedGoal}
-                                streakDays={summary.streak_days}
-                                contributedToday={summary.contribution_calendar.some(
-                                    (item) =>
-                                        item.date === todayInJakarta() &&
-                                        item.amount > 0,
-                                )}
-                            />
+                            <DailyReminderBanner goal={selectedGoal} />
 
                             <GoalHeroCard
                                 goals={summary.goals}
                                 selectedGoal={selectedGoal}
                                 onGoalChange={setSelectedGoalId}
-                                streakDays={summary.streak_days}
-                                todayContributionAmount={todayContributionAmount}
                             />
 
                             <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
-                                {/*
-                                    Anchor #catat-setoran menempel di sini, bukan
-                                    di kartu form tersendiri: setoran kini dicatat
-                                    lewat kalender dengan mengklik tanggalnya
-                                    (PRD FR-32). Tombol "Catat Setoran" pada
-                                    DailyReminderBanner mengarah ke anchor ini —
-                                    memindahkannya tanpa memindahkan anchor akan
-                                    membuat tombol itu menggulir ke tempat kosong.
-                                */}
-                                <div
-                                    id="catat-setoran"
-                                    className="scroll-mt-24 rounded-card border border-border bg-bg-card p-5"
-                                >
-                                    <ActivityCalendar
-                                        calendar={calendar}
-                                        goals={summary.goals ?? []}
-                                    />
+                                <div className="rounded-card border border-border bg-bg-card p-5">
+                                    <ActivityCalendar calendar={calendar} />
                                 </div>
 
                                 <div className="rounded-card border border-border bg-bg-card p-5">
@@ -195,10 +173,10 @@ export default function Dashboard() {
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <h2 className="text-base font-semibold text-text-primary">
-                                            Pertumbuhan Aset — {selectedGoal?.name ?? 'Pilih Tujuan'}
+                                            Pertumbuhan Kekayaan
                                         </h2>
                                         <p className="mt-1 text-sm text-text-secondary">
-                                            Nilai akumulasi aset untuk tujuan yang dipilih.
+                                            Total nilai aset Anda dari waktu ke waktu, dihitung dari riwayat transaksi.
                                         </p>
                                     </div>
 
@@ -225,7 +203,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="mt-4">
                                     <AssetGrowthChart
-                                        series={selectedGoal?.asset_growth_series?.[assetGrowthGranularity] ?? []}
+                                        series={summary.asset_growth_series?.[assetGrowthGranularity] ?? []}
                                         granularity={assetGrowthGranularity}
                                     />
                                 </div>

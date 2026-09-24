@@ -173,16 +173,12 @@ class GoalController extends Controller
                 'estimated_inflation_rate' => (float) $financialGoal->estimated_inflation_rate,
             ],
 
-            // Dana yang sudah terkumpul membatasi apa yang masuk akal diubah:
+            // Dana yang sudah DITANDAI membatasi apa yang masuk akal diubah:
             // menurunkan target di bawah nominal ini membuat tujuan langsung
             // tercapai. Dikirim supaya form bisa memperingatkan, bukan
             // melarang — menurunkan target memang wajar bila rencananya
             // berubah.
-            'currentAmount' => round(
-                (float) $financialGoal->initial_amount
-                + (float) $financialGoal->contributions()->sum('amount'),
-                2,
-            ),
+            'currentAmount' => round((float) $financialGoal->allocated_amount, 2),
         ]);
     }
 
