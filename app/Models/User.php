@@ -125,6 +125,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(FinancialGoal::class);
     }
 
+    /** Catatan bebas pada sebuah tanggal di kalender. */
+    public function calendarNotes(): HasMany
+    {
+        return $this->hasMany(CalendarNote::class);
+    }
+
     public function reminders(): HasMany
     {
         return $this->hasMany(Reminder::class);
