@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AccountKind;
+use App\Models\Account;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,7 +49,7 @@ class HistoryIndexTest extends TestCase
             ->get(route('history.index'))
             ->assertInertia(fn ($page) => $page
                 ->has('activities.data', 1)
-                ->where('activities.data.0.goal_name', 'Punya Saya'));
+                ->where('activities.data.0.label', 'Punya Saya'));
     }
 
     public function test_terurut_dari_yang_paling_baru(): void
@@ -64,8 +67,8 @@ class HistoryIndexTest extends TestCase
         $this->actingAs($user)
             ->get(route('history.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('activities.data.0.goal_name', 'Belakangan')
-                ->where('activities.data.1.goal_name', 'Lebih Dulu'));
+                ->where('activities.data.0.label', 'Belakangan')
+                ->where('activities.data.1.label', 'Lebih Dulu'));
     }
 
     public function test_dipaginasi_20_per_halaman(): void
@@ -107,8 +110,113 @@ class HistoryIndexTest extends TestCase
             ->get(route('history.index'))
             ->assertInertia(fn ($page) => $page
                 ->where('activities.data.0.type', 'contribution_recorded')
-                ->where('activities.data.0.goal_name', 'Dana Darurat')
+                ->where('activities.data.0.label', 'Dana Darurat')
                 ->where('activities.data.0.amount', 75000)
                 ->has('activities.data.0.occurred_at'));
+    }
+
+    // ── Transaksi ikut masuk riwayat ────────────────────────────────────
+
+    private function rekening(User $user): Account
+    {
+        return Account::factory()->for($user)->jenis(AccountKind::Bank)
+            ->create(["opening_balance" => 20_000_000]);
+    }
+
+    /**
+     * Transaksi TIDAK disalin ke user_activities; riwayat menggabungkannya
+     * saat dibaca. Test ini yang membuktikan penggabungan itu benar-benar
+     * terjadi — tanpa satu baris pun ditulis ke tabel aktivitas.
+     */
+    public function test_transaksi_muncul_di_riwayat_tanpa_disalin(): void
+    {
+        $user = User::factory()->create();
+        Transaction::factory()->for($user)->for($this->rekening($user))
+            ->pengeluaran(850_000)->create(["name" => "Makan & kopi"]);
+
+        $this->assertSame(0, UserActivity::count());
+
+        $this->actingAs($user)
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page
+                ->has("activities.data", 1)
+                ->where("activities.data.0.type", "transaction:expense")
+                ->where("activities.data.0.label", "Makan & kopi")
+                ->where("activities.data.0.amount", 850_000));
+    }
+
+    public function test_riwayat_memuat_transaksi_dan_peristiwa_tujuan_sekaligus(): void
+    {
+        $user = User::factory()->create();
+        $this->catatAktivitas($user, ["type" => "goal_created", "goal_name" => "DP Rumah", "amount" => null]);
+        Transaction::factory()->for($user)->for($this->rekening($user))
+            ->pemasukan(5_000_000)->create(["name" => "Gaji"]);
+
+        $this->actingAs($user)
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page->has("activities.data", 2));
+    }
+
+    /**
+     * Menyunting transaksi harus ikut memperbaiki riwayatnya. Inilah yang
+     * tidak akan terjadi bila barisnya disalin saat dicatat.
+     */
+    public function test_menyunting_transaksi_ikut_memperbaiki_riwayat(): void
+    {
+        $user = User::factory()->create();
+        $transaksi = Transaction::factory()->for($user)->for($this->rekening($user))
+            ->pengeluaran(100_000)->create(["name" => "Salah ketik"]);
+
+        $transaksi->update(["name" => "Sudah benar", "amount" => 250_000]);
+
+        $this->actingAs($user)
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page
+                ->where("activities.data.0.label", "Sudah benar")
+                ->where("activities.data.0.amount", 250_000));
+    }
+
+    public function test_menghapus_transaksi_menghapusnya_dari_riwayat(): void
+    {
+        $user = User::factory()->create();
+        $transaksi = Transaction::factory()->for($user)->for($this->rekening($user))
+            ->pengeluaran(100_000)->create();
+
+        $transaksi->delete();
+
+        $this->actingAs($user)
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page->has("activities.data", 0));
+    }
+
+    /**
+     * Transaksi bertanggal mundur tetap tercatat sebagai kegiatan HARI INI —
+     * riwayat ini catatan perbuatan, bukan buku besar. Tanggal transaksinya
+     * dikirim terpisah supaya bisa disebut bila berbeda.
+     */
+    public function test_tanggal_transaksi_dikirim_terpisah_dari_waktu_pencatatan(): void
+    {
+        $user = User::factory()->create();
+        $kemarin = now(config("app.timezone"))->subDays(3)->toDateString();
+
+        Transaction::factory()->for($user)->for($this->rekening($user))
+            ->pengeluaran(100_000)->pada($kemarin)->create();
+
+        $this->actingAs($user)
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page
+                ->where("activities.data.0.occurred_on", $kemarin)
+                ->has("activities.data.0.occurred_at"));
+    }
+
+    public function test_transaksi_orang_lain_tidak_muncul(): void
+    {
+        $orangLain = User::factory()->create();
+        Transaction::factory()->for($orangLain)->for($this->rekening($orangLain))
+            ->pengeluaran(100_000)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->get(route("history.index"))
+            ->assertInertia(fn ($page) => $page->has("activities.data", 0));
     }
 }

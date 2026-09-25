@@ -1,6 +1,10 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link } from "@inertiajs/react";
-import { describeActivity } from "@/utils/activity";
+import {
+    activityHasAmount,
+    activityIsPositive,
+    describeActivity,
+} from "@/utils/activity";
 import { formatJakartaDateLong, formatJakartaTime } from "@/utils/timezone";
 import { formatRupiah } from "@/utils/format";
 
@@ -31,7 +35,15 @@ function kelompokkanPerHari(aktivitas) {
 }
 
 function ItemAktivitas({ activity }) {
-    const isSetoran = activity.type === "contribution_recorded";
+    const adaNominal = activityHasAmount(activity);
+    const naik = activityIsPositive(activity);
+
+    // Transaksi bertanggal mundur dicatat hari ini, tetapi terjadinya hari
+    // lain. Tanggalnya disebut HANYA bila berbeda — menyebutnya setiap kali
+    // hanya mengulang tanggal yang sudah jadi judul kelompoknya.
+    const tanggalBeda =
+        activity.occurred_on &&
+        activity.occurred_on !== activity.occurred_at.slice(0, 10);
 
     return (
         <div className="flex items-start justify-between gap-4 py-3">
@@ -39,14 +51,21 @@ function ItemAktivitas({ activity }) {
                 <p className="text-sm text-text-primary">
                     {describeActivity(activity)}
                 </p>
-                <p className="mt-0.5 text-xs text-text-muted">
+                <p className="num-tabular mt-0.5 text-xs text-text-muted">
                     {formatJakartaTime(activity.occurred_at)} WIB
+                    {tanggalBeda && ` · untuk ${activity.occurred_on}`}
                 </p>
             </div>
 
-            {isSetoran && (
-                <p className="shrink-0 num-tabular text-sm font-semibold text-lime-500">
-                    +{formatRupiah(activity.amount)}
+            {adaNominal && (
+                <p
+                    className={
+                        "num-tabular shrink-0 text-sm font-semibold " +
+                        (naik ? "text-state-success" : "text-text-primary")
+                    }
+                >
+                    {naik ? "+" : "−"}
+                    {formatRupiah(Math.abs(activity.amount))}
                 </p>
             )}
         </div>
@@ -73,9 +92,9 @@ export default function HistoryIndex({ activities }) {
                     Riwayat
                 </h1>
                 <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                    Semua aktivitas Anda di Arus, dikelompokkan per hari —
-                    tiap setoran yang dicatat dan tiap tujuan yang dibuat atau
-                    dihapus.
+                    Semua yang Anda lakukan di Arus, dikelompokkan per hari —
+                    tiap transaksi yang dicatat dan tiap tujuan yang dibuat,
+                    diubah, atau dihapus.
                 </p>
 
                 {activities.data.length === 0 ? (
@@ -98,8 +117,8 @@ export default function HistoryIndex({ activities }) {
                             Belum ada aktivitas
                         </h2>
                         <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
-                            Setoran yang Anda catat dan tujuan yang Anda buat
-                            akan muncul di sini.
+                            Transaksi yang Anda catat dan tujuan yang Anda
+                            buat akan muncul di sini.
                         </p>
                     </div>
                 ) : (
