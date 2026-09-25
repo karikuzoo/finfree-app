@@ -74,6 +74,28 @@ class InvestmentValuationTest extends TestCase
         );
     }
 
+    /**
+     * Halaman ini punya formnya sendiri untuk menambah investasi, dan pilihan
+     * jenisnya datang dari sini. Bila bank atau tunai sampai ikut terkirim,
+     * pengguna bisa membuat rekening bank dari halaman Investasi — yang lalu
+     * tidak pernah muncul di daftarnya sendiri.
+     */
+    public function test_pilihan_jenis_hanya_memuat_aset_investasi(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('investments.index'))
+            ->assertInertia(function ($page) {
+                $nilai = array_column($page->toArray()['props']['kinds'], 'value');
+
+                foreach (AccountKind::nilaiLikuid() as $likuid) {
+                    $this->assertNotContains($likuid, $nilai);
+                }
+
+                $this->assertContains(AccountKind::Stock->value, $nilai);
+                $this->assertContains(AccountKind::Gold->value, $nilai);
+            });
+    }
+
     public function test_daftar_tidak_memuat_investasi_orang_lain(): void
     {
         $orangLain = User::factory()->create();

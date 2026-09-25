@@ -6,9 +6,10 @@ import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
+import TextInput from "@/Components/TextInput";
 import { formatRupiah } from "@/utils/format";
 import { todayInJakarta } from "@/utils/timezone";
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, useForm } from "@inertiajs/react";
 import { useState } from "react";
 
 /**
@@ -19,8 +20,9 @@ import { useState } from "react";
  * sini adalah "Perbarui nilai", karena aset inilah yang nilainya berubah
  * tanpa pengguna mencatat apa pun.
  */
-export default function InvestmentIndex({ investments, totalValue }) {
+export default function InvestmentIndex({ investments, totalValue, kinds }) {
     const [menilai, setMenilai] = useState(null);
+    const [menambah, setMenambah] = useState(false);
 
     return (
         <AuthenticatedLayout>
@@ -37,12 +39,9 @@ export default function InvestmentIndex({ investments, totalValue }) {
                         </p>
                     </div>
 
-                    <Link
-                        href={route("accounts.index")}
-                        className="rounded-lg border border-border-strong px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:border-text-muted hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
-                    >
+                    <PrimaryButton onClick={() => setMenambah(true)}>
                         Tambah investasi
-                    </Link>
+                    </PrimaryButton>
                 </div>
 
                 <div className="mt-8 rounded-card border border-border bg-bg-card p-5">
@@ -65,7 +64,7 @@ export default function InvestmentIndex({ investments, totalValue }) {
                 </div>
 
                 {investments.length === 0 ? (
-                    <Kosong />
+                    <Kosong onTambah={() => setMenambah(true)} />
                 ) : (
                     <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {investments.map((aset) => (
@@ -78,6 +77,13 @@ export default function InvestmentIndex({ investments, totalValue }) {
                     </div>
                 )}
             </div>
+
+            <FormInvestasi
+                key={`tambah-${menambah}`}
+                show={menambah}
+                kinds={kinds}
+                onClose={() => setMenambah(false)}
+            />
 
             {menilai && (
                 <FormPenilaian
@@ -161,25 +167,129 @@ function KartuInvestasi({ aset, onNilai }) {
     );
 }
 
-function Kosong() {
+function Kosong({ onTambah }) {
     return (
         <div className="mt-6 rounded-card border border-border bg-bg-card px-6 py-12 text-center">
             <h2 className="text-lg font-semibold text-text-primary">
                 Belum ada investasi
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-text-secondary">
-                Tambahkan saham, reksa dana, atau emas lewat Rekening &amp; aset —
-                pilih jenisnya di sana, dan aset itu otomatis muncul di halaman ini.
+                Catat saham, reksa dana, atau emas yang Anda pegang beserta
+                nilainya saat ini. Semuanya ikut terhitung dalam total aset dan
+                komposisi portofolio Anda.
             </p>
             <div className="mt-6">
-                <Link
-                    href={route("accounts.index")}
-                    className="inline-block rounded-lg bg-lime-500 px-5 py-2.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-base"
-                >
-                    Buka Rekening &amp; aset
-                </Link>
+                <PrimaryButton onClick={onTambah}>Tambah investasi</PrimaryButton>
             </div>
         </div>
+    );
+}
+
+/**
+ * Menambah investasi TANPA meninggalkan halaman ini.
+ *
+ * Mengirim ke `accounts.store`, endpoint yang sama dengan Rekening & aset —
+ * investasi memang rekening, hanya jenisnya yang berbeda (lihat
+ * InvestmentController). Yang dibatasi cuma pilihan jenisnya: daftar `kinds`
+ * dari backend sudah menyaring bank dan tunai, sehingga form ini tidak bisa
+ * dipakai membuat rekening bank secara tidak sengaja.
+ *
+ * Sebelumnya tombol ini hanyalah tautan ke halaman Rekening & aset. Itu
+ * memindahkan pengguna ke tempat lain untuk mengerjakan sesuatu yang judulnya
+ * ada di sini — dan begitu sampai, ia masih harus menebak jenis mana yang
+ * dihitung sebagai investasi.
+ */
+function FormInvestasi({ show, kinds, onClose }) {
+    const form = useForm({
+        name: "",
+        kind: kinds[0]?.value ?? "stock",
+        institution: "",
+        opening_balance: 0,
+    });
+
+    const simpan = (e) => {
+        e.preventDefault();
+        form.post(route("accounts.store"), {
+            preserveScroll: true,
+            onSuccess: onClose,
+        });
+    };
+
+    return (
+        <Modal show={show} onClose={onClose} maxWidth="md">
+            <form onSubmit={simpan} className="space-y-5 p-6">
+                <h2 className="text-base font-semibold text-text-primary">
+                    Tambah investasi
+                </h2>
+
+                <div>
+                    <InputLabel htmlFor="inv_name" value="Nama" />
+                    <TextInput
+                        id="inv_name"
+                        className="mt-1.5 block w-full"
+                        value={form.data.name}
+                        onChange={(e) => form.setData("name", e.target.value)}
+                        maxLength={100}
+                        placeholder="Portofolio saham, Emas batangan, ..."
+                        autoFocus
+                    />
+                    <InputError message={form.errors.name} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="inv_kind" value="Jenis" />
+                    <select
+                        id="inv_kind"
+                        className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                        value={form.data.kind}
+                        onChange={(e) => form.setData("kind", e.target.value)}
+                    >
+                        {kinds.map((jenis) => (
+                            <option key={jenis.value} value={jenis.value}>
+                                {jenis.label}
+                            </option>
+                        ))}
+                    </select>
+                    <InputError message={form.errors.kind} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="inv_institution" value="Lembaga (opsional)" />
+                    <TextInput
+                        id="inv_institution"
+                        className="mt-1.5 block w-full"
+                        value={form.data.institution ?? ""}
+                        onChange={(e) => form.setData("institution", e.target.value)}
+                        maxLength={100}
+                        placeholder="Sekuritas, Manajer investasi, ..."
+                    />
+                    <InputError message={form.errors.institution} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="inv_value" value="Nilainya saat ini" />
+                    <CurrencyInput
+                        id="inv_value"
+                        className="mt-1.5"
+                        value={form.data.opening_balance}
+                        onChange={(v) => form.setData("opening_balance", v)}
+                    />
+                    <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                        Nilai pada saat Anda mulai mencatat, bukan harga belinya
+                        dulu. Selanjutnya perbarui lewat "Perbarui nilai" saat
+                        harganya bergerak.
+                    </p>
+                    <InputError message={form.errors.opening_balance} className="mt-2" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                    <SecondaryButton type="button" onClick={onClose}>
+                        Batal
+                    </SecondaryButton>
+                    <PrimaryButton disabled={form.processing}>Simpan</PrimaryButton>
+                </div>
+            </form>
+        </Modal>
     );
 }
 

@@ -29,20 +29,23 @@ class StoreAccountRequest extends FormRequest
     public function rules(): array
     {
         $rekening = $this->route('account');
-        $punyaRiwayat = $rekening !== null
-            && $rekening->transactions()->exists();
+
+        $jenis = ['required', Rule::in(AccountKind::values())];
+
+        // Jenis dikunci begitu ada transaksi: lihat komentar kelas.
+        //
+        // Disusun dengan `if` biasa, BUKAN Rule::when(). Argumen kedua
+        // Rule::when() adalah array yang sudah terlanjur dibangun, jadi
+        // `$rekening->kind` tetap dievaluasi walau kondisinya false — dan saat
+        // menambah rekening baru `$rekening` masih null.
+        if ($rekening !== null
+            && $rekening->transactions()->exists()) {
+            $jenis[] = Rule::in([$rekening->kind->value]);
+        }
 
         return [
             'name' => ['required', 'string', 'max:100'],
-            'kind' => [
-                'required',
-                Rule::in(AccountKind::values()),
-                // Jenis dikunci begitu ada transaksi: lihat komentar kelas.
-                Rule::when(
-                    $punyaRiwayat,
-                    [Rule::in([$rekening->kind->value])],
-                ),
-            ],
+            'kind' => $jenis,
             'institution' => ['nullable', 'string', 'max:100'],
             'opening_balance' => ['required', 'numeric', 'min:0', 'max:999999999999999.99'],
         ];
