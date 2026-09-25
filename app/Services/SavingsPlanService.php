@@ -128,6 +128,17 @@ class SavingsPlanService
     {
         $tersisa = $kemampuan;
 
+        // Target mana yang sudah disisihkan BULAN INI, beserta totalnya.
+        // Satu kueri untuk semuanya, bukan satu per baris rencana.
+        $bulanIni = Carbon::now(config('app.timezone'))->startOfMonth();
+        $sudahBulanIni = $user->activities()
+            ->where('type', 'goal_set_aside')
+            ->whereNotNull('financial_goal_id')
+            ->where('created_at', '>=', $bulanIni)
+            ->selectRaw('financial_goal_id, SUM(amount) AS total')
+            ->groupBy('financial_goal_id')
+            ->pluck('total', 'financial_goal_id');
+
         $tujuan = $user->goals()
             ->where('status', GoalStatus::Active->value)
             ->get()
@@ -163,6 +174,17 @@ class SavingsPlanService
                 // sehari-hari dan bukan tagihan bulanan yang menakutkan.
                 'daily_equivalent' => round($alokasi / 30, 2),
                 'achieved' => $kebutuhan <= 0,
+
+                // Menutup lingkaran umpan balik: tanpa ini halaman rencana
+                // mengulang perintah yang sama persis tiap bulan, tidak peduli
+                // pengguna sudah mengikutinya atau belum.
+                'set_aside_this_month' => round((float) ($sudahBulanIni[$goal->id] ?? 0), 2),
+
+                // Target tanpa rekening tidak bisa memakai tombol "Sudah saya
+                // sisihkan" — tidak ada saldo yang bisa ditandai. Dikirim
+                // supaya tombolnya bisa menjelaskan alasannya, bukan sekadar
+                // menolak saat ditekan.
+                'can_set_aside' => $goal->account_id !== null && $kebutuhan > 0,
             ];
         }
 

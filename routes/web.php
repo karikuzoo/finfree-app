@@ -167,6 +167,11 @@ Route::middleware('auth')->group(function () {
         ->name('savings-plan.budget.update');
     Route::patch('/tujuan/{financialGoal}/alokasi', [SavingsPlanController::class, 'updateAllocation'])
         ->name('goals.allocation.update');
+    // "Sudah saya sisihkan": menaikkan alokasi sebesar nominal yang dikirim,
+    // bukan menimpanya dengan total baru. POST, bukan PATCH — ia mencatat
+    // sebuah peristiwa, bukan menyunting satu nilai.
+    Route::post('/tujuan/{financialGoal}/sisihkan', [SavingsPlanController::class, 'setAside'])
+        ->name('goals.set-aside');
 
     // Utang & cicilan. Pembayaran pokoknya TIDAK punya route sendiri — ia
     // transaksi berjenis `payment` lewat transactions.store; lihat komentar

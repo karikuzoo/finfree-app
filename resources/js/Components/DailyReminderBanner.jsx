@@ -28,7 +28,7 @@ export default function DailyReminderBanner({ goal }) {
                     {goal.name} sedang tertinggal dari rencananya.
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                    Naikkan prioritasnya, tambah dana yang ditandai, atau
+                    Naikkan prioritasnya, tambah dana yang terkumpul, atau
                     mundurkan tenggatnya — mana pun yang paling masuk akal.
                 </p>
             </div>

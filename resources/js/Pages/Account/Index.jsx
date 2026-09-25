@@ -277,9 +277,9 @@ function FormRekening({ show, rekening, kinds, onClose }) {
                         ))}
                     </select>
                     <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
-                        Hanya bank dan tunai yang bisa menampung dana target —
-                        nilai saham dan emas bergerak sendiri, sehingga target
-                        yang ditandai di sana bisa meleset diam-diam.
+                        Hanya bank dan tunai yang boleh menyimpan dana
+                        tujuan — nilai saham dan emas bergerak sendiri, sehingga
+                        tujuan yang dananya di sana bisa meleset diam-diam.
                     </p>
                     <InputError message={form.errors.kind} className="mt-2" />
                 </div>

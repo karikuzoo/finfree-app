@@ -50,6 +50,47 @@ export function formatCompactRupiah(value) {
     return `Rp ${Math.round(n)}`;
 }
 
+/**
+ * Membacakan nominal dengan KATA satuannya: 125000000000 -> "125 miliar".
+ *
+ * Bukan sekadar versi lain dari formatCompactRupiah. Yang itu memakai "M",
+ * yang bisa dibaca sebagai miliar maupun million; yang ini sengaja mengeja
+ * satuannya karena justru di situlah gunanya — ia dipasang di bawah kolom
+ * nominal supaya salah ketik jumlah nol ketahuan SAAT mengetik.
+ *
+ * Kasus nyata yang melatarbelakanginya: sebuah target terisi
+ * Rp 125.000.000.000 padahal maksudnya 125 juta. Deretan titiknya terlalu
+ * mirip untuk dihitung sekilas, dan barunya ketahuan setelah rencana
+ * menabungnya menuntut Rp 2,26 miliar per bulan.
+ *
+ * Mengembalikan string kosong di bawah satu juta: "delapan ratus ribu" tidak
+ * menambah kejelasan apa pun, dan keterangan yang selalu muncul berhenti
+ * dibaca.
+ */
+export function spellRupiah(value) {
+    const n = Math.abs(Number(value) || 0);
+
+    const satuan = [
+        [1_000_000_000_000, 'triliun'],
+        [1_000_000_000, 'miliar'],
+        [1_000_000, 'juta'],
+    ];
+
+    for (const [nilai, kata] of satuan) {
+        if (n >= nilai) {
+            const angka = (n / nilai)
+                .toFixed(2)
+                .replace(/(\.\d*?)0+$/, '$1')
+                .replace(/\.$/, '')
+                .replace('.', ',');
+
+            return `${angka} ${kata}`;
+        }
+    }
+
+    return '';
+}
+
 /** "1.500.000" atau "Rp 1.500.000" -> 1500000 */
 export function parseNumber(text) {
     const digits = String(text).replace(/[^\d]/g, '');

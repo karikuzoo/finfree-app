@@ -470,4 +470,187 @@ class SavingsPlanTest extends TestCase
     {
         $this->get(route('savings-plan.index'))->assertRedirect(route('login'));
     }
+
+    // ── "Sudah saya sisihkan" ───────────────────────────────────────────
+
+    /**
+     * Menutup lingkaran umpan balik rencana. Sebelum tombol ini ada, pengguna
+     * harus membuka form alokasi dan mengetik ulang TOTAL barunya —
+     * menghitung sendiri 10.000.000 + 3.750.000.
+     */
+    public function test_menyisihkan_menambah_alokasi_bukan_menimpanya(): void
+    {
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, [
+            "account_id" => $rekening->id,
+            "allocated_amount" => 10_000_000,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route("goals.set-aside", $goal), ["amount" => 3_750_000])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(13_750_000.0, (float) $goal->fresh()->allocated_amount);
+    }
+
+    public function test_menyisihkan_tercatat_di_riwayat(): void
+    {
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => 1_000_000]);
+
+        $this->assertDatabaseHas("user_activities", [
+            "user_id" => $user->id,
+            "financial_goal_id" => $goal->id,
+            "type" => "goal_set_aside",
+            "amount" => 1_000_000,
+        ]);
+    }
+
+    /**
+     * Inilah gunanya LedgerGuard di sini: mengaku sudah menyisihkan padahal
+     * saldonya tidak cukup harus DITOLAK. Rencana yang mengaku berjalan
+     * padahal dananya tidak pernah ada lebih buruk daripada rencana yang
+     * jelas-jelas tertinggal.
+     */
+    public function test_menyisihkan_melebihi_saldo_rekening_ditolak(): void
+    {
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 2_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $this->actingAs($user)
+            ->post(route("goals.set-aside", $goal), ["amount" => 5_000_000])
+            ->assertSessionHasErrors("amount");
+
+        $this->assertSame(0.0, (float) $goal->fresh()->allocated_amount);
+        $this->assertDatabaseCount("user_activities", 0);
+    }
+
+    public function test_menyisihkan_melebihi_target_ditolak(): void
+    {
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 500_000_000);
+        $goal = $this->tujuan($user, [
+            "account_id" => $rekening->id,
+            "target_amount" => 10_000_000,
+            "allocated_amount" => 9_000_000,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route("goals.set-aside", $goal), ["amount" => 5_000_000])
+            ->assertSessionHasErrors("amount");
+
+        $this->assertSame(9_000_000.0, (float) $goal->fresh()->allocated_amount);
+    }
+
+    public function test_target_tanpa_rekening_tidak_bisa_disisihkan(): void
+    {
+        $user = User::factory()->create();
+        $goal = $this->tujuan($user);
+
+        $this->actingAs($user)
+            ->post(route("goals.set-aside", $goal), ["amount" => 1_000_000])
+            ->assertSessionHasErrors("amount");
+
+        $this->assertSame(0.0, (float) $goal->fresh()->allocated_amount);
+    }
+
+    public function test_rencana_melaporkan_yang_sudah_disisihkan_bulan_ini(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 10_000_000, 0);
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $this->assertSame(0.0, $this->rencana($user)["rows"][0]["set_aside_this_month"]);
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => 1_500_000]);
+
+        $this->assertSame(1_500_000.0, $this->rencana($user)["rows"][0]["set_aside_this_month"]);
+    }
+
+    /** Beberapa kali menyisihkan dalam sebulan dijumlahkan, bukan ditimpa. */
+    public function test_menyisihkan_beberapa_kali_dijumlahkan(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 10_000_000, 0);
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        foreach ([1_000_000, 500_000] as $nominal) {
+            $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => $nominal]);
+        }
+
+        $this->assertSame(1_500_000.0, $this->rencana($user)["rows"][0]["set_aside_this_month"]);
+        $this->assertSame(1_500_000.0, (float) $goal->fresh()->allocated_amount);
+    }
+
+    /**
+     * Penanda "sudah bulan ini" harus RESET tiap bulan — kalau tidak, rencana
+     * bulan depan akan terlihat seolah sudah dikerjakan.
+     */
+    public function test_yang_disisihkan_bulan_lalu_tidak_terhitung_bulan_ini(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 10_000_000, 0);
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $user->activities()->create([
+            "financial_goal_id" => $goal->id,
+            "type" => "goal_set_aside",
+            "goal_name" => $goal->name,
+            "amount" => 2_000_000,
+        ])->forceFill([
+            "created_at" => now(config("app.timezone"))->subMonthNoOverflow()->startOfMonth(),
+        ])->save();
+
+        $this->assertSame(0.0, $this->rencana($user)["rows"][0]["set_aside_this_month"]);
+    }
+
+    /** Penandanya mengikuti ID tujuan, bukan namanya — nama bisa diganti. */
+    public function test_mengganti_nama_tujuan_tidak_menghapus_catatan_bulan_ini(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 10_000_000, 0);
+        $rekening = $this->rekening($user, 50_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => 1_000_000]);
+        $goal->update(["name" => "Nama yang sudah diganti"]);
+
+        $this->assertSame(1_000_000.0, $this->rencana($user)["rows"][0]["set_aside_this_month"]);
+    }
+
+    public function test_tidak_bisa_menyisihkan_untuk_tujuan_orang_lain(): void
+    {
+        $goal = $this->tujuan(User::factory()->create());
+
+        $this->actingAs(User::factory()->create())
+            ->post(route("goals.set-aside", $goal), ["amount" => 1_000_000])
+            ->assertForbidden();
+    }
+
+    /**
+     * Anggaran kosong bukan keadaan langka — itu keadaan SETIAP pengguna baru.
+     * Halaman rencana harus tetap bisa dibuka, dan angkanya harus jujur: nol,
+     * bukan error dan bukan tebakan.
+     */
+    public function test_rencana_tetap_utuh_saat_anggaran_kosong(): void
+    {
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 50_000_000);
+        $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $rencana = $this->rencana($user);
+
+        $this->assertSame(0.0, $rencana["budget"]["income"]);
+        $this->assertSame(0.0, $rencana["budget"]["capacity"]);
+        $this->assertSame(0.0, $rencana["rows"][0]["allocation"]);
+        $this->assertGreaterThan(0, $rencana["rows"][0]["shortfall"]);
+    }
 }

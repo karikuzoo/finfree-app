@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatCompactRupiah, formatNumber, formatRupiah, parseNumber } from "./format.js";
+import {
+    formatCompactRupiah,
+    formatNumber,
+    formatRupiah,
+    parseNumber,
+    spellRupiah,
+} from "./format.js";
 
 /**
  * Bug yang melahirkan berkas test ini: pemangkas nol memakai pola /\.?0+$/,
@@ -68,5 +74,38 @@ test("parseNumber membuang pemisah dan menjaga kolom kosong tetap kosong", () =>
 test("formatNumber dan parseNumber saling membatalkan", () => {
     for (const nilai of [1, 5000, 50000, 100000, 1500000, 999999999]) {
         assert.equal(parseNumber(formatNumber(nilai)), nilai);
+    }
+});
+
+/**
+ * Pembacaan nominal ada justru untuk menangkap salah ketik jumlah nol. Kalau
+ * ia sendiri keliru satu satuan, ia berhenti jadi pengaman dan berubah jadi
+ * sumber kekeliruan baru — pengguna akan memercayai bacaan yang salah.
+ *
+ * Kasus nyatanya: sebuah target terisi Rp 125.000.000.000 padahal maksudnya
+ * 125 juta, dan barunya ketahuan setelah rencana menabungnya menuntut
+ * Rp 2,26 miliar per bulan.
+ */
+test("spellRupiah menyebut satuan yang benar", () => {
+    assert.equal(spellRupiah(125_000_000), "125 juta");
+    assert.equal(spellRupiah(125_000_000_000), "125 miliar");
+    assert.equal(spellRupiah(1_250_000_000), "1,25 miliar");
+    assert.equal(spellRupiah(2_000_000_000), "2 miliar");
+    assert.equal(spellRupiah(3_500_000), "3,5 juta");
+    assert.equal(spellRupiah(1_000_000_000_000), "1 triliun");
+});
+
+/** Batas antar satuan adalah tempat paling mudah meleset sepuluh kali lipat. */
+test("spellRupiah tepat di batas satuan", () => {
+    assert.equal(spellRupiah(999_999), "");
+    assert.equal(spellRupiah(1_000_000), "1 juta");
+    assert.equal(spellRupiah(999_999_999), "1000 juta");
+    assert.equal(spellRupiah(1_000_000_000), "1 miliar");
+});
+
+/** Di bawah satu juta tidak dibacakan — keterangan yang selalu ada berhenti dibaca. */
+test("spellRupiah diam untuk nominal kecil dan nilai kosong", () => {
+    for (const nilai of [0, 500, 800_000, null, undefined, ""]) {
+        assert.equal(spellRupiah(nilai), "");
     }
 });

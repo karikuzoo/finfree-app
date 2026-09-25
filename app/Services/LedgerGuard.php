@@ -64,15 +64,27 @@ class LedgerGuard
         $saldo = $this->saldo->forUser($user);
 
         foreach ($ditandai as $accountId => $total) {
-            if ((float) $total <= ($saldo[$accountId] ?? 0)) {
+            $tersedia = $saldo[$accountId] ?? 0;
+
+            if ((float) $total <= $tersedia) {
                 continue;
             }
 
             $nama = $user->accounts()->whereKey($accountId)->value('name');
 
+            // Menyebut KEDUA angkanya, bukan menyuruh "kurangi alokasi target
+            // lain". Saran itu benar hanya bila target lain memang memakan
+            // saldonya; ketika yang diminta sekadar jauh melampaui isi
+            // rekening, ia menyesatkan — pengguna akan sibuk mengurangi
+            // alokasi yang bukan penyebabnya. Angka yang jujur membiarkan ia
+            // menyimpulkan sendiri mana dari keduanya yang berlaku.
             throw ValidationException::withMessages([
-                $field => "Saldo {$nama} sudah ditandai untuk target lain. "
-                    .'Kurangi alokasi target terlebih dahulu.',
+                $field => sprintf(
+                    'Total dana untuk target di %s jadi %s, melebihi saldonya yang %s.',
+                    $nama,
+                    $this->rupiah($total),
+                    $this->rupiah($tersedia),
+                ),
             ]);
         }
     }
@@ -91,13 +103,18 @@ class LedgerGuard
             return;
         }
 
+        // Menyebut KEKURANGANNYA, bukan sekadar "tidak mencukupi". Selisihnya
+        // persis angka yang dibutuhkan pengguna untuk memutuskan apa yang
+        // harus diubah — tanpa itu ia harus menghitung sendiri dari dua layar
+        // yang berbeda.
         $nama = $user->accounts()
             ->whereIn('id', array_keys($minus))
-            ->pluck('name')
+            ->pluck('name', 'id')
+            ->map(fn (string $n, int $id) => $n.' (kurang '.$this->rupiah(-$minus[$id]).')')
             ->implode(', ');
 
         throw ValidationException::withMessages([
-            $field => "Saldo {$nama} tidak mencukupi untuk perubahan ini.",
+            $field => "Saldo tidak mencukupi: {$nama}.",
         ]);
     }
 
@@ -116,11 +133,17 @@ class LedgerGuard
 
         $nama = $user->debts()
             ->whereIn('id', array_keys($lebih))
-            ->pluck('name')
+            ->pluck('name', 'id')
+            ->map(fn (string $n, int $id) => $n.' (lebih '.$this->rupiah(-$lebih[$id]).')')
             ->implode(', ');
 
         throw ValidationException::withMessages([
-            $field => "Pembayaran melebihi sisa pokok {$nama}.",
+            $field => "Pembayaran melebihi sisa pokok: {$nama}.",
         ]);
+    }
+
+    private function rupiah(float|string $nominal): string
+    {
+        return 'Rp '.number_format((float) $nominal, 0, ',', '.');
     }
 }

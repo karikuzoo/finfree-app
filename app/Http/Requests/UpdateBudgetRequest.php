@@ -35,10 +35,10 @@ class UpdateBudgetRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'planned_income.required' => 'Pemasukan yang direncanakan wajib diisi.',
-            'planned_income.min' => 'Pemasukan tidak boleh negatif.',
-            'planned_expenses.required' => 'Kebutuhan & pengeluaran wajib diisi.',
-            'planned_expenses.min' => 'Pengeluaran tidak boleh negatif.',
+            'planned_income.required' => 'Perkiraan penghasilan bulanan wajib diisi.',
+            'planned_income.min' => 'Perkiraan penghasilan tidak boleh negatif.',
+            'planned_expenses.required' => 'Perkiraan pengeluaran bulanan wajib diisi.',
+            'planned_expenses.min' => 'Perkiraan pengeluaran tidak boleh negatif.',
             'monthly_reserve.required' => 'Cadangan bulanan wajib diisi. Isi 0 bila tidak ada.',
             'monthly_reserve.min' => 'Cadangan bulanan tidak boleh negatif.',
         ];

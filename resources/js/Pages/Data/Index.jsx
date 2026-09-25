@@ -215,8 +215,8 @@ function CaraMenghitung() {
             "Pemasukan − pengeluaran − pembayaran pokok. Transfer dan penyesuaian nilai tidak dihitung: keduanya tidak memindahkan uang ke luar atau ke dalam kekayaanmu.",
         ],
         [
-            "Dana target",
-            "Alokasi hanya MENANDAI sebagian saldo rekening, bukan memindahkan uang. Total yang ditandai pada satu rekening tidak boleh melebihi saldonya, dan hanya rekening bank atau tunai yang boleh menampungnya.",
+            "Dana tujuan",
+            "Dana tujuan adalah sebagian saldo rekening yang Anda tetapkan punya tujuan — uangnya tidak dipindahkan ke mana-mana. Gabungan seluruh tujuan pada satu rekening tidak boleh melebihi saldonya, dan hanya rekening bank atau tunai yang boleh menyimpannya.",
         ],
         [
             "Kebutuhan bulanan",

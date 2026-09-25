@@ -125,7 +125,7 @@ export default function Dashboard() {
                                 value={`${summary.overall_progress_percentage.toFixed(1)}%`}
                                 icon={CalculatorIcon}
                                 tone="lilac"
-                                hint="Dana ditandai dibanding total target"
+                                hint="Dana terkumpul dibanding total target"
                             />
                             <SummaryCard
                                 label="Tujuan aktif"

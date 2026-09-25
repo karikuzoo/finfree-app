@@ -48,6 +48,10 @@ export default function SavingsPlanIndex({ plan, goals, accounts, priorities }) 
                     <CaraMembaca />
                 </div>
 
+                {plan.budget.income <= 0 && plan.rows.length > 0 && (
+                    <AnggaranKosong onIsi={() => setUbahAnggaran(true)} />
+                )}
+
                 <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
                     <h2 className="text-base font-semibold text-text-primary">
                         Peta menabungmu
@@ -103,8 +107,8 @@ export default function SavingsPlanIndex({ plan, goals, accounts, priorities }) 
 
 function KartuAnggaran({ budget, onUbah }) {
     const baris = [
-        { label: "Pemasukan yang direncanakan", nilai: budget.income, tanda: "" },
-        { label: "Kebutuhan & pengeluaran", nilai: budget.expenses, tanda: "− " },
+        { label: "Perkiraan penghasilan bulanan", nilai: budget.income, tanda: "" },
+        { label: "Perkiraan pengeluaran bulanan", nilai: budget.expenses, tanda: "− " },
         { label: "Cicilan pokok aktif", nilai: budget.debt_principal, tanda: "− " },
         { label: "Cadangan bulanan", nilai: budget.reserve, tanda: "− " },
     ];
@@ -158,8 +162,9 @@ function KartuAnggaran({ budget, onUbah }) {
                 >
                     Utang &amp; cicilan
                 </Link>
-                . Isi angka yang realistis — ini rencana, bukan transaksi yang
-                sudah terjadi.
+                . Angka lain di kartu ini adalah PERKIRAAN Anda sendiri —
+                bukan transaksi yang sudah terjadi, dan tidak menyentuh saldo
+                rekening mana pun.
             </p>
         </div>
     );
@@ -258,15 +263,130 @@ function BarisRencana({ baris, urutan, onSesuaikan }) {
                         </p>
                     )}
 
-                    <button
-                        type="button"
-                        onClick={onSesuaikan}
-                        className="mt-3 rounded-md text-sm font-medium text-lime-500 transition hover:text-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500"
-                    >
-                        Sesuaikan target →
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <TombolSisihkan baris={baris} />
+
+                        <button
+                            type="button"
+                            onClick={onSesuaikan}
+                            className="rounded-md text-sm font-medium text-text-secondary transition hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        >
+                            Sesuaikan target →
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/**
+ * "Sudah saya sisihkan" — satu klik menaikkan dana yang ditandai sebesar
+ * alokasi yang disarankan.
+ *
+ * Sebelum ini pengguna harus membuka form alokasi dan mengetik ulang TOTAL
+ * barunya: menghitung sendiri 10.000.000 + 3.750.000. Aritmetika yang memang
+ * tugas aplikasi.
+ *
+ * Yang sudah disisihkan bulan ini ditampilkan apa adanya, termasuk bila
+ * jumlahnya belum sebanyak yang disarankan — rencana yang hanya mengenal
+ * "sudah" dan "belum" memaksa orang berbohong pada dirinya sendiri di bulan
+ * yang cuma sanggup separuh.
+ */
+/**
+ * Seluruh halaman ini bergantung pada anggaran. Tanpa pemasukan, kemampuan
+ * menabungnya nol, tiap baris mendapat alokasi nol, dan kekurangan dananya
+ * tampil sebesar seluruh kebutuhan — angka menakutkan yang sebenarnya cuma
+ * akibat pembagi yang kosong.
+ *
+ * Dulu keadaan itu tidak dijelaskan sama sekali: halaman tetap menampilkan
+ * semuanya seolah rencananya sungguhan. Sekarang disebut lebih dulu, sebelum
+ * angka-angka yang belum punya arti itu sempat dipercaya.
+ */
+function AnggaranKosong({ onIsi }) {
+    return (
+        <div className="mt-6 rounded-card border border-state-warning/40 bg-bg-cardAlt p-5">
+            <h2 className="text-sm font-semibold text-text-primary">
+                Isi anggaran bulanan dulu
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
+                Tanpa perkiraan penghasilan, Arus tidak tahu berapa yang
+                bisa Anda sisihkan — jadi tiap target di bawah mendapat Rp 0 dan
+                seluruhnya terlihat tertinggal jauh. Angka-angka itu belum
+                berarti apa-apa sampai anggarannya diisi.
+            </p>
+            <button
+                type="button"
+                onClick={onIsi}
+                className="mt-4 rounded-lg bg-lime-500 px-4 py-2 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card"
+            >
+                Isi anggaran
+            </button>
+        </div>
+    );
+}
+
+function TombolSisihkan({ baris }) {    const form = useForm({ amount: baris.allocation });
+
+    const sisihkan = () => {
+        // transform() dipanggil TERPISAH, tidak dirantai.
+        //
+        // Di adapter React, transform() mengembalikan undefined — ia hanya
+        // memasang callback-nya ke sebuah ref. Merantainya seperti di adapter
+        // Vue (`form.transform(...).post(...)`) melempar TypeError, dan
+        // tombolnya diam sepenuhnya: tidak ada yang terkirim, tidak ada pesan
+        // galat di layar.
+        //
+        // Dan memang harus lewat transform, bukan useForm saja: nominalnya
+        // dibaca dari props SAAT dikirim. Setelah sekali berhasil, alokasi
+        // yang disarankan berubah, sedangkan state awal useForm tidak ikut
+        // diperbarui — klik kedua akan mengirim angka yang sudah basi.
+        form.transform(() => ({ amount: baris.allocation }));
+        form.post(route("goals.set-aside", baris.goal_id), { preserveScroll: true });
+    };
+
+    const sudah = baris.set_aside_this_month;
+
+    if (baris.achieved) {
+        return null;
+    }
+
+    return (
+        <div className="min-w-0">
+            {/*
+                Tombolnya TIDAK pernah lenyap begitu saja. Versi pertama
+                menyembunyikannya saat alokasinya nol, dan hasilnya sebuah
+                halaman yang menyuruh menyisihkan uang tanpa menyediakan
+                caranya — tanpa satu kata pun menjelaskan sebabnya.
+            */}
+            {!baris.can_set_aside ? (
+                <p className="text-xs leading-relaxed text-text-muted">
+                    Tentukan dulu rekening tempat dananya berada lewat
+                    &ldquo;Sesuaikan target&rdquo;.
+                </p>
+            ) : baris.allocation <= 0 ? (
+                <p className="text-xs leading-relaxed text-text-muted">
+                    Belum ada dana yang bisa dialokasikan untuk target ini bulan
+                    ini.
+                </p>
+            ) : (
+                <button
+                    type="button"
+                    onClick={sisihkan}
+                    disabled={form.processing}
+                    className="rounded-lg bg-lime-500 px-3 py-1.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card"
+                >
+                    {form.processing ? "Menyimpan…" : "Sudah saya sisihkan"}
+                </button>
+            )}
+
+            {sudah > 0 && (
+                <p className="num-tabular mt-1.5 text-xs text-state-success">
+                    Bulan ini sudah disisihkan {formatRupiah(sudah)}
+                </p>
+            )}
+
+            <InputError message={form.errors.amount} className="mt-1.5" />
         </div>
     );
 }
@@ -351,13 +471,16 @@ function FormAnggaran({ show, budget, onClose }) {
     const bidang = [
         {
             nama: "planned_income",
-            label: "Pemasukan yang direncanakan",
-            bantuan: "Gaji dan penghasilan rutin lain per bulan.",
+            label: "Perkiraan penghasilan bulanan",
+            bantuan:
+                "Gaji dan penghasilan rutin lain. Ini PERKIRAAN untuk menghitung " +
+                "kemampuan menabung — bukan uang masuk, dan tidak menambah saldo " +
+                "rekening mana pun. Pemasukan yang sungguhan dicatat di Transaksi.",
         },
         {
             nama: "planned_expenses",
-            label: "Kebutuhan & pengeluaran",
-            bantuan: "Biaya hidup rutin per bulan, di luar cicilan pokok utang.",
+            label: "Perkiraan pengeluaran bulanan",
+            bantuan: "Biaya hidup rutin, di luar cicilan pokok utang.",
         },
         {
             nama: "monthly_reserve",
@@ -456,14 +579,14 @@ function FormAlokasi({ goal, accounts, priorities, onClose }) {
 
                 {accounts.length === 0 ? (
                     <p className="rounded-lg border border-border bg-bg-cardAlt p-4 text-sm leading-relaxed text-text-secondary">
-                        Belum ada rekening bank atau tunai. Dana target hanya bisa
-                        ditandai di sana — nilai saham dan emas bergerak sendiri,
-                        sehingga targetnya bisa meleset diam-diam.
+                        Belum ada rekening bank atau tunai. Dana tujuan hanya
+                        boleh disimpan di sana — nilai saham dan emas bergerak
+                        sendiri, sehingga targetnya bisa meleset diam-diam.
                     </p>
                 ) : (
                     <>
                         <div>
-                            <InputLabel htmlFor="account_id" value="Dana berada di" />
+                            <InputLabel htmlFor="account_id" value="Uangnya disimpan di" />
                             <select
                                 id="account_id"
                                 className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500"
@@ -472,7 +595,7 @@ function FormAlokasi({ goal, accounts, priorities, onClose }) {
                                     form.setData("account_id", e.target.value || null)
                                 }
                             >
-                                <option value="">Belum ditandai di mana pun</option>
+                                <option value="">Belum ditentukan</option>
                                 {accounts.map((r) => (
                                     <option key={r.id} value={r.id}>
                                         {r.name} — {formatRupiah(r.balance)}
@@ -485,7 +608,7 @@ function FormAlokasi({ goal, accounts, priorities, onClose }) {
                         <div>
                             <InputLabel
                                 htmlFor="allocated_amount"
-                                value="Dana yang sudah ditandai"
+                                value="Sudah terkumpul untuk tujuan ini"
                             />
                             <CurrencyInput
                                 id="allocated_amount"
@@ -494,10 +617,11 @@ function FormAlokasi({ goal, accounts, priorities, onClose }) {
                                 onChange={(v) => form.setData("allocated_amount", v)}
                             />
                             <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
-                                Menandai saldo, bukan memindahkan uang — saldo
-                                rekening Anda tidak berkurang. Total yang ditandai
-                                seluruh target pada satu rekening tidak boleh
-                                melebihi saldonya.
+                                Berapa bagian dari saldo rekening itu yang untuk
+                                tujuan ini. Saldo rekening Anda TIDAK berkurang —
+                                uangnya tetap di sana, hanya kini punya tujuan.
+                                Gabungan seluruh tujuan pada satu rekening tidak
+                                boleh melebihi saldonya.
                             </p>
                             <InputError
                                 message={form.errors.allocated_amount}

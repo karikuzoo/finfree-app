@@ -118,6 +118,7 @@ class GoalController extends Controller
             }
 
             $request->user()->activities()->create([
+                'financial_goal_id' => $goal->id,
                 'type' => 'goal_created',
                 'goal_name' => $goal->name,
                 'amount' => $goal->target_amount,
@@ -234,6 +235,7 @@ class GoalController extends Controller
             }
 
             $request->user()->activities()->create([
+                'financial_goal_id' => $financialGoal->id,
                 'type' => 'goal_updated',
                 'goal_name' => $financialGoal->name,
                 'amount' => $financialGoal->target_amount,

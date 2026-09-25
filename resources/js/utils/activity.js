@@ -15,7 +15,7 @@ const KATA_TRANSAKSI = {
  * Dua sumber bercampur di sini (lihat HistoryController):
  *
  * - Peristiwa tujuan dari `user_activities` — `goal_created`, `goal_deleted`,
- *   `goal_updated`, `contribution_recorded`. Yang terakhir sudah tidak pernah
+ *   `goal_updated`, `goal_set_aside`, `contribution_recorded`. Yang terakhir sudah tidak pernah
  *   dibuat lagi sejak pencatatan setoran dipensiunkan, tetapi barisnya masih
  *   ada di basis data pengguna lama dan tetap harus bisa dibaca.
  * - Transaksi, bertanda awalan `transaction:` — dibentuk saat digabungkan,
@@ -37,6 +37,9 @@ export function describeActivity(activity) {
     if (activity.type === 'goal_deleted') {
         return `Menghapus tujuan ${nama}`;
     }
+    if (activity.type === 'goal_set_aside') {
+        return `Menyisihkan ${formatRupiah(activity.amount)} untuk ${nama}`;
+    }
     if (activity.type === 'goal_updated') {
         return `Mengubah tujuan ${nama}`;
     }
@@ -53,7 +56,10 @@ function jelaskanTransaksi(activity) {
 
 /** Nilainya naik (hijau) atau turun. Dipakai mewarnai nominal di riwayat. */
 export function activityIsPositive(activity) {
-    if (activity.type === 'contribution_recorded') {
+    if (
+        activity.type === 'contribution_recorded' ||
+        activity.type === 'goal_set_aside'
+    ) {
         return true;
     }
 
@@ -72,6 +78,7 @@ export function activityHasAmount(activity) {
         activity.amount !== null &&
         activity.amount !== undefined &&
         (activity.type === 'contribution_recorded' ||
+            activity.type === 'goal_set_aside' ||
             Boolean(activity.type?.startsWith('transaction:')))
     );
 }

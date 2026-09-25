@@ -12,6 +12,7 @@ class UserActivity extends Model
 
     protected $fillable = [
         'user_id',
+        'financial_goal_id',
         'type',
         'goal_name',
         'amount',
@@ -24,5 +25,11 @@ class UserActivity extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** NULL bila tujuannya sudah dihapus — `goal_name` tetap menyimpan namanya. */
+    public function financialGoal(): BelongsTo
+    {
+        return $this->belongsTo(FinancialGoal::class);
     }
 }
