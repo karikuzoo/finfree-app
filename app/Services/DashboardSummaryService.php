@@ -404,7 +404,7 @@ class DashboardSummaryService
      * sebelum jendela 12 bulan. Tanpa itu, grafiknya seolah dimulai dari nol
      * dan memperlihatkan lonjakan yang tidak pernah terjadi.
      *
-     * @return array<int, array{month: string, cumulative_amount: float}>
+     * @return array<int, array{period: string, cumulative_amount: float}>
      */
     private function assetGrowthMonthly(User $user): array
     {
@@ -419,7 +419,7 @@ class DashboardSummaryService
         for ($i = 0; $i < self::ASSET_GROWTH_MONTHS; $i++) {
             $kunci = $bulan->format('Y-m');
             $kumulatif = round($kumulatif + ($perBulan[$kunci] ?? 0), 2);
-            $deret[] = ['month' => $kunci, 'cumulative_amount' => $kumulatif];
+            $deret[] = ['period' => $kunci, 'cumulative_amount' => $kumulatif];
             $bulan->addMonthNoOverflow();
         }
 
@@ -429,7 +429,7 @@ class DashboardSummaryService
     /**
      * Sama seperti versi bulanan, tetapi 30 hari terakhir.
      *
-     * @return array<int, array{month: string, cumulative_amount: float}>
+     * @return array<int, array{period: string, cumulative_amount: float}>
      */
     private function assetGrowthDaily(User $user): array
     {
@@ -444,7 +444,7 @@ class DashboardSummaryService
         for ($i = 0; $i < self::ASSET_GROWTH_DAYS; $i++) {
             $kunci = $hari->toDateString();
             $kumulatif = round($kumulatif + ($perHari[$kunci] ?? 0), 2);
-            $deret[] = ['month' => $kunci, 'cumulative_amount' => $kumulatif];
+            $deret[] = ['period' => $kunci, 'cumulative_amount' => $kumulatif];
             $hari->addDay();
         }
 

@@ -58,8 +58,8 @@ class DashboardMonthWindowTest extends TestCase
         $deret = $this->deret($user);
 
         $this->assertCount(12, $deret);
-        $this->assertSame('2025-09', $deret[0]['month']);
-        $this->assertSame('2026-08', $deret[11]['month']);
+        $this->assertSame('2025-09', $deret[0]['period']);
+        $this->assertSame('2026-08', $deret[11]['period']);
     }
 
     /**
@@ -75,7 +75,7 @@ class DashboardMonthWindowTest extends TestCase
         $user = User::factory()->create();
         $this->rekening($user, 1_000_000);
 
-        $bulan = array_column($this->deret($user), 'month');
+        $bulan = array_column($this->deret($user), 'period');
 
         $this->assertSame([
             '2025-09', '2025-10', '2025-11', '2025-12',
@@ -132,7 +132,7 @@ class DashboardMonthWindowTest extends TestCase
         Transaction::factory()->for($user)->for($rekening)->pemasukan(1_000_000)
             ->pada('2026-07-05')->create();
 
-        $deret = collect($this->deret($user))->keyBy('month');
+        $deret = collect($this->deret($user))->keyBy('period');
 
         $this->assertSame(0.0, $deret['2026-05']['cumulative_amount']);
         $this->assertSame(1_000_000.0, $deret['2026-06']['cumulative_amount']);
@@ -169,5 +169,67 @@ class DashboardMonthWindowTest extends TestCase
 
         $this->assertCount(12, $deret);
         $this->assertSame(0.0, $deret[11]['cumulative_amount']);
+    }
+
+    // ── Deret harian ────────────────────────────────────────────────────
+
+    /**
+     * Kedua deret WAJIB memakai kunci yang sama.
+     *
+     * Ketiadaan test ini sempat meloloskan bug yang tidak terlihat: deret
+     * bulanan memakai `month`, harian memakai `date`, dan grafiknya membaca
+     * `point.date` untuk mode harian. Begitu sumber datanya diganti, seluruh
+     * label harian menjadi undefined dan grafiknya kosong melompong — tanpa
+     * satu pun error muncul di layar maupun di test.
+     */
+    public function test_deret_harian_memakai_kunci_yang_sama_dengan_bulanan(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
+
+        $user = User::factory()->create();
+        $this->rekening($user, 1_000_000);
+
+        $semua = app(DashboardSummaryService::class)->forUser($user)['asset_growth_series'];
+
+        foreach (['monthly', 'daily'] as $rentang) {
+            foreach ($semua[$rentang] as $titik) {
+                $this->assertArrayHasKey('period', $titik, "Deret {$rentang} tidak memakai kunci 'period'.");
+                $this->assertArrayHasKey('cumulative_amount', $titik);
+            }
+        }
+    }
+
+    public function test_deret_harian_tiga_puluh_hari_berakhir_hari_ini(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
+
+        $user = User::factory()->create();
+        $this->rekening($user, 1_000_000);
+
+        $harian = app(DashboardSummaryService::class)
+            ->forUser($user)['asset_growth_series']['daily'];
+
+        $this->assertCount(30, $harian);
+        $this->assertSame('2026-08-02', $harian[0]['period']);
+        $this->assertSame('2026-08-31', $harian[29]['period']);
+    }
+
+    public function test_deret_harian_menumpuk_dari_kekayaan_sebelumnya(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-31 10:00:00'));
+
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 5_000_000);
+
+        Transaction::factory()->for($user)->for($rekening)->pemasukan(1_000_000)
+            ->pada('2026-08-20')->create();
+
+        $harian = collect(
+            app(DashboardSummaryService::class)->forUser($user)['asset_growth_series']['daily']
+        )->keyBy('period');
+
+        $this->assertSame(5_000_000.0, $harian['2026-08-19']['cumulative_amount']);
+        $this->assertSame(6_000_000.0, $harian['2026-08-20']['cumulative_amount']);
+        $this->assertSame(6_000_000.0, $harian['2026-08-31']['cumulative_amount']);
     }
 }

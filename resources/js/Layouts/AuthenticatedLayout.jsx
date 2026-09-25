@@ -21,6 +21,7 @@ const groups = [
         ['Kalkulator', 'calculator.index', 'calculator.*', CalculatorIcon],
         ['Berita keuangan', 'news.index', 'news.*', NewsIcon],
         ['Profil & pengaturan', 'profile.edit', 'profile.*', UserIcon],
+        ['Data & cadangan', 'data.index', 'data.*', HistoryIcon],
     ] },
 ];
 

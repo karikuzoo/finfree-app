@@ -27,28 +27,30 @@ function shortDayLabel(ymd) {
 }
 
 /**
- * Proyeksi total aset SATU tujuan (yang sedang dipilih di GoalHeroCard),
- * bisa ditampilkan HARIAN atau BULANAN lewat prop `granularity`
- * (DashboardSummaryService::summarizeGoal — key `asset_growth_series`
- * berisi `{ monthly: [...], daily: [...] }`, Dashboard.jsx yang memilih
- * mana yang dikirim ke sini lewat toggle-nya sendiri).
+ * Total kekayaan pengguna dari waktu ke waktu, HARIAN atau BULANAN lewat
+ * prop `granularity` (DashboardSummaryService — `asset_growth_series` berisi
+ * `{ monthly: [...], daily: [...] }`; Dashboard.jsx yang memilih mana yang
+ * dikirim ke sini lewat toggle-nya sendiri).
  *
- * - `monthly`: titik `{ month: "2026-03", cumulative_amount }`, sejak
- *   tujuan dibuat sampai bulan berjalan.
- * - `daily`: titik `{ date: "2026-03-05", cumulative_amount }`, dibatasi
- *   30 hari terakhir (goalAssetGrowthSeriesDaily) — jendela lebih pendek
- *   supaya tetap terbaca, bukan ratusan titik untuk goal lama.
+ * Kedua deret memakai kunci yang SAMA: `{ period, cumulative_amount }` —
+ * "2026-03" untuk bulanan, "2026-03-05" untuk harian. Sebelumnya bulanan
+ * memakai `month` dan harian memakai `date`, dan perbedaan itu persis yang
+ * membuat grafik harian kosong begitu sumber datanya diganti: labelnya
+ * undefined, tanpa error yang terlihat di layar. Satu nama untuk keduanya
+ * menutup seluruh kelas kekeliruan itu.
  *
- * Satu garis akumulatif — beda dari ProjectionChart.jsx yang memisahkan
- * setoran vs hasil pengembangan. Warna & gaya grid tetap mengikuti bahasa
- * visual yang sama di kedua granularitas.
+ * Bulanan membentang 12 bulan, harian 30 hari — jendela pendek supaya
+ * labelnya tetap terbaca.
+ *
+ * Satu garis akumulatif, beda dari ProjectionChart.jsx yang memisahkan
+ * setoran dari hasil pengembangan.
  */
 export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
     if (!series?.length) return null;
 
     const isDaily = granularity === 'daily';
     const data = series.map((point) => ({
-        label: isDaily ? shortDayLabel(point.date) : shortMonthLabel(point.month),
+        label: isDaily ? shortDayLabel(point.period) : shortMonthLabel(point.period),
         value: point.cumulative_amount,
     }));
 

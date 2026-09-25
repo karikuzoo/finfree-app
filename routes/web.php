@@ -6,6 +6,7 @@ use App\Http\Controllers\AvatarFileController;
 use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\GoalController;
@@ -148,6 +149,15 @@ Route::middleware('auth')->group(function () {
     // untuk jenis yang nilainya bergerak sendiri. Lihat controller-nya.
     Route::get('/investasi', [InvestmentController::class, 'index'])
         ->name('investments.index');
+
+    // Data & pengaturan (FR-83, FR-84). Cadangan JSON BEDA dari ekspor
+    // Excel: yang ini bisa dipulihkan kembali, yang itu untuk dibaca.
+    Route::get('/data', [DataController::class, 'index'])
+        ->name('data.index');
+    Route::get('/data/cadangan', [DataController::class, 'download'])
+        ->name('data.download');
+    Route::post('/data/pulihkan', [DataController::class, 'restore'])
+        ->name('data.restore');
 
     // Rencana menabung (FR-74..FR-78). Tiga route, satu halaman: melihat
     // rencananya, mengubah anggarannya, dan mengubah alokasi satu target.
