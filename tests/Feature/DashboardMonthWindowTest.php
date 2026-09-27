@@ -42,10 +42,23 @@ class DashboardMonthWindowTest extends TestCase
         return app(DashboardSummaryService::class)->forUser($user)['asset_growth_series']['monthly'];
     }
 
-    private function rekening(User $user, float $awal = 0): Account
+    /**
+     * Rekening di test ini dibuat JAUH sebelum jendela grafik, supaya yang
+     * diuji murni perhitungan rentangnya. Saldo awal kini baru masuk pada
+     * tanggal rekening mulai dicatat — test untuk sifat itu ada di bagian
+     * "Tanggal mulai rekening" di bawah, dan mengisi `$dibuat` sendiri.
+     */
+    private function rekening(User $user, float $awal = 0, string $dibuat = '2024-01-01 09:00:00'): Account
     {
         return Account::factory()->for($user)->jenis(AccountKind::Bank)
-            ->create(['opening_balance' => $awal]);
+            ->create(['opening_balance' => $awal, 'created_at' => $dibuat]);
+    }
+
+    private function harian(User $user): \Illuminate\Support\Collection
+    {
+        return collect(
+            app(DashboardSummaryService::class)->forUser($user)['asset_growth_series']['daily']
+        )->keyBy('period');
     }
 
     public function test_deret_selalu_dua_belas_bulan_berurutan(): void
@@ -231,5 +244,98 @@ class DashboardMonthWindowTest extends TestCase
         $this->assertSame(5_000_000.0, $harian['2026-08-19']['cumulative_amount']);
         $this->assertSame(6_000_000.0, $harian['2026-08-20']['cumulative_amount']);
         $this->assertSame(6_000_000.0, $harian['2026-08-31']['cumulative_amount']);
+    }
+
+    // ── Tanggal mulai rekening ──────────────────────────────────────────
+
+    /**
+     * Bug yang melahirkan bagian ini: rekening yang dibuat 25 September
+     * dengan saldo awal Rp 227 juta tampil sebagai garis datar Rp 227 juta
+     * sejak 29 Agustus — seluruh saldo awal ditaruh di titik pertama grafik,
+     * tidak peduli kapan rekeningnya dibuat.
+     */
+    public function test_rekening_baru_tidak_tampil_sebelum_dibuat(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-27 10:00:00'));
+
+        $user = User::factory()->create();
+        $this->rekening($user, 227_000_000, '2026-09-25 14:00:00');
+
+        $harian = $this->harian($user);
+
+        // Sebelum mulai mencatat: kosong, BUKAN nol dan bukan saldo awalnya.
+        $this->assertNull($harian['2026-08-29']['cumulative_amount']);
+        $this->assertNull($harian['2026-09-24']['cumulative_amount']);
+        $this->assertSame(227_000_000.0, $harian['2026-09-25']['cumulative_amount']);
+        $this->assertSame(227_000_000.0, $harian['2026-09-27']['cumulative_amount']);
+    }
+
+    public function test_bulan_sebelum_rekening_dibuat_kosong(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-27 10:00:00'));
+
+        $user = User::factory()->create();
+        $this->rekening($user, 10_000_000, '2026-09-25 14:00:00');
+
+        $deret = collect($this->deret($user))->keyBy('period');
+
+        $this->assertNull($deret['2026-08']['cumulative_amount']);
+        $this->assertSame(10_000_000.0, $deret['2026-09']['cumulative_amount']);
+    }
+
+    /** Rekening kedua menambah kekayaan pada tanggal ia dimulai, bukan surut ke belakang. */
+    public function test_rekening_kedua_masuk_pada_tanggal_dibuatnya(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-27 10:00:00'));
+
+        $user = User::factory()->create();
+        $this->rekening($user, 5_000_000, '2026-09-01 09:00:00');
+        $this->rekening($user, 20_000_000, '2026-09-20 09:00:00');
+
+        $harian = $this->harian($user);
+
+        $this->assertSame(5_000_000.0, $harian['2026-09-19']['cumulative_amount']);
+        $this->assertSame(25_000_000.0, $harian['2026-09-20']['cumulative_amount']);
+    }
+
+    /**
+     * Transaksi yang dicatat mundur — atau riwayat setahun yang dipulihkan
+     * dari cadangan ke rekening yang baru dibuat hari ini — menarik tanggal
+     * mulainya ke belakang. Kalau tidak, transaksi lama itu berjalan di atas
+     * saldo nol dan grafiknya menukik ke minus.
+     */
+    public function test_transaksi_mundur_menarik_tanggal_mulai_ke_belakang(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-27 10:00:00'));
+
+        $user = User::factory()->create();
+        $rekening = $this->rekening($user, 10_000_000, '2026-09-27 08:00:00');
+
+        Transaction::factory()->for($user)->for($rekening)->pengeluaran(3_000_000)
+            ->pada('2026-09-10')->create();
+
+        $harian = $this->harian($user);
+
+        $this->assertNull($harian['2026-09-09']['cumulative_amount']);
+        $this->assertSame(7_000_000.0, $harian['2026-09-10']['cumulative_amount']);
+        $this->assertSame(7_000_000.0, $harian['2026-09-27']['cumulative_amount']);
+    }
+
+    /** Transfer masuk juga menandai rekening tujuan sudah dipakai sejak tanggal itu. */
+    public function test_transfer_masuk_menarik_tanggal_mulai_rekening_tujuan(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-27 10:00:00'));
+
+        $user = User::factory()->create();
+        $asal = $this->rekening($user, 5_000_000, '2026-09-01 09:00:00');
+        $tujuan = $this->rekening($user, 1_000_000, '2026-09-27 08:00:00');
+
+        Transaction::factory()->for($user)->for($asal)->transfer(2_000_000, $tujuan)
+            ->pada('2026-09-15')->create();
+
+        $harian = $this->harian($user);
+
+        $this->assertSame(5_000_000.0, $harian['2026-09-14']['cumulative_amount']);
+        $this->assertSame(6_000_000.0, $harian['2026-09-15']['cumulative_amount']);
     }
 }

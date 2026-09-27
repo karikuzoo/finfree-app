@@ -44,6 +44,12 @@ function shortDayLabel(ymd) {
  *
  * Satu garis akumulatif, beda dari ProjectionChart.jsx yang memisahkan
  * setoran dari hasil pengembangan.
+ *
+ * `cumulative_amount` bernilai null untuk periode SEBELUM rekening pertama
+ * mulai dicatat. Titik itu sengaja tidak digambar — sumbu waktunya tetap
+ * utuh, garisnya baru mulai dari tanggal pencatatan dimulai. Menggambarnya
+ * sebagai 0 akan membuat hari pertama mencatat tampak seperti lonjakan
+ * kekayaan.
  */
 export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
     if (!series?.length) return null;
@@ -53,6 +59,11 @@ export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
         label: isDaily ? shortDayLabel(point.period) : shortMonthLabel(point.period),
         value: point.cumulative_amount,
     }));
+
+    // Rekening yang baru dibuat hari ini menyisakan satu titik saja, dan
+    // area selebar satu titik tidak tergambar sama sekali. Beri titik supaya
+    // grafiknya tidak tampak kosong.
+    const satuTitik = data.filter((d) => d.value !== null).length === 1;
 
     return (
         <ResponsiveContainer width="100%" height={260}>
@@ -92,7 +103,11 @@ export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
                     }}
                     labelStyle={{ color: '#B2C2C3', marginBottom: 4 }}
                     itemStyle={{ padding: 0, color: '#98EDCE' }}
-                    formatter={(value) => [formatRupiah(value), 'Total aset']}
+                    formatter={(value) =>
+                        value === null || value === undefined
+                            ? ['Belum mencatat', 'Total aset']
+                            : [formatRupiah(value), 'Total aset']
+                    }
                 />
 
                 <Area
@@ -101,6 +116,7 @@ export default function AssetGrowthChart({ series, granularity = 'monthly' }) {
                     stroke="#98EDCE"
                     strokeWidth={2}
                     fill="url(#assetGrowthFill)"
+                    dot={satuTitik ? { r: 3, fill: '#98EDCE', stroke: '#98EDCE' } : false}
                 />
             </AreaChart>
         </ResponsiveContainer>

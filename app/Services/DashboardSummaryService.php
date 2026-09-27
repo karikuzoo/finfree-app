@@ -400,18 +400,26 @@ class DashboardSummaryService
      * tidak punya riwayat waktu, sedangkan saldo rekeningnya sendiri memang
      * bergerak dari hari ke hari.
      *
-     * Titik pertama memuat SELURUH saldo awal rekening ditambah transaksi
-     * sebelum jendela 12 bulan. Tanpa itu, grafiknya seolah dimulai dari nol
-     * dan memperlihatkan lonjakan yang tidak pernah terjadi.
+     * Saldo awal tiap rekening masuk pada TANGGAL MULAINYA (accountStartDates),
+     * bukan di titik pertama grafik. Dulu seluruh saldo awal ditaruh di titik
+     * pertama, sehingga rekening yang baru dibuat kemarin tampak sudah ada
+     * setahun penuh — garis datar setinggi saldonya, jauh sebelum pengguna
+     * mencatat apa pun.
      *
-     * @return array<int, array{period: string, cumulative_amount: float}>
+     * Titik sebelum rekening PERTAMA dimulai bernilai null, bukan 0: saat itu
+     * pengguna belum mencatat, bukan tidak punya uang. Grafiknya baru mulai
+     * tergambar dari tanggal itu.
+     *
+     * @return array<int, array{period: string, cumulative_amount: float|null}>
      */
     private function assetGrowthMonthly(User $user): array
     {
         $awal = Carbon::now(config('app.timezone'))->startOfMonth()->subMonths(self::ASSET_GROWTH_MONTHS - 1);
 
-        $kumulatif = $this->openingPosition($user, $awal);
-        $perBulan = $this->netChangeGroupedBy($user, $awal, 'Y-m');
+        $mulai = $this->accountStartDates($user);
+        $kumulatif = $this->openingPosition($user, $awal, $mulai);
+        $perBulan = $this->netChangeGroupedBy($user, $awal, 'Y-m', $mulai);
+        $bulanPertama = $mulai === [] ? null : substr(min($mulai), 0, 7);
 
         $deret = [];
         $bulan = $awal->copy();
@@ -419,7 +427,10 @@ class DashboardSummaryService
         for ($i = 0; $i < self::ASSET_GROWTH_MONTHS; $i++) {
             $kunci = $bulan->format('Y-m');
             $kumulatif = round($kumulatif + ($perBulan[$kunci] ?? 0), 2);
-            $deret[] = ['period' => $kunci, 'cumulative_amount' => $kumulatif];
+            $deret[] = [
+                'period' => $kunci,
+                'cumulative_amount' => $bulanPertama !== null && $kunci < $bulanPertama ? null : $kumulatif,
+            ];
             $bulan->addMonthNoOverflow();
         }
 
@@ -429,14 +440,16 @@ class DashboardSummaryService
     /**
      * Sama seperti versi bulanan, tetapi 30 hari terakhir.
      *
-     * @return array<int, array{period: string, cumulative_amount: float}>
+     * @return array<int, array{period: string, cumulative_amount: float|null}>
      */
     private function assetGrowthDaily(User $user): array
     {
         $awal = Carbon::now(config('app.timezone'))->startOfDay()->subDays(self::ASSET_GROWTH_DAYS - 1);
 
-        $kumulatif = $this->openingPosition($user, $awal);
-        $perHari = $this->netChangeGroupedBy($user, $awal, 'Y-m-d');
+        $mulai = $this->accountStartDates($user);
+        $kumulatif = $this->openingPosition($user, $awal, $mulai);
+        $perHari = $this->netChangeGroupedBy($user, $awal, 'Y-m-d', $mulai);
+        $hariPertama = $mulai === [] ? null : min($mulai);
 
         $deret = [];
         $hari = $awal->copy();
@@ -444,43 +457,114 @@ class DashboardSummaryService
         for ($i = 0; $i < self::ASSET_GROWTH_DAYS; $i++) {
             $kunci = $hari->toDateString();
             $kumulatif = round($kumulatif + ($perHari[$kunci] ?? 0), 2);
-            $deret[] = ['period' => $kunci, 'cumulative_amount' => $kumulatif];
+            $deret[] = [
+                'period' => $kunci,
+                'cumulative_amount' => $hariPertama !== null && $kunci < $hariPertama ? null : $kumulatif,
+            ];
             $hari->addDay();
         }
 
         return $deret;
     }
 
-    /** Total kekayaan tepat sebelum `$sejak` — saldo awal + transaksi lampau. */
-    private function openingPosition(User $user, Carbon $sejak): float
+    /**
+     * Tanggal mulai tiap rekening, `account_id => 'Y-m-d'`: yang lebih awal
+     * antara tanggal rekening dibuat dan transaksi pertama yang menyentuhnya.
+     *
+     * Tanggal dibuat saja tidak cukup. Pengguna boleh mencatat transaksi
+     * mundur — dan pemulihan cadangan membuat ulang seluruh rekening hari ini
+     * dengan riwayat transaksi setahun. Kalau saldo awal baru masuk pada
+     * tanggal dibuat, transaksi-transaksi lama itu berjalan di atas saldo nol
+     * dan grafiknya menukik ke minus.
+     *
+     * @return array<int, string>
+     */
+    private function accountStartDates(User $user): array
     {
-        $saldoAwal = (float) $user->accounts()->sum('opening_balance');
+        $rekening = $user->accounts()->get(['id', 'created_at']);
+
+        if ($rekening->isEmpty()) {
+            return [];
+        }
+
+        $pertamaKeluar = $user->transactions()
+            ->selectRaw('account_id AS id, MIN(occurred_on) AS pertama')
+            ->groupBy('account_id')
+            ->pluck('pertama', 'id');
+
+        $pertamaMasuk = $user->transactions()
+            ->whereNotNull('to_account_id')
+            ->selectRaw('to_account_id AS id, MIN(occurred_on) AS pertama')
+            ->groupBy('to_account_id')
+            ->pluck('pertama', 'id');
+
+        return $rekening->mapWithKeys(function ($r) use ($pertamaKeluar, $pertamaMasuk) {
+            $kandidat = array_filter([
+                $r->created_at->copy()->timezone(config('app.timezone'))->toDateString(),
+                isset($pertamaKeluar[$r->id]) ? Carbon::parse($pertamaKeluar[$r->id])->toDateString() : null,
+                isset($pertamaMasuk[$r->id]) ? Carbon::parse($pertamaMasuk[$r->id])->toDateString() : null,
+            ]);
+
+            return [$r->id => min($kandidat)];
+        })->all();
+    }
+
+    /**
+     * Total kekayaan tepat sebelum `$sejak` — saldo awal rekening yang SUDAH
+     * dimulai sebelum tanggal itu, ditambah transaksi lampau.
+     *
+     * @param  array<int, string>  $mulai  dari accountStartDates()
+     */
+    private function openingPosition(User $user, Carbon $sejak, array $mulai): float
+    {
+        $tanggal = $sejak->toDateString();
+
+        $saldoAwal = $user->accounts()->get(['id', 'opening_balance'])
+            ->filter(fn ($r) => ($mulai[$r->id] ?? $tanggal) < $tanggal)
+            ->sum(fn ($r) => (float) $r->opening_balance);
 
         $lampau = $user->transactions()
-            ->where('occurred_on', '<', $sejak->toDateString())
+            ->where('occurred_on', '<', $tanggal)
             ->get(['type', 'amount']);
 
         return round($saldoAwal + $this->netChange($lampau), 2);
     }
 
     /**
-     * Perubahan bersih kekayaan per periode sejak `$sejak`.
+     * Perubahan bersih kekayaan per periode sejak `$sejak`: transaksi, plus
+     * saldo awal rekening yang dimulai di periode itu.
      *
      * TRANSFER diabaikan sepenuhnya: ia memindahkan uang antar rekening
      * milik pengguna yang sama, jadi tidak mengubah total kekayaannya sama
      * sekali. Menghitungnya akan membuat setiap pemindahan dana tampak
      * sebagai lonjakan lalu penurunan pada grafik yang sama.
      *
+     * @param  array<int, string>  $mulai  dari accountStartDates()
      * @return array<string, float>
      */
-    private function netChangeGroupedBy(User $user, Carbon $sejak, string $format): array
+    private function netChangeGroupedBy(User $user, Carbon $sejak, string $format, array $mulai): array
     {
-        return $user->transactions()
+        $perubahan = $user->transactions()
             ->where('occurred_on', '>=', $sejak->toDateString())
             ->get(['type', 'amount', 'occurred_on'])
             ->groupBy(fn ($t) => $t->occurred_on->format($format))
             ->map(fn (Collection $baris) => $this->netChange($baris))
             ->all();
+
+        $tanggal = $sejak->toDateString();
+
+        foreach ($user->accounts()->get(['id', 'opening_balance']) as $r) {
+            $hari = $mulai[$r->id] ?? null;
+
+            if ($hari === null || $hari < $tanggal) {
+                continue;
+            }
+
+            $kunci = Carbon::parse($hari)->format($format);
+            $perubahan[$kunci] = round(($perubahan[$kunci] ?? 0) + (float) $r->opening_balance, 2);
+        }
+
+        return $perubahan;
     }
 
     /** @param  Collection<int, \App\Models\Transaction>  $transaksi */
