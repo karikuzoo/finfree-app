@@ -183,4 +183,4 @@ npm run test:ui
 
 **Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard (kekayaan bersih, arus kas, komposisi aset, progres tujuan) beserta kalender aktivitas dan pengingat, pembuatan, pengubahan, penghapusan, dan ekspor Excel tujuan finansial, Rekening & aset, Transaksi, Investasi, Utang & cicilan, Rencana menabung dengan tombol "Sudah saya sisihkan", Riwayat, cadangan & pemulihan data, halaman Berita dari NewsData.io, dan halaman error khusus.
 
-**Yang belum:** rekalkulasi saat realisasi meleset (FR-36), dan jumlah satuan aset seperti gram/lot (FR-51). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.
+**Yang belum:** rekalkulasi saat realisasi meleset (FR-36). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.

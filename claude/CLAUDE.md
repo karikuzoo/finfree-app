@@ -300,6 +300,8 @@ accounts                                      -- FR-63, SUDAH DIIMPLEMENTASIKAN
   kind (enum: bank|cash|stock|fund|gold),     -- dari App\Enums\AccountKind::values()
   institution (string, nullable),             -- tunai tidak punya lembaga
   opening_balance numeric(18,2) default 0,    -- saldo saat MULAI mencatat, bukan saldo kini
+  units numeric(20,4) NULL,                   -- FR-51: gram/lot/unit, KETERANGAN saja (migrasi
+                                              -- 2026_09_27_120000); NULL untuk bank & tunai
   created_at, updated_at
   INDEX (user_id, kind)
   -- SALDO TIDAK DISIMPAN (PRD D-12): opening_balance + transaksi keluar/masuk,
@@ -417,8 +419,10 @@ news_article_cache                             -- migrasi 2026_09_27_090000; mod
   category varchar(50),                        -- slug dari config/news.php, BUKAN enum
   published_at timestamp, fetched_at timestamp -- tanpa created_at/updated_at
   INDEX (category, published_at), INDEX (published_at)
-  -- image_url di rancangan awal SENGAJA tidak ada: paket gratis NewsData.io
-  -- mengizinkan metadata dipakai, tetapi tidak gambar dan isi penuh (D-16).
+  image_url varchar(2048) NULL                 -- migrasi 2026_09_27_130000: TAUTAN foto dari
+                                               -- penerbit (HTTPS saja), tidak pernah diunduh.
+                                               -- Awalnya sengaja tidak ada; diubah atas
+                                               -- keputusan pengguna (PRD D-16)
   -- Tidak menempel ke users: berita sama untuk semua orang, termasuk tamu.
 ```
 
@@ -601,7 +605,7 @@ Route yang **dihapus** di `4537b6c`: `goals.contributions.store` (`POST /tujuan/
 - **Klasifikasi (FR-28, diubah D-16)** mencocokkan pola kategori ke judul + ringkasan: kategori kueri diutamakan bila polanya cocok, lalu kategori pertama lain yang cocok, lalu **dibuang** bila tidak ada yang cocok. Aturan awal "tidak cocok → Lainnya, tidak dibuang" ditinggalkan: pada pengambilan sungguhan pertama, artikel yang kata kuncinya hanya ada di isi berita adalah Posyandu, menteri yang marah di sawah, dan koin perak Romawi.
 - **Daftar pengecualian** (`news.exclude`) membuang ramalan zodiak, lowongan kerja, prakiraan cuaca, dan berita harta pejabat — semuanya ditemukan lolos meski kueri dan kategorinya benar.
 - **Pembersihan teks:** sebagian judul tiba dengan entitas HTML yang rusak di hulu (`danquot;` untuk `&quot;` — sumbernya mengganti `&` dengan "dan"). Dipulihkan di `cleanText()`.
-- **Hanya metadata** yang disimpan dan ditampilkan: judul, ringkasan, sumber, waktu terbit, tautan. Gambar dan isi penuh tidak — paket gratis tidak mengizinkan.
+- **Yang disimpan:** judul, ringkasan, sumber, waktu terbit, tautan artikel, dan **tautan** foto artikel (`image_url`, HTTPS saja — gambar HTTP ditolak browser di halaman HTTPS). Fotonya dimuat langsung dari server penerbit dengan `referrerPolicy="no-referrer"`, tidak pernah diunduh ke Arus; kartu selalu menyebut penerbit dan menautkan ke artikel asli. Isi penuh artikel tidak disimpan. Status hak foto: lihat D-16 — tinjau ulang sebelum rilis publik.
 - **Deduplikasi (FR-29)** lewat `upsert` pada `url` yang UNIQUE. `category` tidak ikut diperbarui saat diambil ulang, supaya artikel tidak berpindah tab tiap jam.
 - **Kegagalan:** satu kategori gagal tidak menggagalkan yang lain, dan cache tidak pernah dikosongkan. `news.last_success_at` (cache) hanya diperbarui bila minimal satu kategori berhasil; `NewsController` mengirim `stale: true` bila nilainya kosong atau lebih tua dari 150 menit, dan halaman menampilkan banner sambil tetap menampilkan cache terakhir.
 - **Pemangkasan (FR-30):** artikel lebih tua dari 30 hari dihapus di akhir setiap pengambilan.
