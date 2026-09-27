@@ -14,6 +14,7 @@ use App\Models\FinancialGoal;
 use App\Models\Reminder;
 use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -43,6 +44,14 @@ use Illuminate\Validation\ValidationException;
  *   di masa lalu, bukan data yang dimasukkan pengguna — memulihkannya akan
  *   memalsukan riwayat yang tidak pernah terjadi di akun tujuan.
  *
+ * - Riwayat aktivitas lain (`user_activities` selain `goal_set_aside`):
+ *   membuat, mengubah, dan menghapus tujuan. Riwayat transaksi tidak perlu
+ *   dicadangkan tersendiri — ia dibentuk dari tabel transaksi saat dibaca.
+ *
+ * Penyisihan ("Sudah saya sisihkan") IKUT, menempel pada tujuannya sebagai
+ * `set_asides`. Rencana menabung membacanya untuk "sudah disisihkan bulan
+ * ini"; tanpa itu pemulihan diam-diam mengulang rencana bulan berjalan.
+ *
  * Catatan kalender dan pengingat IKUT dicadangkan, meski keduanya menempel
  * pada tanggal dan bukan pada uang. Alasannya bukan soal kategori melainkan
  * soal akibat: keduanya diketik sendiri oleh pengguna dan tidak bisa dibuat
@@ -66,6 +75,15 @@ class BackupService
         $refUtang = $utang->pluck('id')->flip()->map(fn ($i) => $i + 1);
 
         $anggaran = $user->budget;
+
+        // Penyisihan per tujuan, dimuat sekali untuk semua tujuan.
+        $sisihan = $user->activities()
+            ->where('type', 'goal_set_aside')
+            ->whereNotNull('financial_goal_id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['financial_goal_id', 'amount', 'created_at'])
+            ->groupBy('financial_goal_id');
 
         return [
             'arus_backup_version' => self::VERSION,
@@ -120,6 +138,15 @@ class BackupService
                     'asset_allocation' => $g->asset_allocation,
                     'status' => $g->status->value,
                     'priority' => $g->priority->value,
+                    // Riwayat "Sudah saya sisihkan" tujuan ini, lengkap dengan
+                    // waktunya. Tanpa ini pemulihan membuat ulang tujuannya
+                    // dengan ID baru, catatan lamanya terlepas, dan rencana
+                    // menabung mengira bulan ini belum disisihkan sama sekali.
+                    'set_asides' => ($sisihan[$g->id] ?? collect())
+                        ->map(fn ($a) => [
+                            'amount' => (float) $a->amount,
+                            'at' => $a->created_at->toIso8601String(),
+                        ])->values()->all(),
                 ])->values()->all(),
 
             // Tidak punya `ref`: tidak ada apa pun yang menunjuk keduanya.
@@ -162,6 +189,23 @@ class BackupService
         $data = $this->validate($isi);
 
         DB::transaction(function () use ($user, $data) {
+            // Berkas dari versi sebelum `set_asides` ada tidak membawanya.
+            // Untuk berkas seperti itu catatan lama DIBIARKAN — terlepas dari
+            // tujuannya, tetapi tetap terbaca di Riwayat — alih-alih dihapus
+            // tanpa pengganti.
+            $bawaSisihan = collect($data['goals'] ?? [])
+                ->contains(fn ($g) => array_key_exists('set_asides', $g));
+
+            if ($bawaSisihan) {
+                // Hanya penyisihan milik tujuan yang SEDANG diganti. Catatan
+                // untuk tujuan yang sudah dihapus pengguna sebelumnya bukan
+                // bagian dari pemulihan ini, dan tidak ikut hilang.
+                $user->activities()
+                    ->where('type', 'goal_set_aside')
+                    ->whereIn('financial_goal_id', $user->goals()->pluck('id'))
+                    ->delete();
+            }
+
             // Urutannya mengikuti arah foreign key: yang menunjuk dihapus
             // lebih dulu, yang ditunjuk belakangan.
             $user->goals()->delete();
@@ -210,7 +254,7 @@ class BackupService
             }
 
             foreach ($data['goals'] ?? [] as $baris) {
-                $user->goals()->create([
+                $tujuan = $user->goals()->create([
                     'account_id' => isset($baris['account_ref'])
                         ? $this->petakan($petaRekening, $baris['account_ref'], 'Rekening tujuan')
                         : null,
@@ -227,6 +271,23 @@ class BackupService
                     'status' => $baris['status'],
                     'priority' => $baris['priority'] ?? GoalPriority::Medium->value,
                 ]);
+
+                foreach ($baris['set_asides'] ?? [] as $sisih) {
+                    // Waktunya dipertahankan: "sudah disisihkan bulan ini"
+                    // dibaca dari `created_at`, jadi mencapnya dengan waktu
+                    // pemulihan akan memindahkan penyisihan lama ke bulan ini.
+                    $waktu = Carbon::parse($sisih['at'])->timezone(config('app.timezone'));
+
+                    $user->activities()->make([
+                        'financial_goal_id' => $tujuan->id,
+                        'type' => 'goal_set_aside',
+                        'goal_name' => $tujuan->name,
+                        'amount' => $sisih['amount'],
+                    ])->forceFill([
+                        'created_at' => $waktu,
+                        'updated_at' => $waktu,
+                    ])->save();
+                }
             }
 
             foreach ($data['calendar_notes'] ?? [] as $baris) {
@@ -326,6 +387,10 @@ class BackupService
             'goals.*.asset_allocation' => ['nullable', 'array'],
             'goals.*.status' => ['required', Rule::in(GoalStatus::values())],
             'goals.*.priority' => ['nullable', Rule::in(GoalPriority::values())],
+            // Opsional: berkas yang dibuat sebelum kunci ini ada tetap sah.
+            'goals.*.set_asides' => ['sometimes', 'array', 'max:5000'],
+            'goals.*.set_asides.*.amount' => ['required', 'numeric', 'min:0.01', 'max:999999999999999.99'],
+            'goals.*.set_asides.*.at' => ['required', 'date', 'before_or_equal:now'],
 
             // `present` tanpa `required`: kunci wajib ADA supaya berkas dari
             // versi yang lebih lama tidak diam-diam lolos dengan catatan

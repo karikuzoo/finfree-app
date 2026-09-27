@@ -12,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AccountBalanceService;
 use App\Services\BackupService;
+use App\Services\SavingsPlanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -420,5 +421,142 @@ class BackupTest extends TestCase
     {
         $this->get(route('data.download'))->assertRedirect(route('login'));
         $this->post(route('data.restore'))->assertRedirect(route('login'));
+    }
+
+    // ── Penyisihan ("Sudah saya sisihkan") ──────────────────────────────
+
+    private function sudahBulanIni(User $user): float
+    {
+        return app(SavingsPlanService::class)->forUser($user->fresh())['rows'][0]['set_aside_this_month'];
+    }
+
+    private function pulihkan(User $user, array $cadangan): void
+    {
+        $this->actingAs($user)
+            ->post(route('data.restore'), ['berkas' => $this->berkas($cadangan)])
+            ->assertSessionHasNoErrors();
+    }
+
+    /**
+     * Bug yang melahirkan bagian ini: pemulihan membuat ulang tujuan dengan ID
+     * baru, catatan penyisihannya terlepas, dan rencana menabung mengira
+     * bulan ini belum disisihkan sama sekali — lalu menyarankan menyisihkan
+     * lagi dari awal.
+     */
+    public function test_yang_sudah_disisihkan_bulan_ini_bertahan_setelah_pemulihan(): void
+    {
+        $user = User::factory()->create();
+        ['goal' => $goal] = $this->akunTerisi($user);
+
+        $this->actingAs($user)
+            ->post(route('goals.set-aside', $goal), ['amount' => 1_000_000])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1_000_000.0, $this->sudahBulanIni($user));
+
+        $this->pulihkan($user, app(BackupService::class)->export($user));
+
+        $this->assertSame(1_000_000.0, $this->sudahBulanIni($user));
+        $this->assertSame(6_000_000.0, (float) $user->goals()->first()->allocated_amount);
+    }
+
+    /** Waktunya ikut pulih — penyisihan bulan lalu tidak pindah ke bulan ini. */
+    public function test_penyisihan_bulan_lalu_tetap_di_bulannya(): void
+    {
+        $user = User::factory()->create();
+        ['goal' => $goal] = $this->akunTerisi($user);
+
+        $bulanLalu = now(config('app.timezone'))->subMonthNoOverflow()->startOfMonth()->addDays(4);
+
+        $user->activities()->make([
+            'financial_goal_id' => $goal->id,
+            'type' => 'goal_set_aside',
+            'goal_name' => $goal->name,
+            'amount' => 2_000_000,
+        ])->forceFill(['created_at' => $bulanLalu])->save();
+
+        $this->pulihkan($user, app(BackupService::class)->export($user));
+
+        $this->assertSame(0.0, $this->sudahBulanIni($user));
+
+        $pulih = $user->activities()->where('type', 'goal_set_aside')->sole();
+        $this->assertSame($bulanLalu->format('Y-m-d H:i'), $pulih->created_at->format('Y-m-d H:i'));
+        $this->assertSame($user->goals()->first()->id, $pulih->financial_goal_id);
+    }
+
+    /** Memulihkan berkas yang sama dua kali tidak menggandakan baris di Riwayat. */
+    public function test_memulihkan_dua_kali_tidak_menggandakan_penyisihan(): void
+    {
+        $user = User::factory()->create();
+        ['goal' => $goal] = $this->akunTerisi($user);
+
+        $this->actingAs($user)->post(route('goals.set-aside', $goal), ['amount' => 1_000_000]);
+
+        $cadangan = app(BackupService::class)->export($user);
+        $this->pulihkan($user, $cadangan);
+        $this->pulihkan($user, $cadangan);
+
+        $this->assertSame(1, $user->activities()->where('type', 'goal_set_aside')->count());
+        $this->assertSame(1_000_000.0, $this->sudahBulanIni($user));
+    }
+
+    /**
+     * Berkas dari sebelum `set_asides` ada tetap bisa dipulihkan, dan catatan
+     * penyisihan lama TIDAK dihapus tanpa pengganti — ia tetap terbaca di
+     * Riwayat meski tautannya ke tujuan terlepas.
+     */
+    public function test_berkas_lama_tanpa_set_asides_tetap_diterima(): void
+    {
+        $user = User::factory()->create();
+        ['goal' => $goal] = $this->akunTerisi($user);
+
+        $this->actingAs($user)->post(route('goals.set-aside', $goal), ['amount' => 1_000_000]);
+
+        $lama = app(BackupService::class)->export($user);
+        foreach ($lama['goals'] as $i => $g) {
+            unset($lama['goals'][$i]['set_asides']);
+        }
+
+        $this->pulihkan($user, $lama);
+
+        $this->assertSame(1, $user->activities()->where('type', 'goal_set_aside')->count());
+    }
+
+    /**
+     * Penyisihan untuk tujuan yang SUDAH dihapus pengguna sebelumnya bukan
+     * bagian dari pemulihan — ia tidak ikut terhapus.
+     */
+    public function test_penyisihan_tujuan_yang_sudah_dihapus_tidak_ikut_hilang(): void
+    {
+        $user = User::factory()->create();
+        $this->akunTerisi($user);
+
+        $user->activities()->create([
+            'financial_goal_id' => null,
+            'type' => 'goal_set_aside',
+            'goal_name' => 'Liburan yang batal',
+            'amount' => 750_000,
+        ]);
+
+        $this->pulihkan($user, app(BackupService::class)->export($user));
+
+        $this->assertDatabaseHas('user_activities', [
+            'user_id' => $user->id,
+            'goal_name' => 'Liburan yang batal',
+            'type' => 'goal_set_aside',
+        ]);
+    }
+
+    public function test_nominal_penyisihan_tidak_masuk_akal_ditolak(): void
+    {
+        $user = User::factory()->create();
+        $this->akunTerisi($user);
+
+        $rusak = app(BackupService::class)->export($user);
+        $rusak['goals'][0]['set_asides'] = [['amount' => -5, 'at' => now()->toIso8601String()]];
+
+        $this->actingAs($user)
+            ->post(route('data.restore'), ['berkas' => $this->berkas($rusak)])
+            ->assertSessionHasErrors('berkas');
     }
 }

@@ -74,8 +74,9 @@ export default function DataIndex({ counts }) {
                             Cadangkan datamu
                         </h2>
                         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                            Simpan seluruh rekening, transaksi, target, utang,
-                            anggaran, catatan kalender, dan pengingat dalam satu
+                            Simpan seluruh rekening, transaksi, target beserta
+                            riwayat penyisihannya, utang, anggaran, catatan
+                            kalender, dan pengingat dalam satu
                             berkas JSON yang bisa dipulihkan kembali kapan saja.
                         </p>
 
