@@ -1,17 +1,13 @@
 import { formatRupiah } from '@/utils/format';
 
 /**
- * Satu baris progress tujuan (DESIGN.md §5.7) — label kiri, nilai kanan,
- * fill lime, track border, badge persentase di ujung.
- */
-/**
  * Persentase yang dibulatkan ke bilangan bulat, KECUALI saat hasilnya
- * membulatkan progres nyata menjadi nol.
+ * membulatkan progres nyata menjadi nol — atau menjadi 100 padahal belum.
  *
  * Rp 3.000.000 dari target Rp 2.000.000.000 adalah 0,15% — dan `toFixed(0)`
  * menjadikannya "0%", tidak terbedakan dari tujuan yang benar-benar belum
  * disentuh sama sekali. Uang yang sudah disisihkan tidak boleh tampil seolah
- * tidak ada.
+ * tidak ada. Sebaliknya 99,6% tidak boleh tampil "100%" dan mengaku tercapai.
  */
 function labelPersen(n) {
     if (n > 0 && n < 1) {
@@ -25,6 +21,10 @@ function labelPersen(n) {
     return `${n.toFixed(0)}%`;
 }
 
+/**
+ * Satu baris progress tujuan (DESIGN.md §5.7) — label kiri, nilai kanan,
+ * fill lime, track border, badge persentase di ujung.
+ */
 function GoalProgressRow({ goal }) {
     const percentage = Math.min(100, Math.max(0, goal.progress_percentage));
 

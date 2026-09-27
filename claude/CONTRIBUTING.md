@@ -132,6 +132,7 @@ Sebuah PR dianggap selesai bila:
 - [ ] Validasi ada di **backend**, tidak hanya di frontend
 - [ ] Route/controller yang mengakses data tujuan memeriksa kepemilikan terhadap user yang login (Policy Laravel, bukan pengecekan di frontend)
 - [ ] Ada test untuk logika non-trivial; kode kalkulator wajib lolos `calculator-cases.json` — `php artisan test` **dan** `npm run test:js`, karena rumusnya ada dua implementasi
+- [ ] Komponen React yang punya tombol, isian, atau aturan tampilan (bukan sekadar tata letak) diuji di `*.test.jsx` dan lolos `npm run test:ui` — lihat CLAUDE.md §10.3
 - [ ] Empty state, loading state, dan error state tertangani (DESIGN.md §9) — bukan hanya jalur sukses
 - [ ] Tidak ada nilai uang bertipe float, tidak ada rupiah diformat di backend
 - [ ] Dokumen terkait sudah diperbarui bila ada keputusan yang berubah
