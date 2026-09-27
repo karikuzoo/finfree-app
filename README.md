@@ -4,7 +4,7 @@ Aplikasi web manajemen keuangan pribadi dengan **kalkulator tujuan finansial**: 
 
 Produk ini punya dua pilar. **Tujuan** adalah intinya — target tersimpan yang punya progres dan dipantau berbulan-bulan. **Kalkulator** adalah pendukungnya — alat hitung sekali pakai untuk pertanyaan cepat seperti simulasi cicilan KPR. Keduanya dijembatani tombol "Jadikan Tujuan".
 
-Arus adalah alat **simulasi dan perencanaan**, bukan aplikasi transaksi. Aplikasi ini tidak membeli/menjual instrumen apa pun, tidak terhubung ke rekening bank, dan tidak memberi nasihat investasi personal.
+Sejak September 2026 Arus juga **mencatat uang pengguna**: rekening & aset, transaksi, investasi, dan utang — lalu dana tiap tujuan ditandai dari saldo rekening bank/tunai, bukan disetor terpisah. Semua catatan itu diisi **manual** oleh pengguna. Arus tidak terhubung ke rekening bank, tidak mengambil harga pasar, tidak membeli/menjual instrumen apa pun, dan tidak memberi nasihat investasi personal; kalkulator dan rekomendasi alokasinya tetap simulasi edukatif.
 
 ---
 
@@ -71,24 +71,59 @@ Alat hitung sekali pakai, terpisah dari Tujuan — jawab "kalau begini hasilnya 
 
 ### 📈 Dashboard & Tujuan
 
-| Fitur                                                                 | Rilis | FR    |
-| --------------------------------------------------------------------- | ----- | ----- |
-| Ringkasan seluruh tujuan aktif dengan progress bar                    | 1     | FR-13 |
-| Grafik gabungan proyeksi total kekayaan                               | 1     | FR-14 |
-| Aktivitas terbaru (kalkulasi dibuat/diubah)                           | 1     | FR-15 |
-| Halaman Tujuan — daftar tujuan berjalan beserta progres masing-masing | 1     | —     |
+| Fitur                                                                      | Rilis  | FR           |
+| -------------------------------------------------------------------------- | ------ | ------------ |
+| Ringkasan seluruh tujuan aktif dengan progress bar                         | 1      | FR-13        |
+| Grafik pertumbuhan kekayaan (kini dibangun dari riwayat transaksi)         | 1      | FR-14        |
+| Aktivitas terbaru (kalkulasi dibuat/diubah)                                | 1      | FR-15        |
+| Halaman Tujuan — daftar tujuan berjalan beserta progres masing-masing      | 1      | —            |
+| Kekayaan bersih, total aset, dan total utang di atas dashboard             | Fase 4 | FR-79..FR-82 |
+| Arus kas bulan yang sedang dilihat, komposisi aset, lima transaksi terbaru | Fase 4 | FR-79..FR-82 |
+
+### 🏦 Rekening, Transaksi & Utang
+
+Nilai **Fase 1–5** di tabel-tabel berikut merujuk ke tabel perluasan pencatat keuangan di [PRD.md](PRD.md) §12 — bukan "Fase 2" pasca-MVP.
+
+| Fitur                                                                                             | Rilis  | FR           |
+| ------------------------------------------------------------------------------------------------- | ------ | ------------ |
+| Rekening & aset: bank, tunai, saham, reksa dana, emas — saldo dihitung dari saldo awal + riwayat  | Fase 1 | FR-63        |
+| Lima jenis transaksi: pemasukan, pengeluaran, transfer, penyesuaian nilai, pembayaran pokok utang | Fase 1 | FR-64        |
+| Saldo tidak boleh minus, transfer tidak menciptakan uang, tanggal tidak boleh di masa depan       | Fase 1 | FR-64..FR-69 |
+| Kekayaan bersih dan arus kas bulanan (transfer & penyesuaian nilai di luar arus kas)              | Fase 1 | FR-64..FR-69 |
+| Investasi — rekening non-likuid beserta tanggal penilaian terakhirnya                             | Fase 1 | FR-71        |
+| Perbarui nilai aset; selisihnya dicatat sebagai transaksi penyesuaian                             | Fase 1 | FR-72        |
+| Utang & cicilan — sisa pokok, rencana pokok bulanan, status lunas dari riwayat pembayaran         | Fase 2 | FR-70        |
+
+### 🎯 Dana Tujuan & Rencana Menabung
+
+| Fitur                                                                                               | Rilis  | FR           |
+| --------------------------------------------------------------------------------------------------- | ------ | ------------ |
+| Dana tujuan **ditandai** dari saldo rekening bank/tunai — uangnya tidak dipindahkan                 | Fase 3 | FR-73        |
+| Prioritas tujuan: tinggi, sedang, rendah                                                            | Fase 3 | FR-73        |
+| Anggaran bulanan: perkiraan penghasilan, perkiraan pengeluaran, dana cadangan                       | Fase 3 | FR-74        |
+| Rencana menabung — kemampuan menabung dibagi menurut prioritas lalu tenggat, kekurangan ditampilkan | Fase 3 | FR-74..FR-78 |
+| **Sudah saya sisihkan** — menambah dana tujuan sebesar sisa rencana bulan ini, atau "Jumlah lain…"  | Fase 5 | FR-85        |
 
 ### 💰 Pencatatan Realisasi
 
-| Fitur                                                                   | Rilis | FR    |
-| ----------------------------------------------------------------------- | ----- | ----- |
-| Catat setoran ke sebuah tujuan (nominal, tanggal, catatan)              | 1     | FR-32 |
-| Lihat, edit, hapus riwayat setoran                                      | 1     | FR-33 |
-| Progres dihitung dari dana awal + akumulasi setoran tercatat            | 1     | FR-34 |
-| Perbandingan **rencana vs realisasi** — tertinggal atau di depan target | 1     | FR-35 |
-| Tawaran rekalkulasi saat realisasi meleset dari rencana                 | 1     | FR-36 |
+| Fitur                                                                                           | Rilis | FR    |
+| ----------------------------------------------------------------------------------------------- | ----- | ----- |
+| ~~Catat setoran ke sebuah tujuan (nominal, tanggal, catatan)~~ — dipensiunkan                   | 1     | FR-32 |
+| ~~Lihat, edit, hapus riwayat setoran~~ — dipensiunkan                                           | 1     | FR-33 |
+| ~~Progres dihitung dari dana awal + akumulasi setoran tercatat~~ — kini dari dana yang ditandai | 1     | FR-34 |
+| Perbandingan **rencana vs realisasi** — tertinggal atau di depan target                         | 1     | FR-35 |
+| Tawaran rekalkulasi saat realisasi meleset dari rencana (belum dibangun)                        | 1     | FR-36 |
 
-Bagian ini yang membuat dashboard hidup. Menghitung setoran adalah aktivitas sekali seumur tujuan; mencatat realisasi adalah yang bulanan.
+Pencatatan setoran lewat kalender dipensiunkan pada Fase 3 (keputusan D-10 di PRD §13): begitu rekening dan transaksi ada, setoran ke tujuan menjadi tempat kedua untuk mencatat uang yang sama. Yang kini membuat dashboard hidup adalah transaksi bulanan dan tombol "Sudah saya sisihkan". Riwayat setoran lama tetap tersimpan dan nilainya sudah dipindahkan ke dana tujuan.
+
+### 🗄️ Data & Riwayat
+
+| Fitur                                                                            | Rilis  | FR    |
+| -------------------------------------------------------------------------------- | ------ | ----- |
+| Cadangan seluruh data keuangan sebagai berkas JSON bertanggal                    | Fase 5 | FR-83 |
+| Pulihkan dari berkas cadangan — mengganti data lama, ditolak utuh bila tidak sah | Fase 5 | FR-84 |
+| Riwayat memuat peristiwa tujuan dan transaksi sekaligus, digabung saat dibaca    | Fase 5 | —     |
+| Ekspor Excel memuat sheet Transaksi (menggantikan sheet Setoran)                 | Fase 3 | FR-38 |
 
 ### 📰 Berita Finansial
 
@@ -104,14 +139,14 @@ Modul ini ditaruh terakhir dan punya gerbang: kualitas hasil pencarian Currents 
 
 ### Di Luar Lingkup
 
-Integrasi rekening bank, eksekusi transaksi investasi sungguhan, aplikasi mobile native, dan berbagi antar pengguna **tidak** termasuk MVP. Panel Indeks Pasar (IHSG) dicoret karena tidak ada sumber data — lihat keputusan D-4 di PRD §13.
+Integrasi rekening bank (rekening dan transaksi dicatat manual), eksekusi transaksi investasi sungguhan, aplikasi mobile native, dan berbagi antar pengguna **tidak** termasuk MVP. Panel Indeks Pasar (IHSG) dicoret karena tidak ada sumber data — lihat keputusan D-4 di PRD §13.
 
 ---
 
 ## Tech Stack
 
 **Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
-**Styling** Tailwind CSS, @headlessui/react, Recharts (charting, belum terpasang), lucide-react (ikon, belum terpasang)
+**Styling** Tailwind CSS, @headlessui/react, Recharts (charting), lucide-react (ikon, belum terpasang)
 **Database** PostgreSQL
 **Eksternal** Currents API untuk modul News
 

@@ -220,7 +220,7 @@ php artisan db:seed
 demo@fingoal.test  /  Demo123!
 ```
 
-Emailnya sudah terverifikasi, profilnya terisi, dan ia punya tiga tujuan finansial dengan riwayat setoran 12 bulan — sehingga dashboard, grafik pertumbuhan aset, dan daftar progres langsung ada isinya.
+Emailnya sudah terverifikasi, profilnya terisi, dan ia punya satu rekening bank ("BCA Utama") dengan transaksi pemasukan dan pengeluaran bulanan selama 12 bulan, serta tiga tujuan finansial yang dananya ditandai di rekening itu — sehingga dashboard, grafik pertumbuhan aset, dan daftar progres langsung ada isinya.
 
 Ini perlu karena **isi database tidak pernah ikut git**, hanya skemanya lewat migrasi. Tanpa seeder, orang yang baru clone melihat empty state di semua halaman dan tidak bisa menilai apakah fiturnya bekerja. Aman dijalankan berulang: akunnya dicari berdasarkan email dan tujuan lamanya diganti, bukan ditumpuk.
 

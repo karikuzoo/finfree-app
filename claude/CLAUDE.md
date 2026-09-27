@@ -8,7 +8,9 @@ Dokumen ini adalah konteks kerja untuk Claude (atau developer lain) saat membang
 
 Arus adalah aplikasi web manajemen keuangan pribadi dengan fitur utama **kalkulator tujuan finansial** (dana pensiun, beli rumah, beli kendaraan, dana darurat, dana pendidikan) yang menghasilkan nominal setoran bulanan yang dibutuhkan beserta **rekomendasi alokasi instrumen investasi** (saham, reksa dana, obligasi/SBN, deposito, emas). Dilengkapi dashboard progres tujuan dan modul berita finansial dari Currents API.
 
-Tema visual: **"Malam"** — near-black dipadu lime listrik, dark-first (lihat `DESIGN.md` untuk token warna & komponen).
+**Lapisan uang (sejak 24–25 Sep 2026).** Di bawah Tujuan kini ada pencatat keuangan manual: rekening & aset, transaksi, investasi, utang, anggaran, dan rencana menabung (PRD §6.13–§6.18). Dana sebuah tujuan **ditandai** dari saldo rekening bank/tunai (`financial_goals.allocated_amount`), bukan disetor ke tujuan itu; pencatatan setoran kalender sudah dipensiunkan (PRD D-10, D-11). Aplikasi tetap tidak terhubung ke bank dan tidak mengambil harga pasar.
+
+Tema visual: **Arus** — latar biru-kehijauan gelap `#101719` dengan aksen mint `#98EDCE`, dark-first (lihat `docs/ARUS-REDESIGN.md`; nilai tokennya di `tailwind.config.js`). Tema lama "Malam" (near-black + lime listrik) di `DESIGN.md` §2 tinggal referensi historis — nama token `lime-*` dipertahankan, tetapi isinya kini mint.
 
 Dibangun sebagai **satu aplikasi Laravel + Inertia**, bukan dua project terpisah (frontend SPA dan backend API). React tetap dipakai penuh untuk seluruh UI, tapi routing, auth, dan pengiriman data diatur lewat Laravel & Inertia, bukan lewat fetch/axios ke endpoint JSON.
 
@@ -41,31 +43,63 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   ├── Controllers/
 │   │   │   ├── Auth/                              # bawaan Breeze — jangan diubah strukturnya
 │   │   │   ├── ProfileController.php               # bawaan Breeze
-│   │   │   ├── DashboardController.php             # BARU — Inertia::render + DashboardSummaryService (§6.9)
-│   │   │   ├── FinancialGoalController.php         # BARU
-│   │   │   ├── GoalContributionController.php      # BARU
-│   │   │   ├── CalculatorController.php            # BARU — kalkulator tujuan
-│   │   │   ├── UtilityCalculatorController.php     # BARU — pinjaman/KPR & investasi (FR-41,42), tanpa auth
-│   │   │   ├── InvestmentRecommendationController.php  # BARU
-│   │   │   └── NewsController.php                  # BARU
+│   │   │   ├── ProfileAvatarController.php         # unggah/hapus foto profil
+│   │   │   ├── ProfilePreferenceController.php     # mata uang & profil risiko
+│   │   │   ├── Avatarfilecontroller.php            # menyajikan berkas foto profil
+│   │   │   ├── DashboardController.php             # Inertia::render + DashboardSummaryService (§6.9)
+│   │   │   ├── GoalController.php                  # CRUD tujuan (/tujuan, /tujuan/buat)
+│   │   │   ├── GoalCalculatorController.php        # kalkulator tujuan (/kalkulator/tujuan)
+│   │   │   ├── GoalAssetAllocationController.php   # alokasi aset nyata per tujuan
+│   │   │   ├── GoalDailySavingsTargetController.php
+│   │   │   ├── GoalExportController.php            # ekspor Excel (FR-38)
+│   │   │   ├── CalendarNoteController.php          # catatan tanggal di kalender
+│   │   │   ├── ReminderController.php              # pengingat (FR-57..FR-62)
+│   │   │   ├── GoalContributionController.php      # DIHAPUS (4537b6c) — setoran dipensiunkan, PRD D-10
+│   │   │   ├── AccountController.php               # Rekening & aset (FR-63)
+│   │   │   ├── AccountValuationController.php      # penilaian ulang → transaksi adjustment (FR-72)
+│   │   │   ├── TransactionController.php           # transaksi (FR-64..FR-69)
+│   │   │   ├── InvestmentController.php            # saringan accounts non-likuid (FR-71)
+│   │   │   ├── DebtController.php                  # utang & cicilan (FR-70)
+│   │   │   ├── SavingsPlanController.php           # rencana, anggaran, alokasi, "sisihkan" (FR-73..FR-78, FR-85)
+│   │   │   ├── DataController.php                  # cadangan & pemulihan JSON (FR-83, FR-84)
+│   │   │   └── HistoryController.php               # riwayat = user_activities UNION transactions
+│   │   │   # Tidak ada controller untuk /kalkulator (utilitas pinjaman & investasi) dan
+│   │   │   # /berita — keduanya closure Inertia::render di routes/web.php. Rancangan lama
+│   │   │   # (FinancialGoalController, CalculatorController, UtilityCalculatorController,
+│   │   │   # InvestmentRecommendationController, NewsController) tidak pernah dibuat.
 │   │   └── Middleware/
 │   │       └── HandleInertiaRequests.php           # bawaan Breeze — taruh shared props (user login dsb) di sini
 │   ├── Enums/
-│   │   └── RiskProfile.php         # sumber kebenaran nilai profil risiko — lihat §5
+│   │   ├── RiskProfile.php         # sumber kebenaran nilai profil risiko — lihat §5
+│   │   ├── GoalType.php            # jenis tujuan
+│   │   ├── GoalStatus.php          # active|achieved|archived — rencana & dashboard hanya membaca yang aktif
+│   │   ├── AccountKind.php         # bank|cash|stock|fund|gold; likuid() = bank & cash saja (FR-63)
+│   │   ├── TransactionType.php     # income|expense|transfer|adjustment|payment (FR-64)
+│   │   └── GoalPriority.php        # high|medium|low, rank() untuk urutan pembagian (FR-73)
 │   ├── Models/
 │   │   ├── User.php                # sudah punya kolom preferensi sesuai §5
 │   │   ├── FinancialGoal.php
-│   │   ├── GoalContribution.php
+│   │   ├── GoalContribution.php    # TIDAK AKTIF — tabel dipertahankan, tanpa jalan tulis
+│   │   ├── Account.php
+│   │   ├── Transaction.php         # scope inMonth('YYYY-MM') & cashFlow()
+│   │   ├── Debt.php
+│   │   ├── Budget.php
+│   │   ├── UserActivity.php
 │   │   ├── GoalCalculation.php
-│   │   ├── InvestmentInstrument.php
-│   │   └── NewsArticleCache.php
+│   │   ├── CalendarNote.php
+│   │   └── Reminder.php
+│   │   # InvestmentInstrument & NewsArticleCache: rancangan, belum dibuat
 │   ├── Services/
 │   │   ├── GoalCalculatorService.php       # rumus future value of annuity
 │   │   ├── DashboardSummaryService.php     # agregasi lintas goals milik satu user (§6.9)
 │   │   ├── InvestmentAllocationService.php # rule-based recommendation engine
-│   │   └── CurrentsNewsService.php         # fetch + cache Currents API
-│   └── Jobs/
-│       └── FetchLatestNewsJob.php
+│   │   ├── AccountBalanceService.php       # saldo, sisa utang, kekayaan bersih, arus kas, komposisi (FR-63..FR-69)
+│   │   ├── LedgerGuard.php                 # invarian buku besar, diperiksa SESUDAH menulis (PRD D-13)
+│   │   ├── SavingsPlanService.php          # kemampuan menabung dibagi ke tujuan (FR-74..FR-78)
+│   │   ├── BackupService.php               # ekspor/impor cadangan JSON (FR-83, FR-84)
+│   │   └── AvatarService.php               # simpan & ganti foto profil
+│   # CurrentsNewsService dan app/Jobs/FetchLatestNewsJob.php: rancangan modul News
+│   # (Rilis 3), belum dibuat — halaman /berita belum mengambil dari Currents API.
 ├── database/
 │   ├── migrations/
 │   └── seeders/               # default rate return/inflasi per kategori, master instrumen investasi
@@ -73,17 +107,25 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   ├── css/app.css
 │   └── js/
 │       ├── Components/         # bawaan Breeze (PrimaryButton, Modal, Dropdown, dst) — pakai ulang, jangan duplikat
-│       │   └── ui/              # BARU — SummaryCard, ProgressBar, Badge dst sesuai DESIGN.md
+│       │   ├── Icons.jsx            # ikon sidebar, SVG inline (tanpa library ikon)
+│       │   ├── BacaanNominal.jsx    # bacaan "Terbaca: 125 juta rupiah" di bawah input nominal
+│       │   └── TombolSisihkan.jsx   # "Sudah saya sisihkan" + "Jumlah lain…" (FR-85)
 │       ├── Layouts/
 │       │   ├── AuthenticatedLayout.jsx   # bawaan — di sinilah Sidebar+Topbar DESIGN.md §4 ditempatkan
 │       │   └── GuestLayout.jsx           # bawaan — dipakai halaman Auth/*
 │       ├── Pages/
 │       │   ├── Auth/            # bawaan Breeze (Login, Register, dll) — JANGAN dibongkar
 │       │   ├── Profile/         # bawaan Breeze
-│       │   ├── Dashboard.jsx    # bawaan (masih kosong) — halaman pertama yang diisi
-│       │   ├── Goals/           # BARU — Index.jsx, Show.jsx
-│       │   ├── Calculator/      # BARU — Index.jsx + sub-halaman per kategori tujuan
-│       │   └── News/            # BARU — Index.jsx
+│       │   ├── Dashboard.jsx    # kekayaan bersih, arus kas, progres tujuan, kalender
+│       │   ├── Welcome.jsx      # halaman depan publik
+│       │   ├── Goal/            # Index.jsx, Create.jsx, Edit.jsx
+│       │   ├── Wallet/          # "Dana tujuan" (/dompet) — dana & penempatan per tujuan
+│       │   ├── Calculator/      # Index.jsx (utilitas) + Goal.jsx (kalkulator tujuan)
+│       │   ├── News/            # Index.jsx
+│       │   ├── Account/ Transaction/ Investment/ Debt/   # lapisan uang, masing-masing Index.jsx
+│       │   ├── SavingsPlan/         # Rencana menabung
+│       │   ├── Data/                # Data & cadangan
+│       │   └── History/             # Riwayat
 │       └── app.jsx              # entry point Inertia — sudah ada, jangan diubah kecuali menambah provider
 ├── routes/
 │   ├── web.php          # SEMUA route halaman (Inertia::render) didaftarkan di sini
@@ -194,10 +236,23 @@ financial_goals
   estimated_inflation_rate numeric(5,2),
   risk_profile_override (enum, nullable)      -- FR-24
   status (enum: active|achieved|archived),
+  account_id (FK accounts, on delete set null) NULL,   -- FR-73, SUDAH DIIMPLEMENTASIKAN
+  allocated_amount numeric(18,2) default 0,             -- FR-73: dana yang DITANDAI untuk tujuan ini
+  priority (enum: high|medium|low, default 'medium'),   -- FR-73, App\Enums\GoalPriority
   created_at, updated_at, deleted_at
   INDEX (user_id, status)
+  -- Ketiga kolom alokasi ditambahkan migrasi 2026_09_25_090002. Alokasi hanya
+  -- MENANDAI saldo rekening, tidak memindahkan uang (PRD D-11). account_id
+  -- dibatasi ke rekening bank/tunai di UpdateGoalAllocationRequest, bukan di DB.
+  -- Total allocated_amount per rekening <= saldonya, dijaga LedgerGuard.
+  -- allocated_amount diisi awal dari initial_amount + SUM(setoran), dibatasi
+  -- target_amount, supaya tujuan lama tidak mendadak 0% saat migrasi.
+  -- Progres tujuan (current_amount di DashboardSummaryService) = allocated_amount.
 
 wallets                                       -- FR-47..FR-51, "Dompet"
+  -- ⚠ TIDAK PERNAH DIBUAT. Tidak ada migrasinya; kebutuhannya kini dijawab
+  -- tabel accounts di bawah (PRD §6.10, catatan status). Rancangan dibiarkan
+  -- sebagai jejak, jangan dibangun tanpa meninjau ulang terhadap accounts.
   id, user_id (FK, on delete cascade),
   name,                                       -- "BCA", "Emas", "GoPay"
   instrument_type (enum: cash|deposit|bond|mutual_fund|stock|gold),
@@ -216,12 +271,16 @@ wallets                                       -- FR-47..FR-51, "Dompet"
   -- membuat setoran baru. Konsekuensinya SUM(balance) sengaja tidak sama
   -- dengan total setoran mana pun — keduanya menjawab pertanyaan berbeda.
 
-goal_contributions                            -- prasyarat FR-32..FR-36
+goal_contributions                            -- prasyarat FR-32..FR-36 — TIDAK AKTIF (PRD D-10)
   id, financial_goal_id (FK, on delete cascade),
   amount numeric(18,2), contributed_on date, note text NULL,
-  wallet_id (FK, on delete set null) NULL,    -- FR-48: uangnya diambil dari dompet mana
+  wallet_id (FK, on delete set null) NULL,    -- FR-48: RANCANGAN, kolom ini tidak pernah dibuat
   created_at, updated_at
   INDEX (financial_goal_id, contributed_on)
+  -- Sejak 4537b6c tidak ada lagi jalan untuk menulis ke tabel ini (controller,
+  -- form, dan route setoran dihapus). Tabelnya dipertahankan agar riwayat lama
+  -- tidak hilang; nilainya sudah dipindah ke financial_goals.allocated_amount.
+  -- Catatan di bawah adalah rancangan lama.
   -- wallet_id nullable & ON DELETE SET NULL: setoran lama (sebelum fitur
   -- Dompet ada) tidak punya asal, dan menghapus dompet tidak boleh ikut
   -- menghapus riwayat setoran. Setoran tanpa wallet_id masuk kelompok
@@ -229,6 +288,71 @@ goal_contributions                            -- prasyarat FR-32..FR-36
   -- bukan diam-diam dibagi rata ke instrumen lain.
   -- current_amount TIDAK disimpan sebagai kolom: ia = initial_amount + SUM(amount).
   -- Bila agregasi jadi lambat, barulah tambahkan kolom cache yang di-update via event.
+
+accounts                                      -- FR-63, SUDAH DIIMPLEMENTASIKAN
+  id, user_id (FK, on delete cascade),
+  name,
+  kind (enum: bank|cash|stock|fund|gold),     -- dari App\Enums\AccountKind::values()
+  institution (string, nullable),             -- tunai tidak punya lembaga
+  opening_balance numeric(18,2) default 0,    -- saldo saat MULAI mencatat, bukan saldo kini
+  created_at, updated_at
+  INDEX (user_id, kind)
+  -- SALDO TIDAK DISIMPAN (PRD D-12): opening_balance + transaksi keluar/masuk,
+  -- dihitung sekali untuk semua rekening di AccountBalanceService::forUser().
+  -- Hanya bank & cash yang likuid (AccountKind::likuid()) dan boleh menampung
+  -- dana tujuan. kind dikunci setelah rekening punya transaksi
+  -- (StoreAccountRequest). Tanpa deleted_at — hapus selalu permanen.
+
+debts                                         -- FR-70, SUDAH DIIMPLEMENTASIKAN
+  id, user_id (FK, on delete cascade),
+  name,
+  principal numeric(18,2),                    -- sisa pokok saat MULAI mencatat
+  monthly_principal numeric(18,2) default 0,  -- rencana pokok per bulan, dipakai SavingsPlanService
+  due_on date NULL,
+  created_at, updated_at
+  INDEX (user_id, due_on)
+  -- Sisa utang = principal − SUM(transactions.amount WHERE type='payment'),
+  -- tidak disimpan; status lunas juga diturunkan. Bunga TIDAK dimodelkan —
+  -- dicatat sebagai transaksi expense biasa.
+
+transactions                                  -- FR-64..FR-69, SUDAH DIIMPLEMENTASIKAN
+  id, user_id (FK, on delete cascade),
+  account_id (FK accounts, on delete RESTRICT),         -- rekening asal
+  type (enum: income|expense|transfer|adjustment|payment),  -- App\Enums\TransactionType
+  name,
+  amount numeric(18,2),                       -- negatif HANYA untuk adjustment
+  to_account_id (FK accounts, on delete RESTRICT) NULL, -- hanya untuk transfer, ≠ account_id
+  debt_id (FK debts, on delete RESTRICT) NULL,          -- hanya untuk payment
+  category (string, nullable),                -- label teks bebas, belum tabel
+  occurred_on date,                           -- tidak boleh di masa depan (Asia/Jakarta)
+  created_at, updated_at
+  INDEX (user_id, occurred_on), INDEX (account_id, occurred_on)
+  -- Satu tabel untuk kelima jenis. Aturan kolom per jenis ditegakkan di
+  -- StoreTransactionRequest (prohibited/required), bukan CHECK constraint,
+  -- supaya pesannya bisa dibaca pengguna. Saldo tidak minus & pembayaran tidak
+  -- melebihi sisa pokok dijaga LedgerGuard SESUDAH menulis (PRD D-13).
+
+budgets                                       -- FR-74, SUDAH DIIMPLEMENTASIKAN
+  id, user_id (FK, UNIQUE, on delete cascade),          -- SATU baris per pengguna
+  planned_income numeric(18,2) default 0,
+  planned_expenses numeric(18,2) default 0,
+  monthly_reserve numeric(18,2) default 0,    -- penyangga yang sengaja tidak dialokasikan
+  created_at, updated_at
+  -- Rencana yang berlaku seterusnya, bukan catatan per bulan dan bukan
+  -- kenyataan (kenyataannya ada di transactions).
+
+user_activities                               -- FR-15 & Riwayat, SUDAH DIIMPLEMENTASIKAN
+  id, user_id (FK, on delete cascade),
+  financial_goal_id (FK, on delete set null) NULL,      -- FR-85, migrasi 2026_09_25_120000
+  type (string),                              -- goal_created|goal_updated|goal_deleted|goal_set_aside|contribution_recorded (lama)
+  goal_name (string, nullable),               -- tetap disimpan agar kalimat terbaca setelah tautan lepas
+  amount numeric(15,2) NULL,
+  created_at, updated_at
+  INDEX (financial_goal_id, type)
+  -- financial_goal_id dipakai mencari "sudah disisihkan bulan ini" tanpa
+  -- mencocokkan nama. nullOnDelete, bukan cascade: jejak goal_deleted harus
+  -- bertahan. Transaksi TIDAK disalin ke sini; Riwayat menggabungkannya lewat
+  -- UNION saat dibaca (HistoryController, PRD D-15).
 
 reminders                                     -- FR-57..FR-62, pengingat kalender
   id, user_id (FK, on delete cascade),
@@ -392,7 +516,7 @@ Bentuk `summary` (dipakai langsung sebagai `props.summary` di `Dashboard.jsx`):
 
 ```jsonc
 {
-  "total_assets": 15750000,              // Σ (initial_amount + SUM(contributions)) goals aktif
+  "total_assets": 15750000,              // Σ allocated_amount goals aktif (dulu: initial_amount + SUM(contributions))
   "total_target": 450000000,             // Σ target_amount goals aktif
   "overall_progress_percentage": 3.50,
   "active_goals_count": 3,
@@ -422,6 +546,34 @@ Bentuk `summary` (dipakai langsung sebagai `props.summary` di `Dashboard.jsx`):
 - Bila `active_goals_count = 0`, `DashboardSummaryService` tetap mengembalikan struktur yang sama dengan array/nilai kosong (bukan melempar exception atau `null`) — `Dashboard.jsx` memakainya sebagai sinyal untuk menampilkan empty state (DESIGN.md §9.1), bukan error state (§9.3).
 - `asset_growth_series` dan `recent_activity` masing-masing dibatasi (mis. 12 bulan terakhir, 10 aktivitas terakhir) di dalam service — props Inertia dikirim utuh setiap render halaman, jadi jangan biarkan array ini tumbuh tanpa batas.
 - Uji `DashboardSummaryService` dengan kasus: user tanpa goals, goals dengan `target_date` `NULL` (tujuan tanpa tenggat, tidak masuk hitungan "progress ke tanggal"), dan goals lintas beberapa `status` (pastikan hanya `active` yang masuk agregasi utama, `achieved`/`archived` dikecualikan kecuali diminta eksplisit).
+- **Sejak Fase 4 (`a03befd`) Dashboard menerima dua lapisan terpisah:** `summary` (soal TUJUAN, `DashboardSummaryService`, bentuk di atas) dan `wealth` (soal UANG, dirakit `DashboardController` dari `AccountBalanceService`): `net_worth`, `total_assets`, `total_debt`, `cash_flow` {income, expense, principal, net} untuk **bulan yang sedang dilihat** (`?bulan=YYYY-MM`, sama dengan kalender), `composition`, `has_accounts`, dan `recent_transactions` (5 terbaru, tidak tersaring bulan). Props lain: `calendar` dan `todayReminders`. Keduanya sengaja tidak dilebur jadi satu service — halaman Rekening, Investasi, dan Rencana menabung hanya butuh salah satunya. Perhatikan: `summary.total_assets` adalah dana yang ditandai untuk tujuan, **bukan** total saldo rekening (`wealth.total_assets`).
+- `asset_growth_series` kini dibangun dari **riwayat transaksi** (saldo awal + transaksi sebelum jendela sebagai titik pertama, transfer diabaikan), bukan dari setoran. Contoh `recent_activity` di atas masih memakai jenis lama `contribution_recorded`; jenis baru yang ditulis aplikasi adalah `goal_set_aside`.
+
+### 6.10 Lapisan Uang — service, invarian, dan route
+
+Tiga aturan yang berlaku di seluruh lapisan ini (rincian di PRD §6.13–§6.18 dan D-10..D-15):
+
+1. **Tidak ada kolom saldo.** Saldo rekening, sisa utang, status lunas, kekayaan bersih, dan arus kas hanya dihitung di `AccountBalanceService` — sekali untuk semua rekening. Frontend tidak menjumlahkan ulang (§6.9).
+2. **Setiap penulisan yang menyentuh uang** dibungkus `DB::transaction` lalu memanggil `LedgerGuard::assertConsistent($user, $field)`: saldo tidak minus, pembayaran tidak melebihi sisa pokok, total alokasi per rekening tidak melebihi saldo. Pelanggaran dilempar sebagai `ValidationException` dan membatalkan penulisan. Pemanggilnya: `TransactionController` (store/update/destroy), `AccountValuationController`, `DebtController@update`, `SavingsPlanController` (`updateAllocation`, `setAside`), dan `BackupService::import`. Aksi baru yang mengubah transaksi, utang, atau alokasi **wajib** ikut memanggilnya.
+3. **Kebutuhan bulanan di Rencana menabung memakai `GoalCalculatorService`** (anuitas + inflasi), bukan pembagian biasa; `SavingsPlanService` hanya membagi kemampuan menabung menurut prioritas lalu tenggat.
+
+Route baru (semua di grup `auth` pada `routes/web.php`):
+
+| Method & path | Nama route | Controller |
+|---|---|---|
+| `GET/POST /rekening`, `PATCH/DELETE /rekening/{account}` | `accounts.index/store/update/destroy` | `AccountController` |
+| `POST /rekening/{account}/nilai` | `accounts.valuation.store` | `AccountValuationController` |
+| `GET /investasi` | `investments.index` | `InvestmentController` |
+| `GET/POST /transaksi`, `PATCH/DELETE /transaksi/{transaction}` | `transactions.index/store/update/destroy` | `TransactionController` |
+| `GET/POST /utang`, `PATCH/DELETE /utang/{debt}` | `debts.index/store/update/destroy` | `DebtController` — pembayaran pokok lewat `transactions.store` |
+| `GET /rencana-menabung` | `savings-plan.index` | `SavingsPlanController@index` |
+| `PATCH /rencana-menabung/anggaran` | `savings-plan.budget.update` | `SavingsPlanController@updateBudget` |
+| `PATCH /tujuan/{financialGoal}/alokasi` | `goals.allocation.update` | `SavingsPlanController@updateAllocation` |
+| `POST /tujuan/{financialGoal}/sisihkan` | `goals.set-aside` | `SavingsPlanController@setAside` — POST karena mencatat peristiwa |
+| `GET /data`, `GET /data/cadangan`, `POST /data/pulihkan` | `data.index/download/restore` | `DataController` |
+| `GET /riwayat` | `history.index` | `HistoryController` |
+
+Route yang **dihapus** di `4537b6c`: `goals.contributions.store` (`POST /tujuan/{financialGoal}/setoran`), `goals.contributions.update` dan `goals.contributions.destroy` (`/setoran/{goalContribution}`).
 
 ## 7. Integrasi Currents API
 
@@ -500,13 +652,14 @@ Untuk menjalankan job fetch berita terjadwal (`FetchLatestNewsJob`) selama devel
 - **Penamaan route:** route Laravel biasa di `routes/web.php`, konvensi resource controller standar, semua route diberi `->name(...)` karena frontend memanggilnya lewat `route()` (Ziggy, sudah terpasang via `tightenco/ziggy`), bukan hardcode string path. Contoh:
   ```php
   Route::middleware('auth')->group(function () {
-      Route::get('/goals', [FinancialGoalController::class, 'index'])->name('goals.index');
-      Route::get('/goals/create', [FinancialGoalController::class, 'create'])->name('goals.create');
-      Route::post('/goals', [FinancialGoalController::class, 'store'])->name('goals.store');
-      Route::get('/goals/{goal}', [FinancialGoalController::class, 'show'])->name('goals.show');
+      Route::get('/tujuan', [GoalController::class, 'index'])->name('goals.index');
+      Route::get('/tujuan/buat', [GoalController::class, 'create'])->name('goals.create');
+      Route::post('/tujuan', [GoalController::class, 'store'])->name('goals.store');
+      Route::post('/tujuan/{financialGoal}/sisihkan', [SavingsPlanController::class, 'setAside'])
+          ->name('goals.set-aside');
   });
 
-  Route::get('/kalkulator/pinjaman', [UtilityCalculatorController::class, 'loan'])->name('calculator.loan');
+  Route::get('/kalkulator', fn () => Inertia::render('Calculator/Index'))->name('calculator.index');
   ```
 - **Bahasa UI:** Bahasa Indonesia (mengikuti referensi produk), format angka menggunakan pemisah ribuan titik dan mata uang `Rp`.
 
@@ -563,8 +716,9 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
 - **Rumus kalkulator punya dua implementasi** (PHP dan JS). Menjalankan `php artisan test` saja tidak cukup — sertakan `npm run test:js`. Lihat §6.6.
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
 - `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
-- `CurrentsNewsService`: uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
-- Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B. Pakai helper `assertInertia(fn (Assert $page) => $page->component('Goals/Show')->has('goal'))` bawaan `inertiajs/inertia-laravel` untuk memeriksa nama komponen halaman & props di test, **bukan** `assertJson` seperti pada arsitektur API murni.
+- **Lapisan uang** diuji lewat sifat, bukan angka patokan: `AccountBalanceTest` (transfer tidak menciptakan uang, pembayaran pokok tidak mengubah kekayaan bersih, penyesuaian di luar arus kas), `TransactionTest` (penolakan), `LedgerGuardMessageTest` (isi pesan galat), `SavingsPlanTest` (kebutuhan sama dengan `GoalCalculatorService`, urutan prioritas, kekurangan ditampilkan), `BackupTest` (cadangan dan pemulihan saling membalikkan), serta `AccountTest`, `DebtTest`, `InvestmentValuationTest`, `DashboardWealthTest`, `HistoryIndexTest`.
+- `CurrentsNewsService` (begitu dibangun): uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
+- Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B. Pakai helper `assertInertia(fn (Assert $page) => $page->component('Goal/Edit')->has('goal'))` bawaan `inertiajs/inertia-laravel` untuk memeriksa nama komponen halaman & props di test, **bukan** `assertJson` seperti pada arsitektur API murni.
 
 ### 10.4 Keamanan
 - Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun.
@@ -596,7 +750,7 @@ setiap hari antara pukul 00.00 dan 07.00 WIB aplikasi masih menganggap "hari
 ini" adalah kemarin.
 
 Yang rusak diam-diam bila zonanya kembali ke UTC: lingkaran hari ini di
-kalender, hitungan hari beruntun, tanggal bawaan form setoran, dan penanda
+kalender, hitungan hari beruntun, tanggal bawaan form (dulu form setoran, kini transaksi dan penilaian ulang yang menolak tanggal masa depan), batas "bulan ini" pada Rencana menabung, dan penanda
 pengingat yang sudah lewat. Tidak satu pun memunculkan error — semuanya hanya
 salah, dan hanya pada sebagian jam dalam sehari. `AppTimezoneTest` menjaganya.
 

@@ -1,4 +1,6 @@
 > Pembaruan desain: arah visual Arus kini dijelaskan di `docs/ARUS-REDESIGN.md`. Palet, font, dan shell lama di bawah adalah referensi historis; aturan interaksi dan validasi tetap berlaku.
+>
+> Halaman dan pola baru lapisan uang dicatat di §5.1, §5.7, §5.9, §5.10, dan §10 di bawah.
 
 # DESIGN.md — Arus (Kalkulator Tujuan Finansial)
 
@@ -112,6 +114,11 @@ Struktur mengikuti mockup yang sudah ada:
 - **Topbar** — item aktif: teks `--color-text-primary` + underline `--color-lime-500` 2px. Item non-aktif `--color-text-secondary`.
 - **Sidebar kategori** — item aktif: teks & ikon `--color-lime-500`, background chip `--color-lime-soft-bg`, garis vertikal lime 2px di tepi kiri. Item non-aktif: ikon & teks `--color-text-secondary`.
 - Kartu profil di topbar: avatar, nama, label keanggotaan kecil `--color-text-muted`.
+- **Navigasi yang berlaku sekarang** (`AuthenticatedLayout.jsx`) adalah sidebar kiri dengan dua kelompok, bukan topbar lima item di §4:
+  - **KEUANGAN PRIBADI** — Dashboard · Transaksi · Rekening & aset · Investasi · Tujuan saya · Dana tujuan · Riwayat
+  - **RENCANAKAN MASA DEPAN** — Utang & cicilan · Rencana menabung · Kalkulator · Berita keuangan · Profil & pengaturan · Data & cadangan
+
+  Item aktif: teks lime di atas `lime-softBg` dengan garis tepi kiri 2px — sesuai aturan §8.2 bahwa lime bukan satu-satunya penanda aktif. Di mobile, sidebar menjadi drawer Headless UI `Dialog`. "Rekening & aset" menampilkan saldo tiap rekening; "Dana tujuan" (`/dompet`, dulu "Dompet & aset") menampilkan dana terkumpul dan penempatannya per tujuan. Keduanya sengaja berikon beda (`WalletIcon` vs `FundIcon`) supaya tidak terbaca sebagai dua pintu ke halaman yang sama.
 
 ### 5.2 Card Ringkasan (Summary Card)
 Dipakai di Dashboard untuk Total Aset, Total Hutang, Rasio Hutang, Tabungan Bulanan.
@@ -152,6 +159,7 @@ Card berjudul **"Strategi Mencapai Target Ini"**. Panel ini belum ada di mockup 
 - Bar horizontal: label kiri (nama target), nilai kanan (saat ini / target), fill lime, track `--color-border`.
 - Badge persentase di ujung kanan.
 - Bila realisasi tertinggal dari rencana (PRD FR-35), tampilkan penanda kedua pada bar dengan warna `--color-warning` — posisi "seharusnya di sini".
+- **Label persen tidak boleh membulatkan progres nyata menjadi nol** (`GoalProgressList.jsx`). Persen dibulatkan ke bilangan bulat, kecuali di atas 0 dan di bawah 1 tampil `<1%`, dan di atas 99 tapi belum 100 tampil `>99%`. Rp 3 juta dari target Rp 2 miliar (0,15%) tidak boleh tampil "0%", tidak terbedakan dari tujuan yang belum disentuh. Batangnya diberi lebar minimum 1,5% selama progresnya di atas nol, supaya progres kecil tetap kelihatan kecil, bukan hilang.
 
 ### 5.8 Input Tanggal & Jam — jangan pakai bawaan browser
 
@@ -190,6 +198,34 @@ keduanya sekaligus dan pengguna kehilangan isian yang sedang diketik.
 
 Nilai yang dipertukarkan tetap `"YYYY-MM-DD"` dan `"HH:MM"` persis seperti
 kontrol bawaan, jadi seluruh aturan validasi di server tidak berubah.
+
+### 5.9 Bacaan Nominal di bawah input rupiah
+
+`BacaanNominal` (`resources/js/Components/BacaanNominal.jsx`) menuliskan nominal dengan kata satuannya tepat di bawah kolomnya: **"Terbaca: 125 juta rupiah"**. Dipakai di bawah kolom nominal target pada form buat dan ubah tujuan (`Goal/Create.jsx`, `Goal/Edit.jsx`).
+
+- Muncul **selalu** begitu nominal ≥ 1 juta, bukan hanya saat angkanya dianggap janggal — ambang "janggal" apa pun akan salah menebak. Di bawah satu juta tidak tampil.
+- Satuan dieja (`juta`, `miliar`, `triliun`), bukan disingkat "M" yang bisa terbaca miliar maupun million. Dua desimal koma, nol di belakang dibuang. Pembulatan yang mencapai 1000 naik satuan: 999.999.999 dibaca "1 miliar", bukan "1000 juta" (`spellRupiah()` di `utils/format.js`).
+- 12px, `text-secondary`, angkanya `text-primary`.
+
+Latar belakangnya kasus nyata: sebuah target terisi Rp 125.000.000.000 padahal maksudnya 125 juta, dan baru ketahuan setelah rencana menabungnya menuntut Rp 2,26 miliar per bulan.
+
+### 5.10 Tombol "Sudah saya sisihkan"
+
+`TombolSisihkan` (`resources/js/Components/TombolSisihkan.jsx`) ada di tiap baris Rencana menabung (PRD FR-85).
+
+- **Tombol utama** (lime penuh): "Sudah saya sisihkan Rp …" — nominalnya sisa rencana bulan ini (`remaining_this_month`), dikirim sebagai **tambahan**, bukan total baru.
+- **"Jumlah lain…"** (tautan teks bergaris titik, `text-secondary`) membuka isian `CurrencyInput` sebaris dengan tombol "Sisihkan" dan "Batal", disertai keterangan "Ditambahkan ke dana yang sudah terkumpul, bukan menggantinya." Setelah bulan ini terpenuhi, tautannya berbunyi **"Sisihkan lagi…"** dan tombol utama diganti teks mint "Rencana bulan ini sudah terpenuhi."
+- Yang sudah disisihkan bulan ini tampil sebagai teks mint kecil "Bulan ini sudah disisihkan Rp …", termasuk bila baru sebagian.
+- **Tombol tidak pernah lenyap tanpa penjelasan.** Tujuan tanpa rekening menampilkan kalimat yang mengarah ke "Sesuaikan target"; tujuan tanpa alokasi bulan ini menampilkan "Belum ada dana yang bisa dialokasikan untuk target ini bulan ini." Tujuan yang sudah tercapai tidak menampilkan apa pun.
+- Galat dari server (mis. saldo rekening tidak cukup) tampil lewat `InputError` di bawahnya.
+
+### 5.11 Pola lain di lapisan uang
+
+- **Dana tujuan dijelaskan di formnya sendiri**: alokasi menandai saldo, tidak memindahkan uang. Tanpa kalimat itu orang mengira menandai 10 juta mengurangi saldo banknya (`SavingsPlan/Index.jsx`).
+- **Istilah**: "dana tujuan" / "dana terkumpul" untuk `allocated_amount` di antarmuka, bukan "dana ditandai"; anggaran memakai "perkiraan penghasilan" dan "perkiraan pengeluaran".
+- **Dashboard mendahulukan uang, baru tujuan.** Empat kartu teratas; kekayaan bersih satu-satunya berkartu gradien karena hanya ia yang menjawab "berapa uang saya sebenarnya".
+- **Aksi berbahaya dibedakan dari tampilannya**: di Data & cadangan, pemulihan memakai tombol bahaya dan dialog konfirmasi yang menyebut apa yang akan hilang; mengunduh cadangan memakai tombol biasa.
+- **Aturan hitung ditulis di layar**, bukan hanya di kode (bagian penjelasan di `Data/Index.jsx`).
 
 ---
 
@@ -275,3 +311,10 @@ Layar pertama pengguna baru adalah dashboard **tanpa satu pun tujuan** — justr
 4. **Kalkulator** — sidebar kategori utilitas, form parameter, hasil kalkulasi, grafik amortisasi/proyeksi, tombol sekunder "Jadikan Tujuan". Dapat diakses tanpa login.
 5. **News** — grid berita dengan filter kategori. *(Panel indeks pasar dicoret dari MVP — tidak ada sumber data, lihat keputusan D-4 di PRD. Tanpa panel itu, News memakai lebar penuh.)*
 6. **Pengaturan** — profil, preferensi mata uang & format angka, profil risiko, notifikasi.
+7. **Rekening & aset** — daftar rekening dengan saldo, total aset, donat komposisi per jenis; kartu rekening non-likuid mengingatkan bahwa nilainya perlu disesuaikan saat harga bergerak (tombol "Perbarui nilai" ada di halaman Investasi).
+8. **Transaksi** — satu bulan per layar dengan ringkasan arus kas; satu form untuk mencatat dan menyunting, bidang rekening tujuan/utang hanya muncul untuk jenis yang membutuhkannya.
+9. **Investasi** — aset saham/reksa dana/emas dengan tanggal penilaian terakhir dan form tambah investasi.
+10. **Utang & cicilan** — kartu per utang: sisa pokok, progres terbayar, rencana pokok bulanan, pintasan "Catat pembayaran".
+11. **Rencana menabung** — anggaran bulanan, kemampuan menabung, baris per tujuan (kebutuhan, alokasi, kekurangan, setara harian) dengan tombol §5.10.
+12. **Data & cadangan** — unduh cadangan JSON dan pulihkan dari berkas.
+13. **Riwayat** — linimasa peristiwa tujuan dan transaksi, dikelompokkan per hari di frontend.

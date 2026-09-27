@@ -11,7 +11,7 @@ Branch pengerjaan: `feat/fingoal-arus-redesign`.
 - Token bernama `lime` dipertahankan sebagai alias aksen mint untuk kompatibilitas seluruh halaman.
 - Dashboard mendahulukan ringkasan dana/target/progres, kemudian tujuan utama dan kalender.
 - Angka dana terkumpul hanya menjumlahkan tujuan aktif dari backend; bukan klaim total saldo dompet.
-- Kalender tetap menjadi lokasi pencatatan setoran, dengan anchor `#catat-setoran`.
+- Kalender memuat catatan tanggal dan pengingat. *(Semula juga lokasi pencatatan setoran dengan anchor `#catat-setoran`; setoran dipensiunkan pada commit `4537b6c` — lihat PRD D-10. Dana tujuan kini ditandai dari saldo rekening dan dinaikkan lewat tombol "Sudah saya sisihkan" di Rencana menabung.)*
 - Drawer mobile menggunakan Headless UI Dialog untuk focus trap, Escape, dan backdrop.
 - Login tetap email/password Breeze. Profil tetap memakai form, validasi, upload, dan aksi existing.
 - Kalkulator, tujuan, dompet, riwayat, dan berita mengikuti token bersama.
@@ -25,7 +25,7 @@ komponen tanggal dan kalender tetap berlaku.
 
 - `npm ci --no-audit --no-fund`: berhasil, lockfile tetap.
 - `npm run build`: berhasil.
-- `npm run test:js`: 26 lulus.
+- `npm run test:js`: 26 lulus saat redesign ini dibuat (per 27 Sep 2026: 29 lulus, ditambah 413 test PHP lewat `php artisan test`).
 - `git diff --check`: bersih.
 - Kontras teks utama/sekunder/muted serta border input diperiksa pada kartu.
 - PHP/Composer tidak tersedia dalam lingkungan pengerjaan. Pengujian Laravel,

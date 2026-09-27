@@ -19,6 +19,10 @@ Produk ini punya dua bagian yang harus dibedakan tegas, karena keduanya berperil
 
 Keduanya dijembatani satu fitur: hasil kalkulator bisa langsung dijadikan Tujuan (FR-43). Tanpa jembatan itu, keduanya hanya jadi dua menu yang kebetulan bertetangga.
 
+### Lapisan Uang (sejak 24–25 Sep 2026)
+
+Di bawah kedua pilar itu kini ada lapisan ketiga: **pencatat keuangan**. Pengguna mencatat rekening & aset, transaksi, investasi, dan utangnya sendiri (§6.13–§6.18), dan dana sebuah Tujuan tidak lagi disetor ke tujuan itu melainkan **ditandai** dari saldo rekening bank/tunai (FR-73, keputusan D-11). Seluruh pencatatannya manual: Arus tetap tidak terhubung ke rekening bank, tidak membeli/menjual instrumen apa pun, dan tidak memberi nasihat investasi personal.
+
 ## 2. Latar Belakang & Masalah
 
 - Banyak individu ingin punya rumah, dana pensiun, atau kendaraan, tapi tidak tahu berapa yang harus ditabung/diinvestasikan per bulan.
@@ -45,14 +49,14 @@ Keduanya dijembatani satu fitur: hasil kalkulator bisa langsung dijadikan Tujuan
 - Kalkulator utilitas: Pinjaman/KPR dan Investasi (§6.9).
 - Engine rekomendasi alokasi instrumen investasi (rule-based, berdasarkan jangka waktu & toleransi risiko).
 - Dashboard ringkasan: total target aktif, total tabungan diperlukan, progres tiap target.
-- Manajemen "Tujuan Saya" (CRUD target finansial + pencatatan setoran + histori kalkulasi).
+- Manajemen "Tujuan Saya" (CRUD target finansial + pencatatan setoran + histori kalkulasi). *Pencatatan setoran sudah dipensiunkan dan digantikan alokasi dana tujuan — lihat §6.7 dan D-10.*
 
 **Catatan arsitektur informasi:** halaman "Portofolio" yang sebelumnya direncanakan terpisah **digabung** ke halaman Tujuan — keduanya menampilkan hal yang sama, yaitu daftar tujuan berjalan beserta progresnya. Navigasi utama menjadi: Dashboard · Tujuan · Kalkulator · News · Pengaturan.
 - Modul News: menampilkan berita finansial dari Currents API dengan filter kategori.
 - Pengaturan profil dasar & preferensi (mata uang default: IDR, format angka).
 
 ### 5.2 Di Luar Lingkup (MVP)
-- Integrasi rekening bank / open banking real-time.
+- Integrasi rekening bank / open banking real-time. *(Tetap berlaku setelah lapisan uang ada: rekening dan transaksi di §6.13 diisi manual oleh pengguna.)*
 - Eksekusi transaksi investasi sungguhan (beli saham/reksa dana langsung).
 - Aplikasi mobile native (fokus web responsif dulu).
 - Multi-user/family sharing.
@@ -129,6 +133,9 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 - FR-19: Pengguna dapat mengubah preferensi format angka/mata uang tampilan dan profil risiko investasi.
 
 ### 6.7 Pencatatan Realisasi (prasyarat dashboard progres)
+
+> **Status (25 Sep 2026): FR-32, FR-33, dan FR-34 dipensiunkan** (commit `4537b6c`, keputusan D-10). Controller, form, dan route setoran (`goals.contributions.*`) sudah dihapus; tabel `goal_contributions` dipertahankan hanya supaya riwayat lama tidak hilang, dan nilainya sudah dipindahkan ke `financial_goals.allocated_amount` oleh migrasi `add_allocation_to_financial_goals_table`. Dana tujuan kini **ditandai** dari saldo rekening (FR-73) dan dinaikkan lewat tombol "Sudah saya sisihkan" (FR-85). FR-35 tetap berjalan (`on_track` di `DashboardSummaryService`), tetapi kini membandingkan rencana terhadap `allocated_amount`. FR-36 belum dibangun. Teks di bawah dipertahankan sebagai jejak rancangan, bukan dihapus.
+
 Tanpa bagian ini, `current_amount` tidak pernah berubah dan progress bar di FR-13 selamanya diam — dashboard hanya menampilkan hasil kalkulasi, bukan progres. Ini juga menghapus alasan pengguna untuk kembali, sehingga metrik retensi di §9 tidak akan tercapai.
 
 - FR-32: Pengguna dapat mencatat setoran ke sebuah tujuan (nominal, tanggal, catatan opsional) secara manual, **lewat kalender aktivitas**: klik tanggalnya, lalu catat setoran di sana.
@@ -176,6 +183,8 @@ Alat hitung sekali pakai, terpisah dari Tujuan. Daftar di bawah **bukan** salina
 ### 6.10 Dompet — sumber dana
 
 Dompet menjawab satu pertanyaan: **uang pengguna sekarang ada di mana.** Ia berdiri sendiri, tidak menempel pada tujuan mana pun, dan satu daftar dipakai bersama oleh seluruh tujuan.
+
+> **Status (25 Sep 2026):** tabel `wallets` seperti rancangan di bawah **tidak pernah dibuat**. Pertanyaan "uang saya ada di mana" kini dijawab **Rekening & aset** (FR-63): nama + jenis + saldo (FR-47), pembaruan nilai tanpa dianggap setoran lewat penilaian ulang (FR-72, padanan FR-49), dan kekayaan lintas rekening di Dashboard (FR-79..FR-82, padanan FR-50). FR-48 gugur bersama pencatatan setoran (D-10). FR-51 (jumlah satuan gram/lot) belum ada padanannya. Halaman `/dompet` — di navigasi kini bernama "Dana tujuan" — menampilkan dana terkumpul per tujuan dari `DashboardSummaryService`, bukan tabel dompet.
 
 - FR-47: Pengguna dapat mencatat dompet — nama, **jenis instrumen**, dan saldo saat ini. Contoh: "BCA" (deposito/kas), "Emas" (emas), "Reksa Dana" (reksa dana pasar uang).
 - FR-48: Saat mencatat setoran ke sebuah tujuan, pengguna memilih **dari dompet mana** uang itu diambil.
@@ -227,6 +236,84 @@ keduanya keputusan tersendiri — jangan diselipkan sebagai "perbaikan kecil":
 
 Fondasinya sudah siap untuk keduanya: `reminders.remind_at` menyimpan waktu
 lengkap, jadi penjadwal apa pun tinggal membacanya.
+
+> **Catatan penomoran §6.13–§6.18.** FR-63..FR-85 ditulis belakangan dari kode yang sudah dibangun (komentar kelas dan test yang mengutipnya). Beberapa nomor hanya pernah dikutip kode **sebagai rentang** — FR-64..FR-69, FR-74..FR-78, FR-79..FR-82 — tanpa rujukan per nomor. Di bawah, nomor yang dikutip satu per satu ditulis sendiri; sisanya ditulis sebagai satu kelompok di bawah rentangnya, bukan dibagi-bagikan ke nomor yang tidak pernah dipakai kode.
+
+### 6.13 Rekening, Transaksi & Arus Kas
+
+Lapisan uang di bawah Tujuan: target menandai sebagian saldo rekening, bukan menyimpan uangnya sendiri. **Saldo tidak pernah disimpan sebagai kolom** — ia selalu `opening_balance` ditambah seluruh transaksi yang menyentuh rekening itu, dihitung sekali untuk semua rekening di `AccountBalanceService` (D-12).
+
+- FR-63: **Rekening & aset.** Pengguna mencatat rekening dengan nama, jenis (`bank`, `cash`/Tunai, `stock`/Saham, `fund`/Reksa Dana, `gold`/Emas — `App\Enums\AccountKind`), lembaga (opsional; uang tunai tidak punya lembaga), dan saldo awal ≥ 0 — saldo pada saat pengguna **mulai mencatat**, supaya ia tidak perlu memasukkan riwayat sejak rekening dibuka. Jenis boleh diubah selama rekening belum punya transaksi, lalu dikunci; nama tetap boleh diganti. Rekening yang masih punya riwayat — termasuk yang hanya pernah menerima transfer — tidak bisa dihapus dan ditolak dengan pesan yang bisa dibaca, bukan halaman 500. Hanya `bank` dan `cash` yang **likuid** dan boleh menampung dana tujuan (FR-73).
+- FR-64: **Lima jenis transaksi** (`App\Enums\TransactionType`), sengaja dibedakan karena masing-masing memperlakukan saldo dan arus kas secara berbeda:
+
+  | Jenis | Saldo rekening asal | Arus kas |
+  |---|---|---|
+  | `income` — Pemasukan | bertambah | masuk |
+  | `expense` — Pengeluaran | berkurang | masuk |
+  | `transfer` — Transfer | berkurang; rekening tujuan bertambah | **tidak** — uang hanya berpindah tempat |
+  | `adjustment` — Penyesuaian nilai | bertambah/berkurang (satu-satunya yang boleh negatif) | **tidak** |
+  | `payment` — Pembayaran pokok utang | berkurang, sisa utang ikut berkurang | masuk |
+
+  Bunga utang dicatat terpisah sebagai `expense`; mencampurnya ke pembayaran pokok membuat utang tampak lunas lebih cepat daripada kenyataannya.
+- FR-65..FR-69 *(dikutip kode sebagai satu rentang bersama FR-64, di `TransactionController`, `AccountBalanceService`, `TransactionTest`, dan `AccountBalanceTest`)*: invarian buku besar yang dijaga saat menulis dan saat menghitung:
+  - **Saldo tidak boleh minus** setelah perubahan apa pun — mencatat, menyunting, maupun menghapus (menghapus pemasukan bisa membuat saldo minus karena pengeluaran sesudahnya tetap ada). Diperiksa **sesudah** penulisan di dalam transaksi database yang sama oleh `LedgerGuard`, lalu dibatalkan bila dilanggar (D-13). Pesannya menyebut kekurangannya: "Saldo tidak mencukupi: BCA (kurang Rp …)."
+  - **Transfer** wajib punya rekening tujuan yang berbeda dari rekening asal, dan tidak mengubah total aset. `to_account_id` hanya untuk transfer dan `debt_id` hanya untuk pembayaran — keduanya ditolak (`prohibited`) pada jenis lain, bukan sekadar diabaikan.
+  - **Nominal** tidak boleh nol; nilai negatif hanya untuk penyesuaian nilai. **Tanggal** tidak boleh di masa depan.
+  - **Pembayaran pokok tidak boleh melebihi sisa pokok**; menghapus pembayaran mengembalikan sisa utangnya.
+  - **Kekayaan bersih** = total nilai aset − sisa pokok utang. Pembayaran pokok tidak mengubah angka ini.
+  - **Arus kas bulanan** = pemasukan − pengeluaran − pembayaran pokok untuk satu bulan `YYYY-MM`; transfer dan penyesuaian nilai tidak dihitung.
+  - Halaman Transaksi menampilkan satu bulan (`?bulan=YYYY-MM`), disaring di basis data dan dipaginasi 20 baris, beserta ringkasan arus kas bulan itu. Kategori berupa teks bebas opsional, belum menjadi tabel.
+  - Rekening, utang, dan transaksi milik pengguna lain tidak bisa dibaca, dipakai mencatat, maupun disunting.
+
+### 6.14 Utang & Cicilan
+
+- FR-70: Pengguna mencatat utang dengan nama, **sisa pokok saat mulai mencatat** (> 0, bukan nilai pinjaman aslinya), rencana pokok per bulan (≥ 0), dan jatuh tempo (opsional; tanggal yang sudah lewat diterima). Aturannya:
+  - Mencatat utang **tidak menambah saldo** rekening mana pun — pinjaman yang benar-benar baru diterima dicatat terpisah, kalau tidak uangnya terhitung sebagai penghasilan.
+  - Pembayaran pokok **tidak punya route sendiri**: tombol "Catat pembayaran" di kartu utang hanyalah pintasan ke transaksi berjenis `payment` (FR-64), supaya invarian saldo dan sisa pokok hanya dijaga di satu tempat.
+  - Sisa utang = pokok − seluruh pembayaran; status **lunas diturunkan dari riwayat**, bukan kolom atau tombol, dan otomatis aktif kembali bila pembayarannya dihapus.
+  - Pokok boleh dinaikkan, tetapi tidak boleh diturunkan di bawah yang sudah dibayar. Utang yang punya riwayat pembayaran tidak bisa dihapus.
+  - Rencana pokok bulanan dari utang yang belum lunas dipakai Rencana menabung (FR-74..FR-78) untuk menyisihkan kewajiban lebih dulu.
+
+### 6.15 Investasi & Penilaian Ulang
+
+- FR-71: **Investasi bukan entitas tersendiri** — ia rekening berjenis non-likuid (saham, reksa dana, emas) yang ditampilkan di halaman sendiri dengan penekanan pada "Perbarui nilai". Nilainya tetap terhitung dalam total aset dan komposisi aset. Tiap aset menampilkan tanggal penilaian terakhirnya; kosong berarti belum pernah dinilai ulang sejak dicatat, dan itu sengaja terlihat.
+- FR-72: **Penilaian ulang.** Pengguna mengirim **nilai total terkini**; sistem menyimpan **selisihnya** sebagai transaksi `adjustment` bernama "Penilaian ulang …", bukan menimpa saldo. Dengan begitu perubahan nilai punya tanggal, muncul di riwayat, dan bisa dihapus bila keliru (menghapusnya mengembalikan nilai sebelumnya). Nilai yang sama dengan yang tercatat ditolak tanpa mencatat apa pun; nilai negatif dan tanggal masa depan ditolak; nilai nol diterima.
+
+### 6.16 Dana Tujuan & Rencana Menabung
+
+- FR-73: **Dana tujuan ditandai, tidak disetor.** Setiap tujuan punya rekening tempat dananya berada (`account_id`, hanya rekening bank/tunai), nominal yang ditandai (`allocated_amount`), dan prioritas tinggi/sedang/rendah (`App\Enums\GoalPriority`). **Alokasi hanya menandai saldo, tidak memindahkan uang** (D-11): menandai 10 juta di BCA untuk "DP rumah" tidak mengurangi saldo BCA. Aturannya:
+  - Alokasi tidak boleh melebihi nominal targetnya; alokasi > 0 wajib menyebut rekeningnya.
+  - Total alokasi seluruh tujuan pada satu rekening tidak boleh melebihi saldonya — diperiksa dari dua arah: saat alokasi bertambah **dan** saat saldo berkurang karena pengeluaran (`LedgerGuard`). Pesannya menyebut kedua angka: "Total dana untuk target di BCA jadi Rp …, melebihi saldonya yang Rp …."
+  - Progres tujuan (`current_amount` di Dashboard, Tujuan, dan ekspor Excel) = `allocated_amount`.
+- FR-74: **Anggaran bulanan** — satu baris per pengguna: perkiraan penghasilan, perkiraan pengeluaran, dan dana cadangan (`monthly_reserve`) yang sengaja tidak dialokasikan ke target. Ini **rencana** yang berlaku seterusnya, bukan catatan per bulan dan bukan kenyataan dari `transactions`.
+- FR-75..FR-78 *(dikutip kode sebagai rentang FR-74..FR-78 di `SavingsPlanService`, `SavingsPlanController`, dan `SavingsPlanTest`)*: halaman Rencana menabung menjawab **"sisa uang saya cukup untuk target yang mana?"**:
+  - **Kemampuan menabung** = penghasilan − pengeluaran − dana cadangan − cicilan pokok bulanan utang aktif, minimal nol. Cicilan tiap utang dibatasi sisa pokoknya (utang bersisa 300 ribu hanya menyerap 300 ribu). Tanpa anggaran, kemampuan nol dan halaman menjelaskannya lebih dulu.
+  - **Kebutuhan bulanan** tiap tujuan aktif memakai rumus anuitas `GoalCalculatorService` lengkap dengan imbal hasil dan inflasi — **bukan** pembagian biasa `(target − terkumpul) / sisa bulan` seperti prototipe. Tujuan tanpa tenggat dan tujuan yang sudah tercapai tidak menyerap dana; tenggat yang sudah lewat dihitung satu bulan (seluruh kekurangannya jatuh ke bulan ini). Kebutuhan bulan ini dihitung dari dana di **awal bulan** (dana saat ini dikurangi yang sudah disisihkan bulan ini), sehingga angkanya diam sepanjang bulan.
+  - **Pembagian** berurutan: prioritas tinggi lebih dulu, lalu tenggat terdekat (tanpa tenggat paling belakang). Total alokasi tidak pernah melebihi kemampuan.
+  - **Kekurangan dana ditampilkan, bukan ditutupi** — per tujuan dan totalnya, tanpa mengarang asumsi imbal hasil yang lebih tinggi. Sisa kemampuan yang tidak terpakai juga dilaporkan. Tiap baris menyertakan setara hariannya (alokasi ÷ 30).
+- FR-85 *(ditambahkan setelah FR-84)*: **"Sudah saya sisihkan".** Satu tombol per baris rencana yang menaikkan `allocated_amount` **sebesar nominal yang dikirim**, bukan menimpanya dengan total baru — aplikasi yang menjumlahkan. Tombol utama mengirim sisa alokasi bulan ini (`remaining_this_month` = alokasi − yang sudah disisihkan bulan ini, minimal nol); "Jumlah lain…" (atau "Sisihkan lagi…" setelah bulan ini terpenuhi) membuka isian untuk nominal tambahan yang lain. Aturannya:
+  - Tujuan tanpa rekening tidak bisa memakai tombol ini; tombolnya menjelaskan alasannya alih-alih lenyap.
+  - Tidak boleh melebihi nominal target, dan tetap dijaga `LedgerGuard` — uang yang belum ada di rekening tidak bisa ditandai.
+  - Setiap penyisihan tercatat sebagai aktivitas `goal_set_aside` di `user_activities`, terhubung lewat `financial_goal_id` (bukan nama, supaya tidak putus saat tujuan diganti nama). Dari situ rencana melaporkan yang sudah disisihkan bulan ini (`set_aside_this_month`); yang disisihkan bulan lalu tidak ikut terhitung.
+
+### 6.17 Dashboard — Lapisan Uang
+
+- FR-79..FR-82 *(dikutip kode sebagai satu rentang di `DashboardWealthTest`)*: Dashboard menggabungkan dua lapisan yang dipisah di backend — `summary` soal **tujuan** (`DashboardSummaryService`) dan `wealth` soal **uang** (`AccountBalanceService`), dengan lapisan uang tampil lebih dulu:
+  - **Kekayaan bersih** (aset − utang), total aset, dan total sisa utang.
+  - **Arus kas** (pemasukan, pengeluaran, pokok utang, bersih) untuk **bulan yang sedang dilihat** di kalender (`?bulan=YYYY-MM`), bukan selalu bulan berjalan.
+  - **Komposisi aset** per jenis rekening dalam persen dan rupiah, untuk donat.
+  - **Lima transaksi terbaru**, terbaru di atas, tidak ikut tersaring bulan.
+  - Penanda `has_accounts` untuk keadaan belum punya rekening.
+
+  Sejak pencatatan setoran dipensiunkan, grafik pertumbuhan kekayaan (FR-14) juga dibangun dari **riwayat transaksi** — titik pertamanya memuat seluruh saldo awal ditambah transaksi sebelum jendela, dan transfer diabaikan.
+
+### 6.18 Data, Cadangan & Riwayat
+
+- FR-83: **Cadangan.** Pengguna mengunduh seluruh data keuangannya sebagai satu berkas JSON bertanggal (`arus-cadangan-YYYY-MM-DD.json`, `Cache-Control: no-store`). Isinya: rekening, utang, transaksi, tujuan (termasuk alokasi dan prioritas), anggaran, catatan kalender, dan pengingat lengkap dengan jam dan status selesainya. ID asli tidak ikut; rekening dan utang membawa `ref` nomor urut yang hanya berlaku di dalam berkas. **Tidak ikut:** data profil (nama, email, telepon) dan snapshot `goal_calculations`. Berbeda dari ekspor Excel (FR-38) yang dibuat untuk dibaca, berkas ini dibuat untuk dikembalikan.
+- FR-84: **Pemulihan.** Mengunggah berkas cadangan **mengganti** seluruh data keuangan pengguna — bukan menggabungkan, sehingga memulihkan dua kali tidak menggandakan data. Seluruhnya dalam satu transaksi database; berkas bukan JSON, tanpa penanda versi, versi tak dikenal, berisi nilai tak masuk akal, `ref` yang menunjuk rekening tak ada, atau yang melanggar aturan keuangan (`LedgerGuard`) ditolak utuh. Batas berkas 8 MB. Di antarmuka, pemulihan memakai tombol bahaya dan dialog konfirmasi tersendiri.
+
+**Riwayat memuat transaksi, digabung saat dibaca** (commit `06206b8`, D-15). Halaman Riwayat menggabungkan `user_activities` dan `transactions` lewat UNION di basis data, diurutkan menurut waktu pencatatan (`created_at`) dan dipaginasi 20. Transaksi **tidak disalin** ke `user_activities`, sehingga menyunting atau menghapus transaksi ikut memperbaiki riwayatnya. Tidak ada nomor FR yang dikutip kode untuk perubahan ini.
+
 ## 7. Requirement Non-Fungsional
 
 - **NFR-1 Performa:** Waktu hitung kalkulator < 200ms di sisi backend; halaman utama first load < 2.5s pada koneksi 4G.
@@ -255,7 +342,7 @@ lengkap, jadi penjadwal apa pun tinggal membacanya.
 - Retention 30 hari pengguna terdaftar (**target: ≥25%** — sebelumnya tidak berangka sehingga tidak bisa dinilai tercapai atau tidak).
 - Tingkat penyelesaian alur kalkulator (dari mulai input hingga simpan hasil) ≥ 60%.
 - Waktu rata-rata pemuatan modul News < 2 detik (dengan cache).
-- **Metrik retensi utama yang sesungguhnya: persentase pengguna yang mencatat setoran (FR-32) minimal sekali dalam 30 hari setelah membuat tujuan (target: ≥30%).** Membuat kalkulasi hanyalah aktivitas sekali jalan; mencatat realisasi adalah alasan pengguna kembali tiap bulan.
+- **Metrik retensi utama yang sesungguhnya: persentase pengguna yang mencatat setoran (FR-32) minimal sekali dalam 30 hari setelah membuat tujuan (target: ≥30%).** Membuat kalkulasi hanyalah aktivitas sekali jalan; mencatat realisasi adalah alasan pengguna kembali tiap bulan. *(FR-32 sudah dipensiunkan — D-10. Padanannya kini penyisihan lewat "Sudah saya sisihkan" (FR-85), yang tercatat sebagai aktivitas `goal_set_aside`.)*
 
 > Catatan: seluruh metrik di atas bergantung pada NFR-8. Tanpa instrumentasi event, tidak satu pun dapat diukur.
 
@@ -275,7 +362,7 @@ MVP dipecah jadi tiga rilis. Alasannya: dana pensiun terlihat seperti fitur ungg
 
 | Rilis | Fokus | Kenapa di sini |
 |---|---|---|
-| **Rilis 1 — produk utuh terkecil** | Auth (+ verifikasi email, rate limit), kalkulator **2 kategori**: beli rumah & beli kendaraan, pencatatan setoran (FR-32..36), dashboard progres, pengingat kalender (FR-57..62), hapus/ekspor akun (FR-37..38) | Matematika kedua kategori ini paling lurus: satu target nominal, satu tanggal. Sudah menjadi produk yang benar-benar bisa dipakai orang, dan sudah punya alasan pengguna kembali tiap bulan. |
+| **Rilis 1 — produk utuh terkecil** | Auth (+ verifikasi email, rate limit), kalkulator **2 kategori**: beli rumah & beli kendaraan, pencatatan setoran (FR-32..36 — *FR-32..34 kemudian dipensiunkan, lihat D-10*), dashboard progres, pengingat kalender (FR-57..62), hapus/ekspor akun (FR-37..38) | Matematika kedua kategori ini paling lurus: satu target nominal, satu tanggal. Sudah menjadi produk yang benar-benar bisa dipakai orang, dan sudah punya alasan pengguna kembali tiap bulan. |
 | **Rilis 2 — kedalaman finansial** | Mesin rekomendasi instrumen + blended return (FR-10..12, FR-23..27), **kalkulator utilitas** Pinjaman/KPR & Investasi (FR-41..45), lalu kategori **dana darurat**, **dana pendidikan**, dan **dana pensiun** | Rekomendasi lebih dulu karena ia memberi makan estimasi return kalkulator. Kalkulator utilitas ditaruh di sini karena memakai keluarga rumus yang sama dan biayanya rendah setelah mesin kalkulator terbukti benar — sekaligus jadi pintu masuk pengguna baru lewat FR-44. Tiga kategori tujuan sisanya butuh penentu target tersendiri (FR-20..22). |
 | **Rilis 3 — modul News** | Ingest + klasifikasi kategori (FR-16..18, FR-28..30), panel berita | Ditaruh terakhir karena bergantung pada pihak ketiga yang kualitasnya belum terverifikasi. **Gerbang mulai: uji kualitas hasil pencarian Currents dengan kata kunci nyata.** Bila hasilnya kurang, ganti sumber atau coret modul — jangan dipaksakan. |
 
@@ -283,16 +370,28 @@ MVP dipecah jadi tiga rilis. Alasannya: dana pensiun terlihat seperti fitur ungg
 
 | Fase | Fokus |
 |---|---|
-| Fase 2 | **Dompet (FR-47..FR-51)** lalu **Detail Alokasi Tujuan (FR-52..FR-56)**, Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
+| Fase 2 | **Dompet (FR-47..FR-51)** — *tabel `wallets` tidak pernah dibuat; kebutuhannya kini dijawab Rekening & aset (FR-63), lihat catatan status di §6.10* — lalu **Detail Alokasi Tujuan (FR-52..FR-56)**, Kalkulator Pajak PPh 21 (FR-46), notifikasi pengingat setoran, perhitungan return neto pajak (mengaktifkan D-3) |
 | Fase 3 | Multi-currency, family sharing, integrasi data pasar real-time (sekaligus membuka kembali Panel Indeks Pasar, lihat D-4) |
 
 > **Urutannya mengikat: Dompet dulu, Detail Alokasi menyusul.** Detail alokasi menurunkan komposisinya dari `wallets.instrument_type` (FR-53), jadi tanpa Dompet ia tidak punya bahan sama sekali. Ia juga membandingkan realisasi terhadap alokasi yang disarankan, sehingga ikut menunggu mesin rekomendasi instrumen (FR-23..27) di Rilis 2.
 >
 > Dompet sendiri **tidak menunggu apa pun** dan secara teknis bisa dimajukan ke Rilis 1 — nilainya bagi pengguna baru terasa penuh setelah Detail Alokasi ada, tetapi memajukannya berarti setoran mulai mencatat asal dompet lebih awal, sehingga saat Detail Alokasi menyala datanya sudah terkumpul, bukan kosong.
 
+**Yang sudah dibangun: perluasan menjadi pencatat keuangan (24–25 Sep 2026)**
+
+Di luar urutan rilis di atas, aplikasi berkembang dari kalkulator/simulasi menjadi pencatat uang dalam lima fase. Penomoran "Fase 1–5" di tabel ini hanya berlaku untuk perluasan ini dan **tidak sama** dengan Fase 2/Fase 3 pada tabel "Setelah MVP".
+
+| Fase | Commit | Yang dibangun | FR |
+|---|---|---|---|
+| **Fase 1 — rekening, transaksi, investasi** | `a485a88`, perbaikan `6abc48e` | Tabel `accounts`, `transactions`, dan `debts` (tabel utang dibuat lebih dulu karena `transactions.debt_id` menunjuk ke sana); `AccountBalanceService` + `LedgerGuard`; halaman Rekening & aset, Transaksi, Investasi, dan penilaian ulang. `6abc48e` memperbaiki error 500 saat menambah rekening dan memindahkan form tambah investasi ke halaman Investasi | FR-63..FR-69, FR-71, FR-72 |
+| **Fase 2 — utang & cicilan** | `9d0c9bf` | Halaman Utang & cicilan; pembayaran pokok lewat transaksi `payment` | FR-70 |
+| **Fase 3 — alokasi & rencana menabung** | `4537b6c` | **Pencatatan setoran kalender dipensiunkan** (D-10); dana tujuan menjadi alokasi yang menandai saldo rekening (D-11); prioritas tujuan; tabel `budgets`; halaman Rencana menabung; ekspor Excel mengganti sheet Setoran dengan sheet Transaksi | FR-73..FR-78 |
+| **Fase 4 — dashboard kekayaan** | `a03befd` | Dashboard baru: kekayaan bersih, arus kas bulan yang dilihat, komposisi aset, transaksi terbaru | FR-79..FR-82 |
+| **Fase 5 — data & umpan balik** | `052554a`, `06206b8`, `fc6845a`, + perubahan yang belum di-commit | Cadangan & pemulihan JSON (halaman Data & cadangan); Riwayat memuat transaksi (D-15); tombol "Sudah saya sisihkan" + `user_activities.financial_goal_id`; pesan `LedgerGuard` yang menyebut angkanya; perbaikan istilah ("dana tujuan", "perkiraan penghasilan"). Di working tree: kebutuhan bulan ini dihitung dari dana awal bulan, `remaining_this_month`, dan isian "Jumlah lain…" (`TombolSisihkan.jsx`) | FR-83, FR-84, FR-85 |
+
 ## 13. Keputusan yang Sudah Diambil
 
-Disetujui 2026-08-23. Setiap keputusan disertai alasan agar bisa ditinjau ulang bila asumsinya berubah.
+Disetujui 2026-08-23; D-10..D-15 menyusul 24–25 Sep 2026 bersama lapisan uang (§6.13–§6.18). Setiap keputusan disertai alasan agar bisa ditinjau ulang bila asumsinya berubah.
 
 | # | Keputusan | Alasan |
 |---|---|---|
@@ -305,3 +404,9 @@ Disetujui 2026-08-23. Setiap keputusan disertai alasan agar bisa ditinjau ulang 
 | D-7 | Angka default return/inflasi disimpan **beserta `rates_as_of` dan `rates_source`**, ditinjau setahun sekali. Nilai awal wajib diverifikasi ke sumber resmi saat seeding, bukan diambil dari dokumen ini. | Angka ini langsung membentuk hasil yang dilihat pengguna. Angka tanpa sumber dan tanpa tanggal berlaku adalah utang teknis yang diam-diam menyesatkan. Sumber acuan: BPS (inflasi umum & pendidikan), Bank Indonesia (BI Rate), LPS (bunga penjaminan deposito), Kemenkeu DJPPR (kupon SBN ritel), OJK/BEI (kinerja jangka panjang indeks). |
 | D-8 | **Agregasi dashboard dihitung di backend** (`DashboardSummaryService`), bukan frontend menjumlahkan sendiri daftar goals. | Satu sumber kebenaran untuk rumus total aset, keamanan kepemilikan data terikat ke user yang login, dan menghindari duplikasi agregasi time-series untuk grafik pertumbuhan aset. Detail lengkap di CLAUDE.md §6.9. |
 | D-9 | **Arsitektur aplikasi adalah Laravel + Inertia.js satu origin (Breeze), bukan React SPA terpisah + REST API.** Auth memakai guard `web` (session/cookie) bawaan Breeze. `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN` custom, `FRONTEND_URL`, dan konfigurasi CORS **tidak dipakai** — semua penanda pola SPA terpisah yang sudah gugur. Tidak ada `routes/api.php`; controller mengirim data lewat `Inertia::render(..., $props)`. | Repo yang di-scaffold tim ternyata sudah memakai `laravel/breeze` + `inertiajs/inertia-laravel` (dikonfirmasi lewat `composer.json`, `bootstrap/app.php`, dan `app/Http/Middleware/HandleInertiaRequests.php` yang sudah membagikan `auth.user` ke semua halaman), bukan scaffolding SPA+API kosong seperti diasumsikan D-5. Auth (register/login/logout/protected route) sudah tersedia gratis dari Breeze dan sudah teruji — membongkarnya untuk mengejar pola SPA murni berarti menulis ulang bagian paling rawan-bug dari nol tanpa manfaat yang dibutuhkan di lingkup MVP (lihat "Di Luar Lingkup" — mobile native bukan target MVP). Detail lengkap & kontrak props di CLAUDE.md §2, §3, §8, §10.1. |
+| D-10 | **Pencatatan setoran kalender dipensiunkan (25 Sep 2026).** FR-32..FR-34 dan FR-48 ditutup; `GoalContributionController`, form setoran di kalender, dan route `goals.contributions.*` dihapus. Tabel `goal_contributions` **dipertahankan tanpa jalan tulis** — nilainya sudah dipindahkan ke `allocated_amount` oleh migrasi, dan model `GoalContribution` hanya dipakai saat menghapus tujuan. | Begitu rekening dan transaksi ada, setoran ke tujuan menjadi tempat kedua untuk mencatat uang yang sama, dan kedua angka itu akan menyimpang (komentar `DashboardSummaryService`). Tabelnya tidak di-drop supaya riwayat yang terlanjur tercatat tidak hilang; bila kelak pasti tidak dibutuhkan, di-drop lewat migrasi tersendiri. |
+| D-11 | **Alokasi menandai saldo, tidak memindahkan uang.** Dana tujuan = `financial_goals.allocated_amount` pada satu rekening **bank/tunai**; total alokasi per rekening ≤ saldonya, diperiksa `LedgerGuard` dari dua arah. | Menandai tidak mengurangi saldo dan tidak menciptakan uang baru; tanpa batas saldo, uang yang sama bisa ditandai untuk DP rumah sekaligus dana darurat. Saham dan emas dikecualikan karena nilainya bisa turun setelah ditandai, sehingga target meleset diam-diam (`AccountKind::likuid()`). |
+| D-12 | **Saldo rekening, sisa utang, dan status lunas tidak disimpan sebagai kolom** — selalu diturunkan dari `opening_balance`/`principal` ditambah riwayat transaksi. | Alasan yang sama seperti FR-34: kolom cache berarti dua sumber kebenaran yang menyimpang begitu transaksi disunting atau dihapus. `AccountBalanceService` menghitung semuanya sekali untuk semua rekening, bukan satu kueri per rekening. |
+| D-13 | **Invarian buku besar diperiksa sesudah penulisan**, di dalam `DB::transaction` yang sama, lalu dibatalkan bila dilanggar (`LedgerGuard`). Pesannya dilempar sebagai `ValidationException` berbahasa Indonesia yang menyebut angkanya. | Aturannya bergantung pada keadaan **hasil**: menyunting transaksi lama, memindahkannya ke rekening lain, atau mengubah nominal pembayaran memengaruhi banyak angka sekaligus. Memeriksa di depan berarti satu cabang manual per jenis suntingan. |
+| D-14 | **Investasi adalah rekening non-likuid, bukan tabel tersendiri; penilaian ulang disimpan sebagai selisih** (`adjustment`), bukan menimpa saldo. | Tabel terpisah membuat nilai investasi berhenti terhitung dalam total aset. Lewat selisih, perubahan nilai punya tanggal, muncul di riwayat, dan bisa dibatalkan. |
+| D-15 | **Riwayat menggabungkan `user_activities` dan `transactions` saat dibaca** (UNION di basis data), transaksi tidak disalin ke `user_activities`. Pengecualiannya penyisihan (`goal_set_aside`), yang memang dicatat ke `user_activities`. | Salinan akan tetap menyebut angka lama setelah transaksi disunting. Penyisihan dicatat karena ia tidak terekam di mana pun: `allocated_amount` hanya angka berjalan. |
