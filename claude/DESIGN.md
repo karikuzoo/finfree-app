@@ -222,6 +222,8 @@ Latar belakangnya kasus nyata: sebuah target terisi Rp 125.000.000.000 padahal m
 ### 5.11 Pola lain di lapisan uang
 
 - **Dana tujuan dijelaskan di formnya sendiri**: alokasi menandai saldo, tidak memindahkan uang. Tanpa kalimat itu orang mengira menandai 10 juta mengurangi saldo banknya (`SavingsPlan/Index.jsx`).
+- **"Untuk tujuan" / "Bebas dipakai" di kartu rekening.** Saldo penuh tetap angka utama kartu; di bawahnya batang tipis lime untuk porsi yang ditandai tujuan, nama tujuan-tujuannya, lalu "Bebas dipakai" dengan tebal. Tidak tampil pada rekening tanpa dana tujuan (`Account/Index.jsx`, `RincianDanaTujuan`).
+- **Batas terlihat sebelum menyimpan.** Form yang mengambil uang — pengeluaran, transfer keluar, pembayaran utang — menampilkan `KeteranganRekening` di bawah pilihan rekening: "Bebas dipakai Rp … — Rp … lainnya untuk …". Saat menyunting transaksi dari rekening yang sama, nominal lamanya ikut dihitung kembali. Angkanya dari `AccountBalanceService::availability`, definisi yang sama dengan yang dipakai `LedgerGuard` untuk menolak — tampilan dan penolakan tidak boleh berbeda satu rupiah pun.
 - **Istilah**: "dana tujuan" / "dana terkumpul" untuk `allocated_amount` di antarmuka, bukan "dana ditandai"; anggaran memakai "perkiraan penghasilan" dan "perkiraan pengeluaran".
 - **Dashboard mendahulukan uang, baru tujuan.** Empat kartu teratas; kekayaan bersih satu-satunya berkartu gradien karena hanya ia yang menjawab "berapa uang saya sebenarnya".
 - **Aksi berbahaya dibedakan dari tampilannya**: di Data & cadangan, pemulihan memakai tombol bahaya dan dialog konfirmasi yang menyebut apa yang akan hilang; mengunduh cadangan memakai tombol biasa.

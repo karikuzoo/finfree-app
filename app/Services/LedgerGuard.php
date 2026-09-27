@@ -51,13 +51,14 @@ class LedgerGuard
      */
     private function assertAllocationsWithinBalance(User $user, string $field): void
     {
-        $ditandai = $user->goals()
-            ->whereNotNull('account_id')
-            ->selectRaw('account_id, SUM(allocated_amount) AS total')
-            ->groupBy('account_id')
-            ->pluck('total', 'account_id');
+        // Definisi yang sama dengan yang ditampilkan sebagai "untuk tujuan" di
+        // halaman Rekening — lihat AccountBalanceService::allocatedByAccount.
+        $ditandai = array_map(
+            fn (array $r) => $r['total'],
+            $this->saldo->allocatedByAccount($user),
+        );
 
-        if ($ditandai->isEmpty()) {
+        if ($ditandai === []) {
             return;
         }
 

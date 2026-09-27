@@ -67,6 +67,96 @@ class AccountBalanceService
         return array_map(fn (float $n) => round($n, 2), $saldo);
     }
 
+    /**
+     * Dana tujuan yang ditandai di tiap rekening, dipetakan
+     * `account_id => ['total' => …, 'goals' => [['id', 'name', 'amount'], …]]`.
+     *
+     * SATU-SATUNYA definisi "untuk tujuan". LedgerGuard memakainya untuk
+     * menolak, halaman Rekening dan form Transaksi memakainya untuk
+     * menampilkan "bebas dipakai". Kalau keduanya menghitung sendiri-sendiri,
+     * tampilan bisa bilang bebas Rp 45 juta sementara pengeluaran Rp 40 juta
+     * tetap ditolak — lebih buruk daripada tidak menampilkan apa-apa.
+     *
+     * Status tujuan TIDAK disaring: dana tujuan yang sudah tercapai atau
+     * diarsipkan tetap menandai saldonya sampai alokasinya dikurangi sendiri.
+     *
+     * @return array<int, array{total: float, goals: array<int, array{id: int, name: string, amount: float}>}>
+     */
+    public function allocatedByAccount(User $user): array
+    {
+        return $user->goals()
+            ->whereNotNull('account_id')
+            ->where('allocated_amount', '>', 0)
+            ->orderByDesc('allocated_amount')
+            ->get(['id', 'account_id', 'name', 'allocated_amount'])
+            ->groupBy('account_id')
+            ->map(fn (Collection $tujuan) => [
+                'total' => round((float) $tujuan->sum('allocated_amount'), 2),
+                'goals' => $tujuan->map(fn ($g) => [
+                    'id' => $g->id,
+                    'name' => $g->name,
+                    'amount' => (float) $g->allocated_amount,
+                ])->values()->all(),
+            ])
+            ->all();
+    }
+
+    /**
+     * Saldo, dana tujuan, dan sisa yang bebas dipakai per rekening, dipetakan
+     * `account_id => […]`. Dipakai halaman Rekening dan setiap form yang
+     * mengambil uang dari rekening (transaksi, pembayaran utang).
+     *
+     * `free` = saldo − dana tujuan: batas yang ditegakkan LedgerGuard untuk
+     * pengeluaran dari rekening itu.
+     *
+     * @return array<int, array{balance: float, allocated: float, free: float, allocated_goals: array}>
+     */
+    public function availability(User $user): array
+    {
+        $saldo = $this->forUser($user);
+        $ditandai = $this->allocatedByAccount($user);
+
+        $hasil = [];
+
+        foreach ($saldo as $id => $nilai) {
+            $untukTujuan = $ditandai[$id]['total'] ?? 0.0;
+
+            $hasil[$id] = [
+                'balance' => $nilai,
+                'allocated' => $untukTujuan,
+                'free' => round($nilai - $untukTujuan, 2),
+                'allocated_goals' => $ditandai[$id]['goals'] ?? [],
+            ];
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Daftar rekening untuk pilihan di form yang mengambil uang, beserta
+     * ketersediaannya — supaya batasnya terlihat SEBELUM menyimpan, bukan
+     * baru ketahuan saat ditolak.
+     *
+     * @return array<int, array{id: int, name: string, kind: string, balance: float, allocated: float, free: float, allocated_goals: array}>
+     */
+    public function accountOptions(User $user): array
+    {
+        $tersedia = $this->availability($user);
+
+        return $user->accounts()
+            ->orderBy('name')
+            ->get(['id', 'name', 'kind'])
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+                'kind' => $r->kind->value,
+                ...($tersedia[$r->id] ?? [
+                    'balance' => 0.0, 'allocated' => 0.0, 'free' => 0.0, 'allocated_goals' => [],
+                ]),
+            ])
+            ->all();
+    }
+
     /** Jumlah seluruh saldo — nilai aset kotor, belum dikurangi utang. */
     public function totalAssets(User $user): float
     {

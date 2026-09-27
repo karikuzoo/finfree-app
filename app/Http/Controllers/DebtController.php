@@ -68,7 +68,7 @@ class DebtController extends Controller
                 $utang->where('settled', false)->sum('monthly_principal'),
                 2,
             ),
-            'accounts' => $user->accounts()->orderBy('name')->get(['id', 'name']),
+            'accounts' => $this->saldo->accountOptions($user),
         ]);
     }
 

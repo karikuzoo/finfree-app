@@ -27,7 +27,7 @@ class AccountController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $saldo = $this->saldo->forUser($user);
+        $tersedia = $this->saldo->availability($user);
 
         $rekening = $user->accounts()
             ->orderBy('created_at')
@@ -39,7 +39,13 @@ class AccountController extends Controller
                 'kind_label' => $r->kind->label(),
                 'institution' => $r->institution,
                 'opening_balance' => (float) $r->opening_balance,
-                'balance' => $saldo[$r->id] ?? 0.0,
+                'balance' => $tersedia[$r->id]['balance'] ?? 0.0,
+                // Saldo penuh tetap angka utamanya — uangnya memang masih di
+                // rekening ini. Dua angka di bawah menjelaskan kenapa
+                // pengeluaran bisa ditolak padahal saldonya tampak cukup.
+                'allocated' => $tersedia[$r->id]['allocated'] ?? 0.0,
+                'allocated_goals' => $tersedia[$r->id]['allocated_goals'] ?? [],
+                'free' => $tersedia[$r->id]['free'] ?? 0.0,
                 // Nilainya bergerak sendiri mengikuti pasar, jadi kartunya
                 // menawarkan "Perbarui nilai" alih-alih "Pindahkan dana".
                 'needs_valuation' => $r->kind->perluPenilaian(),

@@ -110,6 +110,62 @@ function RingkasanAset({ total, composition }) {
     );
 }
 
+/**
+ * Berapa dari saldo ini yang sudah punya tujuan, dan berapa yang bebas.
+ *
+ * Saldo penuh tetap angka utama kartu — uangnya memang masih di rekening
+ * ini; dana tujuan hanya MENANDAI, tidak memindahkan. Rincian ini menjelaskan
+ * kenapa pengeluaran bisa ditolak padahal saldonya tampak cukup: batasnya
+ * adalah "bebas dipakai", bukan saldo.
+ *
+ * Tidak tampil sama sekali pada rekening yang tidak dipakai tujuan mana pun.
+ */
+function RincianDanaTujuan({ rekening }) {
+    if (rekening.allocated <= 0) {
+        return null;
+    }
+
+    const persen =
+        rekening.balance > 0
+            ? Math.min(100, (rekening.allocated / rekening.balance) * 100)
+            : 100;
+
+    return (
+        <div className="mt-3">
+            <div
+                className="h-1.5 overflow-hidden rounded-full bg-border"
+                role="img"
+                aria-label={`${persen.toFixed(0)}% saldo untuk tujuan`}
+            >
+                <div
+                    className="h-full rounded-full bg-lime-500"
+                    style={{ width: `${Math.max(1.5, persen)}%` }}
+                />
+            </div>
+
+            <dl className="mt-2.5 space-y-1 text-xs">
+                <div className="flex justify-between gap-2">
+                    <dt className="min-w-0 text-text-muted">
+                        Untuk tujuan
+                        <span className="block truncate text-text-secondary">
+                            {rekening.allocated_goals.map((g) => g.name).join(", ")}
+                        </span>
+                    </dt>
+                    <dd className="num-tabular shrink-0 text-text-secondary">
+                        {formatRupiah(rekening.allocated)}
+                    </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                    <dt className="text-text-muted">Bebas dipakai</dt>
+                    <dd className="num-tabular shrink-0 font-semibold text-text-primary">
+                        {formatRupiah(rekening.free)}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    );
+}
+
 function KartuRekening({ rekening, onSunting }) {
     const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
     const form = useForm({});
@@ -140,6 +196,8 @@ function KartuRekening({ rekening, onSunting }) {
             <p className="num-tabular mt-4 text-xl font-bold text-text-primary">
                 {formatRupiah(rekening.balance)}
             </p>
+
+            <RincianDanaTujuan rekening={rekening} />
 
             <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
                 <div className="flex justify-between gap-2">

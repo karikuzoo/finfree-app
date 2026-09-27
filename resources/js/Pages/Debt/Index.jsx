@@ -3,6 +3,7 @@ import CurrencyInput from "@/Components/CurrencyInput";
 import DangerButton from "@/Components/DangerButton";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
+import KeteranganRekening from "@/Components/KeteranganRekening";
 import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -391,6 +392,11 @@ function FormPembayaran({ utang, accounts, onClose }) {
                             </option>
                         ))}
                     </select>
+                    <KeteranganRekening
+                        rekening={accounts.find(
+                            (r) => String(r.id) === String(form.data.account_id),
+                        )}
+                    />
                     <InputError message={form.errors.account_id} className="mt-2" />
                 </div>
 

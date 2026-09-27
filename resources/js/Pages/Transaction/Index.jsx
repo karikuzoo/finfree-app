@@ -3,6 +3,7 @@ import CurrencyInput from "@/Components/CurrencyInput";
 import DangerButton from "@/Components/DangerButton";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
+import KeteranganRekening from "@/Components/KeteranganRekening";
 import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -368,6 +369,18 @@ function FormTransaksi({ show, transaksi, accounts, debts, types, onClose }) {
     const pembayaran = form.data.type === BUTUH_UTANG;
     const penyesuaian = form.data.type === "adjustment";
 
+    // Hanya jenis yang MENGAMBIL uang dari rekening yang dibatasi dana tujuan.
+    const mengambil = (jenis) => ["expense", BUTUH_TUJUAN, BUTUH_UTANG].includes(jenis);
+    const rekeningDipilih = accounts.find(
+        (r) => String(r.id) === String(form.data.account_id),
+    );
+    const kembalikan =
+        menyunting &&
+        mengambil(transaksi.type) &&
+        String(transaksi.account_id) === String(form.data.account_id)
+            ? transaksi.amount
+            : 0;
+
     return (
         <Modal show={show} onClose={onClose} maxWidth="lg">
             <form onSubmit={simpan} className="space-y-5 p-6">
@@ -419,6 +432,12 @@ function FormTransaksi({ show, transaksi, accounts, debts, types, onClose }) {
                                 </option>
                             ))}
                         </select>
+                        {mengambil(form.data.type) && (
+                            <KeteranganRekening
+                                rekening={rekeningDipilih}
+                                kembalikan={kembalikan}
+                            />
+                        )}
                         <InputError message={form.errors.account_id} className="mt-2" />
                     </div>
 

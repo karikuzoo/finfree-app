@@ -67,7 +67,7 @@ class TransactionController extends Controller
             'transactions' => $transaksi,
             'bulan' => $bulan,
             'cashFlow' => $this->saldo->monthlyCashFlow($user, $bulan),
-            'accounts' => $user->accounts()->orderBy('name')->get(['id', 'name', 'kind']),
+            'accounts' => $this->saldo->accountOptions($user),
             'debts' => $user->debts()->orderBy('name')->get(['id', 'name']),
             'types' => collect(TransactionType::cases())->map(fn (TransactionType $t) => [
                 'value' => $t->value,
