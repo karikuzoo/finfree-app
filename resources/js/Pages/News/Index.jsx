@@ -22,7 +22,7 @@ export default function NewsIndex({ articles, categories, activeCategory, lastUp
         <PublicLayout>
             <Head title="Berita" />
 
-            <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold tracking-tight text-text-primary">
                     Berita &amp; Analisis Keuangan
                 </h1>
@@ -33,7 +33,7 @@ export default function NewsIndex({ articles, categories, activeCategory, lastUp
                     finansial.
                 </p>
 
-                <nav aria-label="Kategori berita" className="mt-8 flex flex-wrap gap-2">
+                <nav aria-label="Kategori berita" className="mt-6 flex flex-wrap gap-2">
                     <Chip href={route('news.index')} aktif={activeCategory === null} jumlah={totalSemua}>
                         Semua
                     </Chip>
@@ -51,8 +51,14 @@ export default function NewsIndex({ articles, categories, activeCategory, lastUp
 
                 {stale && totalSemua > 0 && <BannerBasi lastUpdated={lastUpdated} />}
 
+                {/*
+                    Dua kolom mulai layar sedang: satu kolom membuat 20 kartu
+                    memanjang empat layar. Kartunya sengaja pendek — judul
+                    maks. 3 baris, ringkasan 2 — karena yang dicari di sini
+                    adalah judul, isinya dibaca di situs penerbit.
+                */}
                 {adaBerita ? (
-                    <ul className="mt-6 space-y-3">
+                    <ul className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
                         {articles.data.map((a) => (
                             <KartuBerita key={a.id} artikel={a} tampilkanKategori={activeCategory === null} />
                         ))}
@@ -95,7 +101,7 @@ export default function NewsIndex({ articles, categories, activeCategory, lastUp
                     Disclaimer permanen, bukan sekali tampil (NFR-9): berita
                     yang dihimpun otomatis mudah terbaca sebagai rekomendasi.
                 */}
-                <p className="mt-10 border-t border-border pt-5 text-xs leading-relaxed text-text-muted">
+                <p className="mt-8 border-t border-border pt-5 text-xs leading-relaxed text-text-muted">
                     Berita dihimpun otomatis dari media pemberitaan melalui
                     NewsData.io dan diperbarui tiap jam. Arus tidak menulis,
                     menyunting, atau memverifikasi isinya — baca selengkapnya
@@ -127,7 +133,7 @@ function Chip({ href, aktif, jumlah, children }) {
 
 function KartuBerita({ artikel, tampilkanKategori }) {
     return (
-        <li className="rounded-card border border-border bg-bg-card p-5 transition hover:border-border-strong">
+        <li className="flex flex-col rounded-card border border-border bg-bg-card p-4 transition hover:border-border-strong">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
                 {tampilkanKategori && artikel.category_label && (
                     <>
@@ -140,7 +146,7 @@ function KartuBerita({ artikel, tampilkanKategori }) {
                 <time dateTime={artikel.published_at}>{formatRelativeTime(artikel.published_at)}</time>
             </div>
 
-            <h2 className="mt-2 text-base font-semibold leading-snug text-text-primary">
+            <h2 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-text-primary">
                 {/*
                     Tab baru, karena artikelnya di situs lain dan pembaca
                     kembali ke daftar ini. `noopener noreferrer` supaya situs
@@ -158,10 +164,18 @@ function KartuBerita({ artikel, tampilkanKategori }) {
                 </a>
             </h2>
 
+            {/*
+                Disembunyikan di ponsel: di layar sempit dua baris ringkasan
+                hampir menggandakan tinggi kartu, dan judul sudah cukup untuk
+                memilih mana yang dibuka. Pembungkusnya yang disembunyikan,
+                bukan <p>-nya — `line-clamp` butuh display-nya sendiri.
+            */}
             {artikel.summary && (
-                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-text-secondary">
-                    {artikel.summary}
-                </p>
+                <div className="hidden sm:block">
+                    <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-text-secondary">
+                        {artikel.summary}
+                    </p>
+                </div>
             )}
         </li>
     );

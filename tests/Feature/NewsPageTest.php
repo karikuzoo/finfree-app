@@ -112,7 +112,7 @@ class NewsPageTest extends TestCase
                 ->where('categories.2.count', 0));
     }
 
-    public function test_berita_dipaginasi_dua_puluh(): void
+    public function test_berita_dipaginasi_dua_belas(): void
     {
         foreach (range(1, 25) as $i) {
             $this->berita("Berita {$i}", 'pasar-saham', $i);
@@ -120,8 +120,8 @@ class NewsPageTest extends TestCase
 
         $this->get(route('news.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->has('articles.data', 20)
-                ->where('articles.last_page', 2));
+                ->has('articles.data', 12)
+                ->where('articles.last_page', 3));
     }
 
     // ── Basi ────────────────────────────────────────────────────────────

@@ -35,7 +35,9 @@ class NewsController extends Controller
             ->when($aktif, fn ($q) => $q->where('category', $aktif))
             ->orderByDesc('published_at')
             ->orderByDesc('id')
-            ->paginate(20)
+            // 12, bukan 20: dengan 20 kartu halamannya memanjang empat layar,
+            // dan berita di bawah jarang terbaca. 12 genap untuk dua kolom.
+            ->paginate(12)
             ->withQueryString()
             ->through(fn (NewsArticle $a) => [
                 'id' => $a->id,
