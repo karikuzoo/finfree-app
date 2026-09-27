@@ -30,7 +30,7 @@ Dibangun sebagai **satu aplikasi Laravel + Inertia**, bukan dua project terpisah
 | Database | **PostgreSQL 17** (`.env.example` sudah `pgsql`, ekstensi `ext-pdo_pgsql` diwajibkan di `composer.json`) |
 | Node | **22 LTS**, minimum 20.19 — dikunci di `package.json` → `engines` (syarat Vite 7) |
 | Cache (opsional) | Redis atau tabel cache di PostgreSQL |
-| API eksternal | Currents API (currentsapi.services) — free tier, untuk modul News |
+| API eksternal | NewsData.io — paket gratis, untuk modul News (PRD D-16; menggantikan Currents API yang tidak lolos uji gerbang) |
 | Queue/Scheduler | Laravel Scheduler + Queue. `composer run dev` sudah menjalankan `queue:listen` — lihat §9 |
 | Routing tambahan | Semua route (termasuk kalkulator utilitas publik) didaftarkan sebagai route Inertia biasa di `routes/web.php`. **Tidak ada `routes/api.php`** — lihat D-9 |
 
@@ -63,10 +63,11 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   │   ├── SavingsPlanController.php           # rencana, anggaran, alokasi, "sisihkan" (FR-73..FR-78, FR-85)
 │   │   │   ├── DataController.php                  # cadangan & pemulihan JSON (FR-83, FR-84)
 │   │   │   └── HistoryController.php               # riwayat = user_activities UNION transactions
-│   │   │   # Tidak ada controller untuk /kalkulator (utilitas pinjaman & investasi) dan
-│   │   │   # /berita — keduanya closure Inertia::render di routes/web.php. Rancangan lama
-│   │   │   # (FinancialGoalController, CalculatorController, UtilityCalculatorController,
-│   │   │   # InvestmentRecommendationController, NewsController) tidak pernah dibuat.
+│   │   │   ├── NewsController.php                  # halaman Berita — hanya MEMBACA news_article_cache (§7)
+│   │   │   # Tidak ada controller untuk /kalkulator (utilitas pinjaman & investasi) —
+│   │   │   # closure Inertia::render di routes/web.php. Rancangan lama (FinancialGoalController,
+│   │   │   # CalculatorController, UtilityCalculatorController, InvestmentRecommendationController)
+│   │   │   # tidak pernah dibuat.
 │   │   └── Middleware/
 │   │       └── HandleInertiaRequests.php           # bawaan Breeze — taruh shared props (user login dsb) di sini
 │   ├── Enums/
@@ -87,8 +88,9 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   ├── UserActivity.php
 │   │   ├── GoalCalculation.php
 │   │   ├── CalendarNote.php
-│   │   └── Reminder.php
-│   │   # InvestmentInstrument & NewsArticleCache: rancangan, belum dibuat
+│   │   ├── Reminder.php
+│   │   └── NewsArticle.php         # tabel news_article_cache; diisi hanya oleh NewsIngestService
+│   │   # InvestmentInstrument: rancangan, belum dibuat
 │   ├── Services/
 │   │   ├── GoalCalculatorService.php       # rumus future value of annuity
 │   │   ├── DashboardSummaryService.php     # agregasi lintas goals milik satu user (§6.9)
@@ -97,9 +99,12 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   ├── LedgerGuard.php                 # invarian buku besar, diperiksa SESUDAH menulis (PRD D-13)
 │   │   ├── SavingsPlanService.php          # kemampuan menabung dibagi ke tujuan (FR-74..FR-78)
 │   │   ├── BackupService.php               # ekspor/impor cadangan JSON (FR-83, FR-84)
-│   │   └── AvatarService.php               # simpan & ganti foto profil
-│   # CurrentsNewsService dan app/Jobs/FetchLatestNewsJob.php: rancangan modul News
-│   # (Rilis 3), belum dibuat — halaman /berita belum mengambil dari Currents API.
+│   │   ├── AvatarService.php               # simpan & ganti foto profil
+│   │   └── NewsIngestService.php           # NewsData.io → news_article_cache; satu-satunya yang menyentuh kunci API (§7)
+│   └── Jobs/
+│       └── FetchLatestNewsJob.php          # dijadwalkan tiap jam di routes/console.php
+├── config/
+│   └── news.php                # kueri per kategori, media, pola klasifikasi, pengecualian (FR-28)
 ├── database/
 │   ├── migrations/
 │   └── seeders/               # default rate return/inflasi per kategori, master instrumen investasi
@@ -400,13 +405,21 @@ goal_recommended_allocations
   -- Menempel ke kalkulasi membuat alokasi ikut ter-snapshot: saat aturan alokasi
   -- diubah admin, hasil lama tetap bisa direproduksi. Lihat keputusan D-6 di PRD.
 
-news_article_cache
-  id, source, category, title, summary, url, image_url,
-  published_at, fetched_at
-  UNIQUE (url)                                 -- WAJIB: job berjalan tiap 30-60 menit
-                                               -- dan akan mengambil artikel yang sama
-                                               -- berulang kali (FR-29)
-  INDEX (category, published_at DESC)
+news_article_cache                             -- migrasi 2026_09_27_090000; model NewsArticle
+  id,
+  url varchar(2048) UNIQUE,                    -- WAJIB: job berjalan tiap jam dan akan
+                                               -- mengambil artikel yang sama berulang
+                                               -- kali (FR-29). UNIQUE di DB, bukan hanya
+                                               -- di kode: dua job tumpang tindih pun aman
+  title varchar(500), summary text NULL,
+  source varchar(100),                         -- source_id NewsData.io, mis. "kontan_co_id"
+  source_name varchar(150) NULL,               -- nama tampilan, mis. "Kontan Co Id"
+  category varchar(50),                        -- slug dari config/news.php, BUKAN enum
+  published_at timestamp, fetched_at timestamp -- tanpa created_at/updated_at
+  INDEX (category, published_at), INDEX (published_at)
+  -- image_url di rancangan awal SENGAJA tidak ada: paket gratis NewsData.io
+  -- mengizinkan metadata dipakai, tetapi tidak gambar dan isi penuh (D-16).
+  -- Tidak menempel ke users: berita sama untuk semua orang, termasuk tamu.
 ```
 
 Migrasi wajib memasang `ON DELETE CASCADE` dari `users` ke bawah agar FR-37 (hapus akun) benar-benar menghapus seluruh jejak data.
@@ -575,13 +588,25 @@ Route baru (semua di grup `auth` pada `routes/web.php`):
 
 Route yang **dihapus** di `4537b6c`: `goals.contributions.store` (`POST /tujuan/{financialGoal}/setoran`), `goals.contributions.update` dan `goals.contributions.destroy` (`/setoran/{goalContribution}`).
 
-## 7. Integrasi Currents API
+## 7. Integrasi NewsData.io (modul Berita)
 
-- Endpoint: `https://api.currentsapi.services/v1/search` (free tier — perhatikan rate limit harian). **Verifikasi domain ini di dokumentasi resmi sebelum implementasi** — dokumen versi awal sempat menulis `api.currentsapi.io`, yang tidak sama dengan `currentsapi.services` yang disebut di tabel tech stack.
-- Currents adalah API **berita umum dunia**, bukan API keuangan Indonesia. Konsekuensi yang harus diantisipasi: cakupan berita finansial berbahasa Indonesia kemungkinan tipis, dan kategori pada FR-17 tidak tersedia dari sumber sehingga harus diklasifikasi sendiri saat ingest (FR-28). Uji kualitas hasil pencarian lebih dulu dengan beberapa kata kunci nyata sebelum modul News dianggap layak rilis; siapkan rencana cadangan (RSS media ekonomi lokal) bila hasilnya kurang.
-- Backend melakukan fetch berkala via `FetchLatestNewsJob` (Laravel Scheduler, misal tiap 30–60 menit) dan menyimpan ke tabel `news_article_cache`, bukan fetch langsung tiap request pengguna.
-- `NewsController@index` membaca dari `news_article_cache` dan mengirimkannya sebagai props Inertia ke halaman News — React **tidak pernah** memanggil Currents API atau endpoint `/api/news` sendiri lewat fetch/axios (tidak ada endpoint semacam itu). `CURRENTS_API_KEY` hanya pernah disentuh oleh job backend, tidak pernah terkirim ke browser dalam bentuk apa pun.
-- Sediakan fallback: jika fetch job gagal (limit habis/error), `NewsController` tetap mengirim props dari cache terakhir + `stale: true`, ditampilkan sebagai banner di halaman.
+> **Sumbernya NewsData.io, bukan Currents API** (PRD D-16, 27 Sep 2026). Currents tidak lolos uji gerbang Rilis 3: tidak ada bahasa Indonesia di daftar bahasanya, dan "suku bunga", "IHSG", "reksa dana", "inflasi" menghasilkan 0 artikel. Hasil uji keduanya ada di baris D-16.
+
+**Alur.** `routes/console.php` menjadwalkan `FetchLatestNewsJob` tiap jam → `NewsIngestService::run()` → `news_article_cache` → `NewsController@index` → props halaman `News/Index`. React **tidak pernah** memanggil NewsData.io, dan tidak ada endpoint `/api/news`.
+
+- **Endpoint:** `https://newsdata.io/api/1/latest`, dengan `country=id`, `language=id`, `domain=` lima media keuangan, dan `q=` kueri kategori. Semuanya dari `config/news.php`.
+- **Kunci** (`NEWSDATA_IO_API_KEY`) dikirim lewat **header `X-ACCESS-KEY`, bukan parameter URL**: pesan galat HTTP dan log memuat URL lengkap, dan kunci di dalam URL akan ikut tercatat. Hanya `NewsIngestService` yang membacanya; ia tidak pernah masuk props halaman mana pun. `phpunit.xml` sengaja mengosongkannya supaya test suite tidak memakai kunci sungguhan dari `.env`.
+- **Kuota:** paket gratis 200 kredit/hari, 10 artikel per kredit. Satu kueri per kategori per jam = 5 × 24 = 120. Sisanya cadangan untuk `php artisan news:fetch` (5 kredit sekali jalan).
+- **Satu kueri per kategori**, bukan satu kueri gabungan — gabungan OR tanpa batas kategori menurunkan ketepatan (uji gerbang). Kuerinya boleh memakai OR **di dalam** satu kategori karena sudah dibatasi media.
+- **Klasifikasi (FR-28, diubah D-16)** mencocokkan pola kategori ke judul + ringkasan: kategori kueri diutamakan bila polanya cocok, lalu kategori pertama lain yang cocok, lalu **dibuang** bila tidak ada yang cocok. Aturan awal "tidak cocok → Lainnya, tidak dibuang" ditinggalkan: pada pengambilan sungguhan pertama, artikel yang kata kuncinya hanya ada di isi berita adalah Posyandu, menteri yang marah di sawah, dan koin perak Romawi.
+- **Daftar pengecualian** (`news.exclude`) membuang ramalan zodiak, lowongan kerja, prakiraan cuaca, dan berita harta pejabat — semuanya ditemukan lolos meski kueri dan kategorinya benar.
+- **Pembersihan teks:** sebagian judul tiba dengan entitas HTML yang rusak di hulu (`danquot;` untuk `&quot;` — sumbernya mengganti `&` dengan "dan"). Dipulihkan di `cleanText()`.
+- **Hanya metadata** yang disimpan dan ditampilkan: judul, ringkasan, sumber, waktu terbit, tautan. Gambar dan isi penuh tidak — paket gratis tidak mengizinkan.
+- **Deduplikasi (FR-29)** lewat `upsert` pada `url` yang UNIQUE. `category` tidak ikut diperbarui saat diambil ulang, supaya artikel tidak berpindah tab tiap jam.
+- **Kegagalan:** satu kategori gagal tidak menggagalkan yang lain, dan cache tidak pernah dikosongkan. `news.last_success_at` (cache) hanya diperbarui bila minimal satu kategori berhasil; `NewsController` mengirim `stale: true` bila nilainya kosong atau lebih tua dari 150 menit, dan halaman menampilkan banner sambil tetap menampilkan cache terakhir.
+- **Pemangkasan (FR-30):** artikel lebih tua dari 30 hari dihapus di akhir setiap pengambilan.
+- **Waktu:** `pubDate` NewsData.io dalam UTC, disimpan menurut `app.timezone` (WIB).
+- **Menyetel ulang** kueri, media, pola, atau pengecualian cukup di `config/news.php`. Artikel yang sudah tersimpan tidak ikut diklasifikasi ulang — kosongkan tabelnya lalu `php artisan news:fetch` bila perlu.
 
 ## 8. Environment Variables
 
@@ -593,7 +618,7 @@ Satu `.env` di root project — **tidak ada `.env` terpisah untuk frontend**, ka
 >
 > **Tindak lanjut:** baris keputusan **D-5 di `PRD.md` §13** mencatat keputusan lama ini dan perlu diperbarui juga supaya kedua dokumen tidak saling bertentangan — lihat catatan di bagian akhir dokumen ini.
 
-**Kondisi sekarang:** `.env.example` sudah diperbarui ke `APP_NAME=Arus` dan `DB_CONNECTION=pgsql` dengan kredensial PostgreSQL default. Variabel `CURRENTS_*` belum ditambahkan karena modul News baru dikerjakan di Rilis 3.
+**Kondisi sekarang:** `.env.example` sudah diperbarui ke `APP_NAME=Arus` dan `DB_CONNECTION=pgsql` dengan kredensial PostgreSQL default. `NEWSDATA_IO_API_KEY` sudah ada (kosong) — isi dengan kunci dari https://newsdata.io bila ingin modul Berita terisi di mesin Anda; tanpa kunci aplikasi tetap berjalan, halaman Berita hanya kosong.
 
 **`.env` lengkap untuk development Arus:**
 ```
@@ -608,17 +633,14 @@ DB_DATABASE=fingoal
 DB_USERNAME=postgres
 DB_PASSWORD=
 
-CURRENTS_API_KEY=xxxx
-CURRENTS_API_BASE_URL=https://api.currentsapi.services/v1
-CURRENTS_FETCH_INTERVAL_MINUTES=60
-NEWS_CACHE_RETENTION_DAYS=30
+NEWSDATA_IO_API_KEY=xxxx      # satu-satunya variabel modul Berita; sisanya di config/news.php
 
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 ```
 
-Mengganti `.env` di atas (terutama `DB_CONNECTION`, `APP_NAME`, dan variabel `CURRENTS_*`) adalah hal pertama yang perlu dilakukan sebelum development sungguhan dimulai — bukan sekadar catatan referensi di dokumen ini.
+Mengganti `.env` di atas (terutama `DB_CONNECTION`, `APP_NAME`, dan `NEWSDATA_IO_API_KEY`) adalah hal pertama yang perlu dilakukan sebelum development sungguhan dimulai — bukan sekadar catatan referensi di dokumen ini.
 
 ## 9. Perintah Umum
 
@@ -627,7 +649,7 @@ Satu project, satu perintah setup — tidak ada lagi dua terminal terpisah (back
 ```bash
 composer install
 npm install
-cp .env.example .env      # lalu edit sesuai §8: DB_*, APP_NAME, CURRENTS_*
+cp .env.example .env      # lalu edit sesuai §8: DB_*, APP_NAME, NEWSDATA_IO_API_KEY
 php artisan key:generate
 php artisan migrate --seed
 
@@ -635,7 +657,7 @@ php artisan migrate --seed
 composer run dev
 ```
 
-`composer run dev` menjalankan **3 proses** bersamaan lewat `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, dan `npm run dev` (Vite). Aplikasi ada di `http://localhost:8000`; port 5173 adalah server aset Vite, bukan alamat aplikasi.
+`composer run dev` menjalankan **4 proses** bersamaan lewat `concurrently`: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, `npm run dev` (Vite), dan `php artisan schedule:work` (penjadwal — tanpanya `FetchLatestNewsJob` tidak pernah berjalan). Aplikasi ada di `http://localhost:8000`; port 5173 adalah server aset Vite, bukan alamat aplikasi.
 
 ### Dua penyesuaian khusus Windows
 Keduanya sudah ada di repo — disebutkan agar tidak dikira kesalahan dan tidak dibatalkan tanpa sengaja:
@@ -643,7 +665,7 @@ Keduanya sudah ada di repo — disebutkan agar tidak dikira kesalahan dan tidak 
 1. **`laravel/pail` dikeluarkan dari skrip `dev`.** Pail membutuhkan ekstensi `pcntl` yang tidak tersedia di Windows, dan karena `concurrently` memakai `--kill-others`, matinya Pail menyeret server, queue, dan Vite ikut berhenti. Pengguna macOS/Linux tetap bisa menjalankan `php artisan pail` di terminal terpisah.
 2. **`AppServiceProvider` mendaftarkan `SystemRoot` dkk ke `ServeCommand::$passthroughVariables`.** `ServeCommand` membuang env var yang tidak terdaftar, dan daftar bawaan Laravel menulis `SYSTEMROOT` huruf besar sementara Windows memakai `SystemRoot`; karena `in_array()` peka huruf besar-kecil, variabelnya terbuang. Tanpa `SystemRoot`, winsock gagal membuka socket dan `artisan serve` melapor `Failed to listen on 127.0.0.1:8000 (reason: ?)` di semua port. Kode ini dibungkus `PHP_OS_FAMILY === 'Windows'` sehingga tidak aktif di Linux/macOS.
 
-Untuk menjalankan job fetch berita terjadwal (`FetchLatestNewsJob`) selama development, jalankan `php artisan schedule:work` di terminal tambahan — belum termasuk di script `composer run dev` bawaan.
+Job berita terjadwal (`FetchLatestNewsJob`) berjalan lewat `schedule:work` yang sudah termasuk di `composer run dev`. Untuk mengisi cache berita **sekarang** — pertama kali, atau memeriksa kuncinya — jalankan `php artisan news:fetch` (5 kredit NewsData.io).
 
 ## 10. Konvensi Kode
 
@@ -721,11 +743,11 @@ Disepakati agar setiap form di aplikasi ini berperilaku sama. Implementasi acuan
 - `InvestmentAllocationService`: uji bahwa setiap aturan berjumlah tepat 100% dan setiap kombinasi (jangka waktu × profil risiko) menghasilkan alokasi.
 - `DashboardSummaryService`: uji kasus user tanpa goals (harus mengembalikan struktur kosong, bukan error), goals dengan `target_date NULL`, dan filter status `active` (lihat §6.9).
 - **Lapisan uang** diuji lewat sifat, bukan angka patokan: `AccountBalanceTest` (transfer tidak menciptakan uang, pembayaran pokok tidak mengubah kekayaan bersih, penyesuaian di luar arus kas), `TransactionTest` (penolakan), `LedgerGuardMessageTest` (isi pesan galat), `SavingsPlanTest` (kebutuhan sama dengan `GoalCalculatorService`, urutan prioritas, kekurangan ditampilkan), `BackupTest` (cadangan dan pemulihan saling membalikkan), serta `AccountTest`, `DebtTest`, `InvestmentValuationTest`, `DashboardWealthTest`, `HistoryIndexTest`.
-- `CurrentsNewsService` (begitu dibangun): uji dengan HTTP palsu (`Http::fake`) — jangan pernah memanggil API sungguhan dari test suite; kuota gratis akan habis.
+- **Modul Berita** (`NewsIngestTest`, `NewsPageTest`): HTTP dipalsukan (`Http::fake`) dan dikunci dengan `Http::preventStrayRequests()` — test yang mencoba memanggil NewsData.io sungguhan langsung gagal, karena kuota gratisnya habis dalam beberapa kali menjalankan suite. Kasus uji klasifikasi diambil dari data sungguhan (medali Asian Games lewat "emas", Posyandu lewat "perumahan"), bukan dikarang.
 - Uji feature untuk otorisasi: pengguna A tidak boleh membaca/mengubah tujuan milik pengguna B. Pakai helper `assertInertia(fn (Assert $page) => $page->component('Goal/Edit')->has('goal'))` bawaan `inertiajs/inertia-laravel` untuk memeriksa nama komponen halaman & props di test, **bukan** `assertJson` seperti pada arsitektur API murni.
 
 ### 10.4 Keamanan
-- Jangan pernah menaruh `CURRENTS_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun.
+- Jangan pernah menaruh `NEWSDATA_IO_API_KEY` di kode frontend atau di props yang dikirim ke halaman mana pun, dan jangan kirim lewat parameter URL (lihat §7). `NewsPageTest` memeriksa kuncinya tidak pernah muncul di respons halaman.
 - **Verifikasi email aktif.** `User` mengimplementasikan `MustVerifyEmail`, dan itulah satu-satunya hal yang membuat middleware `verified` berfungsi. Tanpa baris tersebut, middleware itu tetap terpasang tetapi meloloskan semua orang — gagal diam-diam, tanpa error. Dijaga `tests/Feature/Auth/AccessControlTest.php`.
 - **Batas laju endpoint tamu** (PRD FR-40), semuanya di `routes/auth.php`:
 

@@ -143,7 +143,7 @@ Sebuah PR dianggap selesai bila:
 ## 7. Keamanan — Tidak Bisa Ditawar
 
 - **Jangan commit `.env`.** Sudah ada di `.gitignore` bawaan Laravel (dikonfirmasi) — tetap periksa sebelum commit pertama yang menyentuh konfigurasi.
-- `CURRENTS_API_KEY` tidak boleh muncul di kode frontend maupun di props yang dikirim ke halaman mana pun.
+- `NEWSDATA_IO_API_KEY` tidak boleh muncul di kode frontend, di props yang dikirim ke halaman mana pun, maupun di parameter URL permintaan (CLAUDE.md §7).
 - Jangan mencatat nominal keuangan pengguna beserta identitasnya ke dalam log.
 - Setiap query data tujuan disaring berdasarkan user yang login. Ini titik kebocoran data antar pengguna yang paling mudah terjadi dan paling sulit dimaafkan pada aplikasi keuangan.
 
@@ -233,7 +233,15 @@ Sehari-hari cukup satu perintah — menjalankan server, queue, dan Vite sekaligu
 composer run dev
 ```
 
-Aplikasi ada di `http://localhost:8000`. Port 5173 adalah server aset Vite, bukan alamat aplikasi.
+Aplikasi ada di `http://localhost:8000`. Port 5173 adalah server aset Vite, bukan alamat aplikasi. Perintah itu juga menjalankan penjadwal (`schedule:work`), yang mengambil berita tiap jam.
+
+**Mengisi halaman Berita (opsional).** Tanpa kunci, halaman Berita hanya menampilkan "Berita belum tersedia" — sisa aplikasi tidak terpengaruh. Untuk mengisinya, daftar gratis di https://newsdata.io, isi `NEWSDATA_IO_API_KEY=` di `.env`, lalu ambil sekali tanpa menunggu jadwal:
+
+```bash
+php artisan news:fetch
+```
+
+Satu kali jalan memakai 5 dari 200 kredit harian. Aturan kueri, media, dan klasifikasinya di `config/news.php` (CLAUDE.md §7).
 
 **Menjalankan test.** Ada tiga, dan ketiganya dijalankan sebelum commit — masing-masing menjaga lapisan yang tidak dijangkau dua lainnya:
 

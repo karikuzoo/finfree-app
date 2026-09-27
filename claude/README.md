@@ -4,7 +4,7 @@ Aplikasi web manajemen keuangan pribadi dengan **kalkulator tujuan finansial**: 
 
 Produk ini punya dua pilar. **Tujuan** adalah intinya — target tersimpan yang punya progres dan dipantau berbulan-bulan. **Kalkulator** adalah pendukungnya — alat hitung sekali pakai untuk pertanyaan cepat seperti simulasi cicilan KPR. Keduanya dijembatani tombol "Jadikan Tujuan".
 
-> **Status (25 Sep 2026): kalkulator, tujuan, dashboard, dan lapisan uang sudah berjalan.** Di atas skeleton **Laravel Breeze + Inertia.js + React** sudah dibangun kalkulator tujuan, daftar & pengelolaan tujuan, dashboard dengan kalender dan pengingat, serta pencatat keuangan (rekening, transaksi, investasi, utang, rencana menabung, cadangan data — PRD §6.13–§6.18). Modul berita belum dikerjakan. Rinciannya di bagian "Menjalankan Project" di bawah.
+> **Status (25 Sep 2026): kalkulator, tujuan, dashboard, dan lapisan uang sudah berjalan.** Di atas skeleton **Laravel Breeze + Inertia.js + React** sudah dibangun kalkulator tujuan, daftar & pengelolaan tujuan, dashboard dengan kalender dan pengingat, serta pencatat keuangan (rekening, transaksi, investasi, utang, rencana menabung, cadangan data — PRD §6.13–§6.18). Modul berita juga sudah berjalan, dari NewsData.io (PRD D-16). Rinciannya di bagian "Menjalankan Project" di bawah.
 
 Sejak September 2026 Arus juga **mencatat uang pengguna**: rekening & aset, transaksi, investasi, dan utang — lalu dana tiap tujuan ditandai dari saldo rekening bank/tunai, bukan disetor terpisah. Semua catatan itu diisi **manual** oleh pengguna. Arus tidak terhubung ke rekening bank, tidak mengambil harga pasar, tidak membeli/menjual instrumen apa pun, dan tidak memberi nasihat investasi personal; kalkulator dan rekomendasi alokasinya tetap simulasi edukatif.
 
@@ -131,13 +131,13 @@ Pencatatan setoran lewat kalender dipensiunkan pada Fase 3 (keputusan D-10 di PR
 
 | Fitur | Rilis | FR |
 |---|---|---|
-| Berita finansial terkini dari Currents API | 3 | FR-16 |
+| Berita keuangan berbahasa Indonesia dari NewsData.io (D-16) | 3 | FR-16 |
 | Filter kategori: Kebijakan Moneter, Pasar Saham, Properti, Investasi, Tips Keuangan | 3 | FR-17, FR-28 |
 | Cache di backend via scheduled job, hemat kuota API | 3 | FR-18 |
 | Deduplikasi artikel & pemangkasan cache lama | 3 | FR-29, FR-30 |
 | Fallback data tersimpan bila sumber gagal (penanda `stale`) | 3 | NFR-4 |
 
-Modul ini ditaruh terakhir dan punya gerbang: kualitas hasil pencarian Currents diuji lebih dulu dengan kata kunci nyata. Bila hasilnya kurang, sumber diganti atau modul dicoret.
+Modul ini punya gerbang: kualitas hasil sumbernya diuji lebih dulu dengan kata kunci nyata. **Currents API tidak lolos** (tidak ada bahasa Indonesia; "IHSG" dan "suku bunga" → 0 artikel), jadi sumbernya diganti ke **NewsData.io** — lihat [PRD](PRD.md) D-16. Sudah dibangun per 27 Sep 2026.
 
 ### Di Luar Lingkup
 
@@ -150,7 +150,7 @@ Integrasi rekening bank (rekening dan transaksi dicatat manual), eksekusi transa
 **Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
 **Styling** Tailwind CSS, @headlessui/react, Recharts (charting), lucide-react (ikon, belum terpasang)
 **Database** PostgreSQL (`.env.example` sudah `pgsql`, lihat CLAUDE.md §8)
-**Eksternal** Currents API untuk modul News (belum dibangun)
+**Eksternal** NewsData.io untuk modul Berita (menggantikan Currents API, PRD D-16)
 **Testing** PHPUnit di PostgreSQL (`php artisan test`), `node --test` untuk fungsi utilitas JS (`npm run test:js`), Vitest + Testing Library untuk komponen React (`npm run test:ui`)
 
 Tema visual: **Arus** — latar gelap `#101719` dengan aksen mint `#98EDCE`, dark-first. Lihat [../docs/ARUS-REDESIGN.md](../docs/ARUS-REDESIGN.md); palet "Malam" di [DESIGN.md](DESIGN.md) §2 tinggal referensi historis.
@@ -181,6 +181,6 @@ npm run test:js
 npm run test:ui
 ```
 
-**Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard (kekayaan bersih, arus kas, komposisi aset, progres tujuan) beserta kalender aktivitas dan pengingat, pembuatan, pengubahan, penghapusan, dan ekspor Excel tujuan finansial, Rekening & aset, Transaksi, Investasi, Utang & cicilan, Rencana menabung dengan tombol "Sudah saya sisihkan", Riwayat, cadangan & pemulihan data, dan halaman error khusus.
+**Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard (kekayaan bersih, arus kas, komposisi aset, progres tujuan) beserta kalender aktivitas dan pengingat, pembuatan, pengubahan, penghapusan, dan ekspor Excel tujuan finansial, Rekening & aset, Transaksi, Investasi, Utang & cicilan, Rencana menabung dengan tombol "Sudah saya sisihkan", Riwayat, cadangan & pemulihan data, halaman Berita dari NewsData.io, dan halaman error khusus.
 
-**Yang belum:** modul berita, rekalkulasi saat realisasi meleset (FR-36), dan jumlah satuan aset seperti gram/lot (FR-51). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.
+**Yang belum:** rekalkulasi saat realisasi meleset (FR-36), dan jumlah satuan aset seperti gram/lot (FR-51). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.

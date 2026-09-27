@@ -129,13 +129,13 @@ Pencatatan setoran lewat kalender dipensiunkan pada Fase 3 (keputusan D-10 di PR
 
 | Fitur                                                                               | Rilis | FR           |
 | ----------------------------------------------------------------------------------- | ----- | ------------ |
-| Berita finansial terkini dari Currents API                                          | 3     | FR-16        |
+| Berita keuangan berbahasa Indonesia dari NewsData.io (D-16)                         | 3     | FR-16        |
 | Filter kategori: Kebijakan Moneter, Pasar Saham, Properti, Investasi, Tips Keuangan | 3     | FR-17, FR-28 |
 | Cache di backend via scheduled job, hemat kuota API                                 | 3     | FR-18        |
 | Deduplikasi artikel & pemangkasan cache lama                                        | 3     | FR-29, FR-30 |
 | Fallback data tersimpan bila sumber gagal (penanda `stale`)                         | 3     | NFR-4        |
 
-Modul ini ditaruh terakhir dan punya gerbang: kualitas hasil pencarian Currents diuji lebih dulu dengan kata kunci nyata. Bila hasilnya kurang, sumber diganti atau modul dicoret.
+Modul ini punya gerbang: kualitas hasil sumbernya diuji lebih dulu dengan kata kunci nyata. **Currents API tidak lolos** (tidak ada bahasa Indonesia; "IHSG" dan "suku bunga" → 0 artikel), jadi sumbernya diganti ke **NewsData.io** — lihat [PRD](claude/PRD.md) D-16. Sudah dibangun per 27 Sep 2026.
 
 ### Di Luar Lingkup
 
@@ -148,7 +148,7 @@ Integrasi rekening bank (rekening dan transaksi dicatat manual), eksekusi transa
 **Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
 **Styling** Tailwind CSS, @headlessui/react, Recharts (charting), lucide-react (ikon, belum terpasang)
 **Database** PostgreSQL
-**Eksternal** Currents API untuk modul News (belum dibangun)
+**Eksternal** NewsData.io untuk modul Berita (menggantikan Currents API, PRD D-16)
 **Testing** PHPUnit di PostgreSQL (`php artisan test`), `node --test` untuk fungsi utilitas JS (`npm run test:js`), Vitest + Testing Library untuk komponen React (`npm run test:ui`)
 
 Tema visual: **Arus** — latar gelap `#101719` dengan aksen mint `#98EDCE`, dark-first. Lihat [docs/ARUS-REDESIGN.md](docs/ARUS-REDESIGN.md); palet "Malam" di [claude/DESIGN.md](claude/DESIGN.md) §2 tinggal referensi historis.
