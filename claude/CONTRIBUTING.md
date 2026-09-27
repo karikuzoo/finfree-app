@@ -235,6 +235,18 @@ composer run dev
 
 Aplikasi ada di `http://localhost:8000`. Port 5173 adalah server aset Vite, bukan alamat aplikasi.
 
+**Menjalankan test.** Ada tiga, dan ketiganya dijalankan sebelum commit — masing-masing menjaga lapisan yang tidak dijangkau dua lainnya:
+
+```bash
+php artisan test     # backend: saldo, penolakan, rencana, cadangan (PHPUnit, database fingoal_test)
+npm run test:js      # fungsi utilitas JS & salinan rumus kalkulator (node --test, *.test.mjs)
+npm run test:ui      # komponen React: tombol, isian, grafik (Vitest + jsdom, *.test.jsx)
+```
+
+`test:ui` butuh paket dev yang ditambahkan belakangan (`vitest`, `jsdom`, `@testing-library/*`). **Setelah pull, jalankan `npm install` sekali** — tanpa itu perintahnya gagal karena `vitest` tidak ditemukan. Cara menulis test komponen ada di CLAUDE.md §10.3.
+
+> Di Windows: bila `npm` ditolak PowerShell karena kebijakan eksekusi skrip, pakai `npm.cmd run test:ui`. Bila `php` tidak dikenali karena PHP dipasang lewat Laravel Herd, panggil lewat jalur lengkapnya, misalnya `& "$env:USERPROFILE\.config\herd\bin\php84\php.exe" artisan test`.
+
 ### 9.1 Mencoba alur verifikasi email
 
 Verifikasi email **aktif** — pengguna yang belum memverifikasi alamatnya tidak bisa membuka dashboard. Tapi di development emailnya tidak benar-benar terkirim ke mana pun, dan ini yang biasanya membuat orang mengira fiturnya rusak.

@@ -150,9 +150,10 @@ Integrasi rekening bank (rekening dan transaksi dicatat manual), eksekusi transa
 **Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
 **Styling** Tailwind CSS, @headlessui/react, Recharts (charting), lucide-react (ikon, belum terpasang)
 **Database** PostgreSQL (`.env.example` sudah `pgsql`, lihat CLAUDE.md §8)
-**Eksternal** Currents API untuk modul News
+**Eksternal** Currents API untuk modul News (belum dibangun)
+**Testing** PHPUnit di PostgreSQL (`php artisan test`), `node --test` untuk fungsi utilitas JS (`npm run test:js`), Vitest + Testing Library untuk komponen React (`npm run test:ui`)
 
-Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, dark-first. Lihat [DESIGN.md](DESIGN.md).
+Tema visual: **Arus** — latar gelap `#101719` dengan aksen mint `#98EDCE`, dark-first. Lihat [../docs/ARUS-REDESIGN.md](../docs/ARUS-REDESIGN.md); palet "Malam" di [DESIGN.md](DESIGN.md) §2 tinggal referensi historis.
 
 ---
 
@@ -171,6 +172,14 @@ Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, d
 ## Menjalankan Project
 
 Lihat [CONTRIBUTING.md](CONTRIBUTING.md) §9 untuk urutan setup lengkap — termasuk dua database PostgreSQL yang perlu dibuat, `php artisan storage:link`, dan akun demo yang dibuat oleh seeder.
+
+Sebelum commit, jalankan ketiga test — backend, fungsi utilitas JS, dan komponen React:
+
+```bash
+php artisan test
+npm run test:js
+npm run test:ui
+```
 
 **Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard (kekayaan bersih, arus kas, komposisi aset, progres tujuan) beserta kalender aktivitas dan pengingat, pembuatan, pengubahan, penghapusan, dan ekspor Excel tujuan finansial, Rekening & aset, Transaksi, Investasi, Utang & cicilan, Rencana menabung dengan tombol "Sudah saya sisihkan", Riwayat, cadangan & pemulihan data, dan halaman error khusus.
 

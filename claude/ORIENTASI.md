@@ -15,8 +15,12 @@ resources/js/
 ├── Pages/       satu berkas = satu halaman yang bisa dibuka di browser
 ├── Layouts/     bingkai yang dipakai bersama beberapa halaman
 ├── Components/  suku cadang kecil yang dipakai berulang
+├── utils/       fungsi hitung & format (formatRupiah dkk.)
+├── test/        perlengkapan test komponen — bukan kode aplikasi
 └── app.jsx      titik awal — jarang perlu disentuh
 ```
+
+Berkas berakhiran `.test.jsx` (di sebelah komponennya) dan `.test.mjs` (di `utils/`) adalah **test**, bukan bagian aplikasi — tidak pernah ikut tampil di browser. Dijalankan dengan `npm run test:ui` dan `npm run test:js`.
 
 Aturan sederhananya:
 
@@ -30,7 +34,7 @@ Aturan sederhananya:
 
 Kode di luar `resources/js/` yang ikut menentukan tampilan:
 
-- **[tailwind.config.js](../tailwind.config.js)** — semua warna tema "Malam" didefinisikan di sini
+- **[tailwind.config.js](../tailwind.config.js)** — semua warna tema Arus didefinisikan di sini (nama token `lime-*` dipertahankan, isinya aksen mint)
 - **[resources/css/app.css](../resources/css/app.css)** — warna dasar halaman, 28 baris
 - **[resources/views/app.blade.php](../resources/views/app.blade.php)** — kerangka HTML terluar, memuat font
 - **[routes/web.php](../routes/web.php)** — URL mana membuka halaman mana

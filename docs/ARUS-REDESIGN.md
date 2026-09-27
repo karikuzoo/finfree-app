@@ -25,7 +25,7 @@ komponen tanggal dan kalender tetap berlaku.
 
 - `npm ci --no-audit --no-fund`: berhasil, lockfile tetap.
 - `npm run build`: berhasil.
-- `npm run test:js`: 26 lulus saat redesign ini dibuat (per 27 Sep 2026: 29 lulus, ditambah 413 test PHP lewat `php artisan test`).
+- `npm run test:js`: 26 lulus saat redesign ini dibuat. Per 27 Sep 2026: 29 lulus, ditambah 432 test PHP (`php artisan test`) dan 29 test komponen React (`npm run test:ui`).
 - `git diff --check`: bersih.
 - Kontras teks utama/sekunder/muted serta border input diperiksa pada kartu.
 - PHP/Composer tidak tersedia dalam lingkungan pengerjaan. Pengujian Laravel,

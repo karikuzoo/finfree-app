@@ -148,12 +148,27 @@ Integrasi rekening bank (rekening dan transaksi dicatat manual), eksekusi transa
 **Full-stack** Laravel 12 + Inertia.js v2 (React 18) — satu aplikasi, bukan SPA+API terpisah. Auth via Laravel Breeze (session/cookie), bukan token.
 **Styling** Tailwind CSS, @headlessui/react, Recharts (charting), lucide-react (ikon, belum terpasang)
 **Database** PostgreSQL
-**Eksternal** Currents API untuk modul News
+**Eksternal** Currents API untuk modul News (belum dibangun)
+**Testing** PHPUnit di PostgreSQL (`php artisan test`), `node --test` untuk fungsi utilitas JS (`npm run test:js`), Vitest + Testing Library untuk komponen React (`npm run test:ui`)
 
-Tema visual: **"Malam"** — near-black `#0B0C0B` dengan aksen lime `#CFF04A`, dark-first. Lihat [DESIGN.md](DESIGN.md).
+Tema visual: **Arus** — latar gelap `#101719` dengan aksen mint `#98EDCE`, dark-first. Lihat [docs/ARUS-REDESIGN.md](docs/ARUS-REDESIGN.md); palet "Malam" di [claude/DESIGN.md](claude/DESIGN.md) §2 tinggal referensi historis.
 
 ---
 
 ## Menjalankan Project
 
-Skeleton Breeze+Inertia sudah bisa dijalankan sekarang lewat satu perintah (`composer run dev`).
+Urutan setup lengkap — dua database PostgreSQL, `php artisan storage:link`, dan akun demo dari seeder — ada di [claude/CONTRIBUTING.md](claude/CONTRIBUTING.md) §9. Sehari-hari cukup satu perintah:
+
+```bash
+composer run dev
+```
+
+Sebelum commit, jalankan ketiga test — backend, fungsi utilitas JS, dan komponen React:
+
+```bash
+php artisan test
+npm run test:js
+npm run test:ui
+```
+
+Setelah pull, jalankan `npm install` bila `package.json` berubah — `test:ui` memakai paket dev (`vitest`, `jsdom`, `@testing-library/*`) yang tidak ada sebelum 27 Sep 2026.
