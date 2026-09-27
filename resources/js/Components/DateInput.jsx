@@ -31,6 +31,24 @@ const iso = (t, b, tgl) =>
 const hariIniIso = () => todayInJakarta();
 
 /**
+ * Tanggal tempat panel dibuka bila belum ada nilai: hari ini, DIGESER ke
+ * dalam rentang min–max.
+ *
+ * Bug yang melahirkan ini: tanggal lahir dibatasi usia minimal 17 tahun, jadi
+ * seluruh bulan berjalan nonaktif. Panel yang selalu dibuka di bulan ini
+ * menampilkan kalender tanpa satu pun tanggal yang bisa diklik — dan
+ * satu-satunya jalan keluar adalah menekan panah ratusan kali.
+ */
+const titikAwal = (min, max) => {
+    const hariIni = hariIniIso();
+
+    if (max && hariIni > max) return max;
+    if (min && hariIni < min) return min;
+
+    return hariIni;
+};
+
+/**
  * Tanggal ditulis panjang ("1 September 2026") supaya tidak ada keraguan
  * antara format hari-bulan dan bulan-hari.
  */
@@ -57,7 +75,7 @@ export default function DateInput({
 
     // Bulan yang sedang ditampilkan panel — terpisah dari nilai terpilih,
     // supaya pengguna bisa menjelajah bulan lain tanpa mengubah pilihannya.
-    const awal = value || hariIniIso();
+    const awal = value || titikAwal(min, max);
     const [lihat, setLihat] = useState(() => {
         const [t, b] = awal.split("-").map(Number);
 
@@ -70,9 +88,9 @@ export default function DateInput({
     useEffect(() => {
         if (!buka) return;
 
-        const [t, b] = (value || hariIniIso()).split("-").map(Number);
+        const [t, b] = (value || titikAwal(min, max)).split("-").map(Number);
         setLihat({ tahun: t, bulan: b - 1 });
-    }, [buka, value]);
+    }, [buka, value, min, max]);
 
     useEffect(() => {
         if (!buka) return;
@@ -142,6 +160,20 @@ export default function DateInput({
     const hariIni = hariIniIso();
     const hariIniBoleh = !((min && hariIni < min) || (max && hariIni > max));
 
+    // Pilihan tahun: dari tahun `min` sampai tahun `max`. Tanpa batas, seratus
+    // tahun ke belakang dan sepuluh ke depan — cukup untuk tanggal lahir
+    // maupun tenggat tujuan jangka panjang.
+    const tahunIni = Number(hariIni.slice(0, 4));
+    const tahunAwal = min ? Number(min.slice(0, 4)) : tahunIni - 100;
+    const tahunAkhir = max ? Number(max.slice(0, 4)) : tahunIni + 10;
+    const daftarTahun = [];
+    for (let t = tahunAkhir; t >= tahunAwal; t--) daftarTahun.push(t);
+
+    // Panah tidak boleh membawa ke bulan yang seluruhnya di luar rentang.
+    const bulanIni = iso(lihat.tahun, lihat.bulan, 1).slice(0, 7);
+    const bolehMundur = !min || bulanIni > min.slice(0, 7);
+    const bolehMaju = !max || bulanIni < max.slice(0, 7);
+
     return (
         <div ref={bungkus} className={"relative " + className}>
             <button
@@ -177,16 +209,43 @@ export default function DateInput({
                 <div
                     role="dialog"
                     aria-label="Pilih tanggal"
-                    className="absolute left-0 top-full z-30 mt-2 w-[17.5rem] rounded-xl border border-border-strong bg-bg-card p-3 shadow-xl"
+                    className="absolute left-0 top-full z-30 mt-2 w-[19rem] rounded-xl border border-border-strong bg-bg-card p-3 shadow-xl"
                 >
-                    <div className="flex items-center justify-between gap-2">
-                        <Panah arah="prev" onClick={() => geser(-1)} />
+                    <div className="flex items-center justify-between gap-1">
+                        <Panah arah="prev" onClick={() => geser(-1)} disabled={!bolehMundur} />
 
-                        <span className="text-sm font-semibold text-text-primary">
-                            {BULAN[lihat.bulan]} {lihat.tahun}
-                        </span>
+                        {/*
+                            Bulan dan tahun bisa dipilih langsung. Hanya dengan
+                            panah, tanggal lahir 1995 butuh ±370 klik.
+                        */}
+                        <div className="flex items-center gap-1">
+                            <select
+                                aria-label="Bulan"
+                                value={lihat.bulan}
+                                onChange={(e) => setLihat((l) => ({ ...l, bulan: Number(e.target.value) }))}
+                                className="rounded-md border border-border bg-bg-card py-1 pl-2 pr-7 text-sm font-semibold text-text-primary focus:border-lime-500 focus:ring-1 focus:ring-lime-500"
+                            >
+                                {BULAN.map((nama, i) => (
+                                    <option key={nama} value={i}>
+                                        {nama}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                aria-label="Tahun"
+                                value={lihat.tahun}
+                                onChange={(e) => setLihat((l) => ({ ...l, tahun: Number(e.target.value) }))}
+                                className="num-tabular rounded-md border border-border bg-bg-card py-1 pl-2 pr-7 text-sm font-semibold text-text-primary focus:border-lime-500 focus:ring-1 focus:ring-lime-500"
+                            >
+                                {daftarTahun.map((t) => (
+                                    <option key={t} value={t}>
+                                        {t}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                        <Panah arah="next" onClick={() => geser(1)} />
+                        <Panah arah="next" onClick={() => geser(1)} disabled={!bolehMaju} />
                     </div>
 
                     <div className="mt-3 grid grid-cols-7 gap-px text-center">
@@ -274,13 +333,14 @@ export default function DateInput({
     );
 }
 
-function Panah({ arah, onClick }) {
+function Panah({ arah, onClick, disabled = false }) {
     return (
         <button
             type="button"
             onClick={onClick}
+            disabled={disabled}
             aria-label={arah === "prev" ? "Bulan sebelumnya" : "Bulan berikutnya"}
-            className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+            className="rounded-lg p-1.5 text-text-secondary transition hover:bg-bg-cardAlt hover:text-text-primary disabled:cursor-not-allowed disabled:text-text-disabled disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
         >
             <svg
                 className="h-4 w-4"
