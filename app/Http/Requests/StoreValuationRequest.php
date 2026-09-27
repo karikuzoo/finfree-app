@@ -32,6 +32,9 @@ class StoreValuationRequest extends FormRequest
             // kosong, dan angka minus di sini selalu berarti salah ketik.
             'value' => ['required', 'numeric', 'min:0', 'max:999999999999999.99'],
             'occurred_on' => ['required', 'date', 'before_or_equal:today'],
+            // FR-51: jumlah satuan terbaru (gram, lot, unit). Opsional —
+            // kosong berarti tidak diubah, bukan dihapus.
+            'units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],
         ];
     }
 
@@ -46,6 +49,8 @@ class StoreValuationRequest extends FormRequest
             'value.min' => 'Nilai terkini tidak boleh negatif.',
             'occurred_on.required' => 'Tanggal penilaian wajib diisi.',
             'occurred_on.before_or_equal' => 'Tanggal penilaian tidak boleh di masa depan.',
+            'units.numeric' => 'Jumlahnya harus berupa angka.',
+            'units.min' => 'Jumlahnya tidak boleh negatif.',
         ];
     }
 }

@@ -95,6 +95,7 @@ class BackupService
                 'kind' => $r->kind->value,
                 'institution' => $r->institution,
                 'opening_balance' => (float) $r->opening_balance,
+                'units' => $r->units === null ? null : (float) $r->units,
             ])->values()->all(),
 
             'debts' => $utang->map(fn (Debt $d) => [
@@ -223,6 +224,8 @@ class BackupService
                     'kind' => $baris['kind'],
                     'institution' => $baris['institution'] ?? null,
                     'opening_balance' => $baris['opening_balance'],
+                    // Berkas dari sebelum FR-51 tidak membawanya.
+                    'units' => $baris['units'] ?? null,
                 ])->id;
             }
 
@@ -355,6 +358,7 @@ class BackupService
             'accounts.*.kind' => ['required', Rule::in(AccountKind::values())],
             'accounts.*.institution' => ['nullable', 'string', 'max:100'],
             'accounts.*.opening_balance' => $uang,
+            'accounts.*.units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],
 
             'debts' => ['present', 'array', 'max:200'],
             'debts.*.ref' => ['required', 'integer', 'min:1'],

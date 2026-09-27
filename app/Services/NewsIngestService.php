@@ -76,7 +76,9 @@ class NewsIngestService
             NewsArticle::upsert(
                 array_values($baris),
                 ['url'],
-                ['title', 'summary', 'source', 'source_name', 'fetched_at'],
+                // `image_url` ikut diperbarui: artikel yang tersimpan sebelum
+                // kolomnya ada mendapat fotonya pada pengambilan berikutnya.
+                ['title', 'summary', 'image_url', 'source', 'source_name', 'fetched_at'],
             );
             $hasil['stored'] = count($baris);
         }
@@ -161,12 +163,29 @@ class NewsIngestService
             'url' => mb_substr($url, 0, 2048),
             'title' => mb_substr($judul, 0, 500),
             'summary' => $ringkasan === '' ? null : mb_strimwidth($ringkasan, 0, 600, '…'),
+            'image_url' => $this->imageUrl($a['image_url'] ?? null),
             'source' => mb_substr((string) ($a['source_id'] ?? 'tidak-diketahui'), 0, 100),
             'source_name' => isset($a['source_name']) ? mb_substr((string) $a['source_name'], 0, 150) : null,
             'category' => $kategori,
             'published_at' => $this->publishedAt($a),
             'fetched_at' => now(),
         ];
+    }
+
+    /**
+     * Tautan foto artikel — hanya HTTPS. Halaman Arus sendiri dilayani lewat
+     * HTTPS di produksi, dan browser menolak memuat gambar HTTP di halaman
+     * HTTPS (mixed content); tautan seperti itu hanya akan jadi kotak kosong.
+     */
+    private function imageUrl(mixed $url): ?string
+    {
+        $url = trim((string) $url);
+
+        if ($url === '' || ! str_starts_with($url, 'https://') || strlen($url) > 2048) {
+            return null;
+        }
+
+        return filter_var($url, FILTER_VALIDATE_URL) ? $url : null;
     }
 
     /**

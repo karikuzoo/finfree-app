@@ -423,6 +423,23 @@ class BackupTest extends TestCase
         $this->post(route('data.restore'))->assertRedirect(route('login'));
     }
 
+    /** FR-51: berat emas ikut dicadangkan dan pulih. */
+    public function test_jumlah_satuan_aset_ikut_pulih(): void
+    {
+        $user = User::factory()->create();
+        Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['name' => 'Emas', 'opening_balance' => 14_500_000, 'units' => 10.5]);
+
+        $cadangan = app(BackupService::class)->export($user);
+        $this->assertSame(10.5, $cadangan['accounts'][0]['units']);
+
+        $this->actingAs($user)
+            ->post(route('data.restore'), ['berkas' => $this->berkas($cadangan)])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(10.5, (float) $user->accounts()->sole()->units);
+    }
+
     // ── Penyisihan ("Sudah saya sisihkan") ──────────────────────────────
 
     private function sudahBulanIni(User $user): float

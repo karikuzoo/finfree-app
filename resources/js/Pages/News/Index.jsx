@@ -1,6 +1,7 @@
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatRelativeTime } from '@/utils/timezone';
 import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 
 /**
  * Berita finansial (PRD FR-16, FR-17, keputusan D-16).
@@ -9,10 +10,10 @@ import { Head, Link } from '@inertiajs/react';
  * halaman ini tidak pernah memanggil sumber berita sendiri, dan kunci API
  * tidak pernah sampai ke browser.
  *
- * Yang ditampilkan hanya METADATA: judul, ringkasan, sumber, waktu terbit,
+ * Yang ditampilkan: judul, ringkasan, sumber, waktu terbit, foto artikel,
  * dan tautan ke artikel aslinya. Artikel dibaca di situs penerbitnya — Arus
- * tidak menyalin isinya, dan tidak memuat gambarnya (paket gratis sumbernya
- * tidak mengizinkan).
+ * tidak menyalin isinya, dan fotonya dimuat langsung dari server penerbit
+ * (PRD D-16).
  */
 export default function NewsIndex({ articles, categories, activeCategory, lastUpdated, stale }) {
     const adaBerita = articles.data.length > 0;
@@ -132,50 +133,80 @@ function Chip({ href, aktif, jumlah, children }) {
 }
 
 function KartuBerita({ artikel, tampilkanKategori }) {
+    // Foto yang gagal dimuat (dihapus penerbit, diblokir) disembunyikan,
+    // bukan dibiarkan jadi kotak rusak.
+    const [fotoGagal, setFotoGagal] = useState(false);
+    const adaFoto = Boolean(artikel.image) && !fotoGagal;
+
     return (
-        <li className="flex flex-col rounded-card border border-border bg-bg-card p-4 transition hover:border-border-strong">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
-                {tampilkanKategori && artikel.category_label && (
-                    <>
-                        <span className="font-semibold text-lime-500">{artikel.category_label}</span>
-                        <span aria-hidden="true">·</span>
-                    </>
+        <li className="flex gap-3 rounded-card border border-border bg-bg-card p-4 transition hover:border-border-strong">
+            <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+                    {tampilkanKategori && artikel.category_label && (
+                        <>
+                            <span className="font-semibold text-lime-500">{artikel.category_label}</span>
+                            <span aria-hidden="true">·</span>
+                        </>
+                    )}
+                    <span className="font-medium text-text-secondary">{artikel.source}</span>
+                    <span aria-hidden="true">·</span>
+                    <time dateTime={artikel.published_at}>{formatRelativeTime(artikel.published_at)}</time>
+                </div>
+
+                <h2 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-text-primary">
+                    {/*
+                        Tab baru, karena artikelnya di situs lain dan pembaca
+                        kembali ke daftar ini. `noopener noreferrer` supaya situs
+                        penerbit tidak bisa mengendalikan tab Arus lewat
+                        window.opener.
+                    */}
+                    <a
+                        href={artikel.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500"
+                    >
+                        {artikel.title}
+                        <span className="sr-only"> (buka di tab baru)</span>
+                    </a>
+                </h2>
+
+                {/*
+                    Disembunyikan di ponsel: di layar sempit dua baris ringkasan
+                    hampir menggandakan tinggi kartu, dan judul sudah cukup untuk
+                    memilih mana yang dibuka. Pembungkusnya yang disembunyikan,
+                    bukan <p>-nya — `line-clamp` butuh display-nya sendiri.
+                */}
+                {artikel.summary && (
+                    <div className="hidden sm:block">
+                        <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-text-secondary">
+                            {artikel.summary}
+                        </p>
+                    </div>
                 )}
-                <span className="font-medium text-text-secondary">{artikel.source}</span>
-                <span aria-hidden="true">·</span>
-                <time dateTime={artikel.published_at}>{formatRelativeTime(artikel.published_at)}</time>
             </div>
 
-            <h2 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-text-primary">
-                {/*
-                    Tab baru, karena artikelnya di situs lain dan pembaca
-                    kembali ke daftar ini. `noopener noreferrer` supaya situs
-                    penerbit tidak bisa mengendalikan tab Arus lewat
-                    window.opener.
-                */}
-                <a
-                    href={artikel.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500"
-                >
-                    {artikel.title}
-                    <span className="sr-only"> (buka di tab baru)</span>
-                </a>
-            </h2>
-
             {/*
-                Disembunyikan di ponsel: di layar sempit dua baris ringkasan
-                hampir menggandakan tinggi kartu, dan judul sudah cukup untuk
-                memilih mana yang dibuka. Pembungkusnya yang disembunyikan,
-                bukan <p>-nya — `line-clamp` butuh display-nya sendiri.
+                Foto artikel dari penerbitnya (PRD D-16): dimuat langsung dari
+                server penerbit, tidak disalin ke Arus. Di SAMPING tulisan,
+                bukan di atas — foto di atas menambah tinggi setiap kartu,
+                padahal halaman ini baru saja diringkas supaya tidak panjang.
+
+                alt="" karena dekoratif: judul di sebelahnya sudah menjelaskan
+                beritanya, dan pembaca layar tidak perlu mendengar keduanya.
+                `no-referrer` karena sebagian server gambar penerbit menolak
+                permintaan yang membawa alamat situs lain.
             */}
-            {artikel.summary && (
-                <div className="hidden sm:block">
-                    <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-text-secondary">
-                        {artikel.summary}
-                    </p>
-                </div>
+            {adaFoto && (
+                <img
+                    src={artikel.image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    onError={() => setFotoGagal(true)}
+                    className="h-16 w-20 shrink-0 self-start rounded-lg bg-bg-cardAlt object-cover sm:h-24 sm:w-32"
+                />
             )}
         </li>
     );

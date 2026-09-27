@@ -6,6 +6,7 @@ import { lembagaSetelahGantiJenis } from "@/utils/institutions";
 import DangerButton from "@/Components/DangerButton";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import UnitsInput, { KeteranganSatuan } from "@/Components/UnitsInput";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
@@ -211,6 +212,7 @@ function KartuRekening({ rekening, onSunting }) {
                 {formatRupiah(rekening.balance)}
             </p>
 
+            <KeteranganSatuan rekening={rekening} nilai={rekening.balance} />
             <RincianDanaTujuan rekening={rekening} />
 
             <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
@@ -300,6 +302,7 @@ function FormRekening({ show, rekening, kinds, onClose }) {
         kind: rekening?.kind ?? "bank",
         institution: rekening?.institution ?? "",
         opening_balance: rekening?.opening_balance ?? 0,
+        units: rekening?.units ?? "",
     });
 
     const simpan = (e) => {
@@ -402,6 +405,15 @@ function FormRekening({ show, rekening, kinds, onClose }) {
                     </p>
                     <InputError message={form.errors.opening_balance} className="mt-2" />
                 </div>
+
+                {/* key={kind}: ganti jenis berarti satuan lain (gram → lot). */}
+                <UnitsInput
+                    key={form.data.kind}
+                    unit={kinds.find((k) => k.value === form.data.kind)?.unit}
+                    value={form.data.units}
+                    onChange={(v) => form.setData("units", v)}
+                    error={form.errors.units}
+                />
 
                 <div className="flex justify-end gap-2 pt-1">
                     <SecondaryButton type="button" onClick={onClose}>

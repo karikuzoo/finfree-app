@@ -43,6 +43,34 @@ enum AccountKind: string
         return ! $this->likuid();
     }
 
+    /**
+     * Satuan jumlah aset (PRD FR-51): gram untuk emas, lot untuk saham, unit
+     * penyertaan untuk reksa dana. NULL untuk bank dan tunai — uang tidak
+     * punya satuan selain rupiahnya sendiri.
+     *
+     * Satuannya hanya KETERANGAN. Nilai rupiah tetap satu-satunya dasar
+     * perhitungan: kekayaan bersih, komposisi, dan dana tujuan tidak pernah
+     * menyentuh jumlah satuan.
+     */
+    public function satuan(): ?string
+    {
+        return match ($this) {
+            self::Gold => 'gram',
+            self::Stock => 'lot',
+            self::Fund => 'unit',
+            default => null,
+        };
+    }
+
+    /** @return array<int, string> Jenis yang punya satuan. */
+    public static function bersatuan(): array
+    {
+        return array_column(
+            array_filter(self::cases(), fn (self $k) => $k->satuan() !== null),
+            'value',
+        );
+    }
+
     /** Boleh menampung dana target. Lihat alasannya di komentar kelas. */
     public function likuid(): bool
     {

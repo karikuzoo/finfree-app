@@ -66,6 +66,50 @@ class AccountTest extends TestCase
         $this->assertDatabaseCount('accounts', count(AccountKind::cases()));
     }
 
+    /** FR-51: berat emas tersimpan bersama rekeningnya. */
+    public function test_jumlah_satuan_tersimpan_untuk_jenis_bersatuan(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('accounts.store'), $this->isian([
+                'name' => 'Emas batangan',
+                'kind' => AccountKind::Gold->value,
+                'units' => 10.5,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(10.5, (float) $user->accounts()->sole()->units);
+    }
+
+    /** Bank tidak punya satuan: berat yang terbawa dari form dibuang, bukan ditolak. */
+    public function test_jumlah_satuan_diabaikan_untuk_bank_dan_tunai(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([AccountKind::Bank, AccountKind::Cash] as $jenis) {
+            $this->actingAs($user)
+                ->post(route('accounts.store'), $this->isian([
+                    'name' => $jenis->label(),
+                    'kind' => $jenis->value,
+                    'units' => 10,
+                ]))
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->assertSame([null, null], $user->accounts()->pluck('units')->all());
+    }
+
+    public function test_jumlah_satuan_negatif_ditolak(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->post(route('accounts.store'), $this->isian([
+                'kind' => AccountKind::Gold->value,
+                'units' => -1,
+            ]))
+            ->assertSessionHasErrors('units');
+    }
+
     public function test_lembaga_boleh_kosong(): void
     {
         $user = User::factory()->create();

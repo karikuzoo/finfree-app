@@ -26,6 +26,7 @@ class Account extends Model
         'kind',
         'institution',
         'opening_balance',
+        'units',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Account extends Model
         return [
             'kind' => AccountKind::class,
             'opening_balance' => 'decimal:2',
+            'units' => 'decimal:4',
         ];
     }
 

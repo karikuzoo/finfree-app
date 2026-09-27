@@ -48,7 +48,29 @@ class StoreAccountRequest extends FormRequest
             'kind' => $jenis,
             'institution' => ['nullable', 'string', 'max:100'],
             'opening_balance' => ['required', 'numeric', 'min:0', 'max:999999999999999.99'],
+            // FR-51. Hanya untuk jenis bersatuan (emas, saham, reksa dana);
+            // untuk bank dan tunai diabaikan — lihat dataRekening().
+            'units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],
         ];
+    }
+
+    /**
+     * Data tervalidasi, dengan `units` dipaksa NULL untuk jenis tanpa satuan.
+     *
+     * Bukan ditolak: rekening emas yang diganti menjadi bank (selama belum
+     * bertransaksi) masih membawa berat gramnya dari form, dan yang benar
+     * adalah membuangnya, bukan menggagalkan simpanannya.
+     *
+     * @return array<string, mixed>
+     */
+    public function dataRekening(): array
+    {
+        $data = $this->validated();
+        $data['units'] = AccountKind::from($data['kind'])->satuan() === null || ($data['units'] ?? '') === ''
+            ? null
+            : $data['units'];
+
+        return $data;
     }
 
     /**
@@ -65,6 +87,8 @@ class StoreAccountRequest extends FormRequest
             'opening_balance.required' => 'Saldo awal wajib diisi. Isi 0 bila mulai dari kosong.',
             'opening_balance.numeric' => 'Saldo awal harus berupa angka.',
             'opening_balance.min' => 'Saldo awal tidak boleh negatif.',
+            'units.numeric' => 'Jumlahnya harus berupa angka.',
+            'units.min' => 'Jumlahnya tidak boleh negatif.',
         ];
     }
 }

@@ -48,6 +48,8 @@ class InvestmentController extends Controller
                 'kind_label' => $r->kind->label(),
                 'institution' => $r->institution,
                 'opening_balance' => (float) $r->opening_balance,
+                'units' => $r->units === null ? null : (float) $r->units,
+                'unit' => $r->kind->satuan(),
                 'value' => $saldo[$r->id] ?? 0.0,
                 // NULL berarti belum pernah dinilai ulang sejak dicatat.
                 // Frontend menampilkannya sebagai "Saldo awal", bukan tanggal.
@@ -59,7 +61,7 @@ class InvestmentController extends Controller
             'totalValue' => round($investasi->sum('value'), 2),
             'kinds' => collect(AccountKind::cases())
                 ->filter(fn (AccountKind $k) => ! $k->likuid())
-                ->map(fn (AccountKind $k) => ['value' => $k->value, 'label' => $k->label()])
+                ->map(fn (AccountKind $k) => ['value' => $k->value, 'label' => $k->label(), 'unit' => $k->satuan()])
                 ->values(),
         ]);
     }

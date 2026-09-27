@@ -38,23 +38,39 @@ class AccountValuationController extends Controller
         $sekarang = $this->saldo->forUser($user)[$account->id] ?? 0.0;
         $selisih = round((float) $data['value'] - $sekarang, 2);
 
+        // FR-51: jumlah satuan terbaru, hanya untuk jenis bersatuan. Kosong
+        // berarti "tidak diubah", jadi nilai lamanya dipertahankan.
+        $satuanBaru = $account->kind->satuan() !== null && ($data['units'] ?? null) !== null
+            ? round((float) $data['units'], 4)
+            : null;
+        $satuanBerubah = $satuanBaru !== null && $satuanBaru !== round((float) $account->units, 4);
+
         // Tidak ada perubahan berarti tidak ada yang perlu dicatat. Menyimpan
         // penyesuaian bernilai nol hanya mengotori riwayat dengan baris yang
         // tidak mengubah apa pun — dan kolom `amount` memang menolak nol.
-        if ($selisih === 0.0) {
+        // Pengecualiannya: nilainya tetap tapi jumlah satuannya berubah
+        // (mis. membetulkan berat gram yang salah ketik) — satuannya saja
+        // yang disimpan, tanpa transaksi.
+        if ($selisih === 0.0 && ! $satuanBerubah) {
             throw ValidationException::withMessages([
                 'value' => 'Nilainya sama dengan yang tercatat sekarang.',
             ]);
         }
 
-        DB::transaction(function () use ($user, $account, $data, $selisih) {
-            $user->transactions()->create([
-                'account_id' => $account->id,
-                'type' => TransactionType::Adjustment->value,
-                'name' => 'Penilaian ulang '.$account->name,
-                'amount' => $selisih,
-                'occurred_on' => $data['occurred_on'],
-            ]);
+        DB::transaction(function () use ($user, $account, $data, $selisih, $satuanBerubah, $satuanBaru) {
+            if ($selisih !== 0.0) {
+                $user->transactions()->create([
+                    'account_id' => $account->id,
+                    'type' => TransactionType::Adjustment->value,
+                    'name' => 'Penilaian ulang '.$account->name,
+                    'amount' => $selisih,
+                    'occurred_on' => $data['occurred_on'],
+                ]);
+            }
+
+            if ($satuanBerubah) {
+                $account->update(['units' => $satuanBaru]);
+            }
 
             $this->penjaga->assertConsistent($user, 'value');
         });

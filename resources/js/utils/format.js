@@ -101,6 +101,67 @@ export function spellRupiah(value) {
     return `${angka} ${satuan[i][1]}`;
 }
 
+const idDesimal = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 4 });
+
+/** 1234.5678 -> "1.234,5678"; 10.5 -> "10,5". Sampai empat desimal. */
+export function formatDesimal(value) {
+    if (value === null || value === undefined || value === '') return '';
+
+    return idDesimal.format(Number(value));
+}
+
+/**
+ * Teks angka berdesimal gaya Indonesia -> angka. "10,5" -> 10.5;
+ * "1.234,5678" -> 1234.5678; "1.000" -> 1000.
+ *
+ * Titik tanpa koma ambigu: "1.000" hampir pasti seribu, tetapi "10.5" hampir
+ * pasti sepuluh setengah (diketik dari papan ketik berformat Inggris). Titik
+ * tunggal yang diikuti TEPAT tiga angka dibaca pemisah ribuan; selain itu
+ * dibaca koma desimal.
+ *
+ * Mengembalikan '' untuk isian kosong atau bukan angka.
+ */
+export function parseDesimal(text) {
+    let s = String(text ?? '').trim().replace(/\s/g, '');
+    if (s === '') return '';
+
+    if (s.includes(',')) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else if (/^\d+\.\d+$/.test(s) && !/^\d{1,3}\.\d{3}$/.test(s)) {
+        // "10.5" — titik sebagai desimal. Biarkan.
+    } else {
+        s = s.replace(/\./g, '');
+    }
+
+    const n = Number(s);
+
+    return Number.isFinite(n) ? n : '';
+}
+
+/**
+ * Keterangan jumlah satuan aset untuk kartu (PRD FR-51):
+ * { jumlah: "10,5 gram", perSatuan: "≈ Rp 1.450.000/gram" }.
+ *
+ * Harga per satuan diturunkan dari nilai rupiah yang tercatat — bukan harga
+ * pasar — jadi ia hanya sepeka nilai terakhir yang dimasukkan. Justru itu
+ * gunanya: "Rp 3.000.000/gram" untuk emas langsung terbaca janggal.
+ *
+ * Saham dihitung per LEMBAR (1 lot = 100 lembar), karena harga saham selalu
+ * disebut per lembar.
+ */
+export function keteranganSatuan({ units, unit, value }) {
+    const n = Number(units);
+    if (!unit || units === null || units === undefined || units === '' || !(n > 0)) return null;
+
+    const pembagi = unit === 'lot' ? n * 100 : n;
+    const perNama = unit === 'lot' ? 'lembar' : unit;
+
+    return {
+        jumlah: `${formatDesimal(n)} ${unit}`,
+        perSatuan: `≈ ${formatRupiah(Number(value) / pembagi)}/${perNama}`,
+    };
+}
+
 /** "1.500.000" atau "Rp 1.500.000" -> 1500000 */
 export function parseNumber(text) {
     const digits = String(text).replace(/[^\d]/g, '');

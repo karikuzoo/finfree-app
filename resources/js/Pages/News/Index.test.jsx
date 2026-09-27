@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import NewsIndex from './Index';
@@ -117,6 +117,51 @@ describe('Halaman Berita', () => {
         tampilkan({ articles: { data: [], current_page: 1, last_page: 1 }, activeCategory: 'properti' });
 
         expect(screen.getByText('Belum ada berita di kategori ini')).toBeInTheDocument();
+    });
+
+    /**
+     * Foto dimuat langsung dari server penerbit (D-16). Dekoratif — judul di
+     * sebelahnya sudah menjelaskan beritanya — dan tanpa referrer, karena
+     * sebagian server gambar penerbit menolak permintaan dari situs lain.
+     */
+    it('foto artikel tampil di samping tulisan, dimuat dari penerbit', () => {
+        const { container } = tampilkan({
+            articles: {
+                data: [artikel({ image: 'https://img.kontan.co.id/ihsg.jpg' })],
+                current_page: 1,
+                last_page: 1,
+            },
+        });
+
+        const foto = container.querySelector('li img');
+        expect(foto).toHaveAttribute('src', 'https://img.kontan.co.id/ihsg.jpg');
+        expect(foto).toHaveAttribute('alt', '');
+        expect(foto).toHaveAttribute('referrerpolicy', 'no-referrer');
+        expect(foto).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('foto yang gagal dimuat disembunyikan, bukan jadi kotak rusak', () => {
+        const { container } = tampilkan({
+            articles: {
+                data: [artikel({ image: 'https://img.kontan.co.id/hilang.jpg' })],
+                current_page: 1,
+                last_page: 1,
+            },
+        });
+
+        fireEvent.error(container.querySelector('li img'));
+
+        expect(container.querySelector('li img')).toBeNull();
+        // Tulisannya tetap ada.
+        expect(screen.getByRole('link', { name: /IHSG Diprediksi Sideways/ })).toBeInTheDocument();
+    });
+
+    it('artikel tanpa foto tetap tampil tanpa kotak kosong', () => {
+        const { container } = tampilkan({
+            articles: { data: [artikel({ image: null })], current_page: 1, last_page: 1 },
+        });
+
+        expect(container.querySelector('li img')).toBeNull();
     });
 
     /** NFR-9: disclaimer permanen, bukan sekali tampil. */

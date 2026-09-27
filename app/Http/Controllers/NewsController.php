@@ -43,6 +43,7 @@ class NewsController extends Controller
                 'id' => $a->id,
                 'title' => $a->title,
                 'summary' => $a->summary,
+                'image' => $a->image_url,
                 'url' => $a->url,
                 'source' => $a->source_name ?: $a->source,
                 'category' => $a->category,

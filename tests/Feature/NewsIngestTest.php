@@ -133,7 +133,7 @@ class NewsIngestTest extends TestCase
 
     // ── Penyimpanan ─────────────────────────────────────────────────────
 
-    public function test_artikel_tersimpan_hanya_metadatanya(): void
+    public function test_artikel_tersimpan_tanpa_isi_penuhnya(): void
     {
         $this->palsukan([$this->artikel()]);
 
@@ -146,9 +146,53 @@ class NewsIngestTest extends TestCase
         $this->assertSame('kontan_co_id', $a->source);
         $this->assertSame('Kontan Co Id', $a->source_name);
 
-        // Gambar dan isi penuh tidak disimpan — paket gratis tidak mengizinkan.
-        $this->assertArrayNotHasKey('image_url', $a->getAttributes());
+        // Hanya TAUTAN fotonya — fotonya sendiri tidak diunduh (D-16).
+        $this->assertSame('https://img.kontan.co.id/gambar.jpg', $a->image_url);
+
+        // Isi penuh artikel tidak pernah disimpan.
         $this->assertArrayNotHasKey('content', $a->getAttributes());
+    }
+
+    /**
+     * Hanya tautan HTTPS. Gambar HTTP di halaman HTTPS ditolak browser (mixed
+     * content) dan hanya akan jadi kotak kosong.
+     *
+     * @return array<string, array{0: mixed}>
+     */
+    public static function tautanFotoTakSah(): array
+    {
+        return [
+            'http biasa' => ['http://img.kontan.co.id/gambar.jpg'],
+            'javascript' => ['javascript:alert(1)'],
+            'data' => ['data:image/png;base64,AAAA'],
+            'kosong' => [''],
+            'null' => [null],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('tautanFotoTakSah')]
+    public function test_tautan_foto_yang_tidak_sah_dibuang(mixed $tautan): void
+    {
+        $this->palsukan([$this->artikel(['image_url' => $tautan])]);
+
+        $this->jalankan();
+
+        $this->assertNull(NewsArticle::sole()->image_url);
+    }
+
+    /** Artikel yang tersimpan sebelum kolom foto ada mendapat fotonya saat diambil ulang. */
+    public function test_foto_ditambahkan_ke_artikel_yang_sudah_tersimpan(): void
+    {
+        NewsArticle::create([
+            'url' => 'https://www.kontan.co.id/news/ihsg-diprediksi-sideways',
+            'title' => 'IHSG Diprediksi Sideways', 'source' => 'kontan_co_id',
+            'category' => 'pasar-saham', 'published_at' => now(), 'fetched_at' => now(),
+        ]);
+        $this->palsukan([$this->artikel()]);
+
+        $this->jalankan();
+
+        $this->assertSame('https://img.kontan.co.id/gambar.jpg', NewsArticle::sole()->image_url);
     }
 
     /** `pubDate` NewsData.io dalam UTC; disimpan menurut jam aplikasi (WIB). */

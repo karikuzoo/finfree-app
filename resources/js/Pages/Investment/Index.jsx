@@ -6,6 +6,7 @@ import CurrencyInput from "@/Components/CurrencyInput";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import UnitsInput, { KeteranganSatuan } from "@/Components/UnitsInput";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
@@ -122,6 +123,7 @@ function KartuInvestasi({ aset, onNilai }) {
             <p className="num-tabular mt-4 text-xl font-bold text-text-primary">
                 {formatRupiah(aset.value)}
             </p>
+            <KeteranganSatuan rekening={aset} nilai={aset.value} />
 
             <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
                 <div className="flex justify-between gap-2">
@@ -211,6 +213,7 @@ function FormInvestasi({ show, kinds, onClose }) {
         kind: kinds[0]?.value ?? "stock",
         institution: "",
         opening_balance: 0,
+        units: "",
     });
 
     const simpan = (e) => {
@@ -295,6 +298,15 @@ function FormInvestasi({ show, kinds, onClose }) {
                     <InputError message={form.errors.opening_balance} className="mt-2" />
                 </div>
 
+                <UnitsInput
+                    key={form.data.kind}
+                    id="inv_units"
+                    unit={kinds.find((k) => k.value === form.data.kind)?.unit}
+                    value={form.data.units}
+                    onChange={(v) => form.setData("units", v)}
+                    error={form.errors.units}
+                />
+
                 <div className="flex justify-end gap-2 pt-1">
                     <SecondaryButton type="button" onClick={onClose}>
                         Batal
@@ -315,6 +327,8 @@ function FormPenilaian({ aset, onClose }) {
     const form = useForm({
         value: aset.value,
         occurred_on: todayInJakarta(),
+        // Diisi jumlah yang tercatat; dibiarkan berarti tidak berubah.
+        units: aset.units ?? "",
     });
 
     const simpan = (e) => {
@@ -366,6 +380,19 @@ function FormPenilaian({ aset, onClose }) {
                     )}
                     <InputError message={form.errors.value} className="mt-2" />
                 </div>
+
+                {/*
+                    Membeli atau menjual emas mengubah berat DAN nilainya
+                    sekaligus — keduanya diperbarui di satu tempat.
+                */}
+                <UnitsInput
+                    id="val_units"
+                    unit={aset.unit}
+                    value={form.data.units}
+                    onChange={(v) => form.setData("units", v)}
+                    error={form.errors.units}
+                    catatanTambahan="Ubah bila Anda membeli atau menjual; nilai rupiah tetap dasar perhitungan."
+                />
 
                 <div>
                     <InputLabel htmlFor="occurred_on" value="Tanggal penilaian" />

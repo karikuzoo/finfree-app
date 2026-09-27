@@ -32,6 +32,7 @@ class NewsPageTest extends TestCase
             'url' => 'https://www.kontan.co.id/'.md5($judul),
             'title' => $judul,
             'summary' => "Ringkasan {$judul}",
+            'image_url' => 'https://img.kontan.co.id/'.md5($judul).'.jpg',
             'source' => 'kontan_co_id',
             'source_name' => 'Kontan Co Id',
             'category' => $kategori,
@@ -51,7 +52,8 @@ class NewsPageTest extends TestCase
                 ->has('articles.data', 1)
                 ->where('articles.data.0.title', 'IHSG naik')
                 ->where('articles.data.0.source', 'Kontan Co Id')
-                ->where('articles.data.0.category_label', 'Pasar Saham'));
+                ->where('articles.data.0.category_label', 'Pasar Saham')
+                ->where('articles.data.0.image', 'https://img.kontan.co.id/'.md5('IHSG naik').'.jpg'));
     }
 
     public function test_pengguna_login_juga_bisa_membuka_berita(): void

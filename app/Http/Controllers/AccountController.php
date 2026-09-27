@@ -40,6 +40,9 @@ class AccountController extends Controller
                 'kind_label' => $r->kind->label(),
                 'institution' => $r->institution,
                 'opening_balance' => (float) $r->opening_balance,
+                // FR-51: keterangan saja, bukan dasar hitung. NULL bila tidak diisi.
+                'units' => $r->units === null ? null : (float) $r->units,
+                'unit' => $r->kind->satuan(),
                 'balance' => $tersedia[$r->id]['balance'] ?? 0.0,
                 // Saldo penuh tetap angka utamanya — uangnya memang masih di
                 // rekening ini. Dua angka di bawah menjelaskan kenapa
@@ -64,20 +67,21 @@ class AccountController extends Controller
                 'value' => $k->value,
                 'label' => $k->label(),
                 'liquid' => $k->likuid(),
+                'unit' => $k->satuan(),
             ]),
         ]);
     }
 
     public function store(StoreAccountRequest $request): RedirectResponse
     {
-        $request->user()->accounts()->create($request->validated());
+        $request->user()->accounts()->create($request->dataRekening());
 
         return back();
     }
 
     public function update(StoreAccountRequest $request, Account $account): RedirectResponse
     {
-        $account->update($request->validated());
+        $account->update($request->dataRekening());
 
         return back();
     }

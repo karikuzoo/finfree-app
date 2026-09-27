@@ -5,6 +5,9 @@ import {
     formatCompactRupiah,
     formatNumber,
     formatRupiah,
+    keteranganSatuan,
+    formatDesimal,
+    parseDesimal,
     parseNumber,
     spellRupiah,
 } from "./format.js";
@@ -110,4 +113,50 @@ test("spellRupiah diam untuk nominal kecil dan nilai kosong", () => {
     for (const nilai of [0, 500, 800_000, null, undefined, ""]) {
         assert.equal(spellRupiah(nilai), "");
     }
+});
+/**
+ * Jumlah satuan aset diketik dengan koma desimal ("10,5 gram"), tetapi papan
+ * ketik berformat Inggris menghasilkan "10.5". Keduanya harus terbaca sama —
+ * tanpa merusak "1.000" yang memang seribu.
+ */
+test("parseDesimal membaca koma dan titik dengan benar", () => {
+    assert.equal(parseDesimal("10,5"), 10.5);
+    assert.equal(parseDesimal("1.234,5678"), 1234.5678);
+    assert.equal(parseDesimal("10.5"), 10.5);
+    assert.equal(parseDesimal("0.25"), 0.25);
+    assert.equal(parseDesimal("1.000"), 1000);
+    assert.equal(parseDesimal("12.000.000"), 12000000);
+    assert.equal(parseDesimal("25"), 25);
+    assert.equal(parseDesimal(" 3 "), 3);
+});
+
+test("parseDesimal diam untuk isian kosong atau bukan angka", () => {
+    for (const nilai of ["", null, undefined, "abc", "1,2,3"]) {
+        assert.equal(parseDesimal(nilai), "", String(nilai));
+    }
+});
+
+test("formatDesimal dan parseDesimal saling membatalkan", () => {
+    for (const nilai of [10.5, 1234.5678, 0.25, 1000, 7]) {
+        assert.equal(parseDesimal(formatDesimal(nilai)), nilai);
+    }
+});
+
+test("keteranganSatuan: emas per gram, saham per lembar, reksa dana per unit", () => {
+    assert.deepEqual(keteranganSatuan({ units: 10, unit: "gram", value: 14_500_000 }), {
+        jumlah: "10 gram",
+        perSatuan: "≈ Rp 1.450.000/gram",
+    });
+    // 12 lot = 1.200 lembar.
+    assert.deepEqual(keteranganSatuan({ units: 12, unit: "lot", value: 10_140_000 }), {
+        jumlah: "12 lot",
+        perSatuan: "≈ Rp 8.450/lembar",
+    });
+    assert.equal(keteranganSatuan({ units: 1234.5678, unit: "unit", value: 1_500_000 }).jumlah, "1.234,5678 unit");
+});
+
+test("keteranganSatuan diam tanpa satuan atau jumlah", () => {
+    assert.equal(keteranganSatuan({ units: null, unit: "gram", value: 1 }), null);
+    assert.equal(keteranganSatuan({ units: 0, unit: "gram", value: 1 }), null);
+    assert.equal(keteranganSatuan({ units: 5, unit: null, value: 1 }), null);
 });

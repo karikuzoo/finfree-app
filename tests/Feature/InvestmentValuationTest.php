@@ -296,6 +296,96 @@ class InvestmentValuationTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
+    // ── Jumlah satuan (FR-51) ──────────────────────────────────────────
+
+    /** Membeli emas mengubah berat DAN nilainya — keduanya di satu kiriman. */
+    public function test_penilaian_ulang_ikut_memperbarui_jumlah_satuan(): void
+    {
+        $user = User::factory()->create();
+        $emas = Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['opening_balance' => 14_500_000, 'units' => 10]);
+
+        $this->actingAs($user)
+            ->post(route('accounts.valuation.store', $emas), [
+                'value' => 21_750_000,
+                'occurred_on' => $this->hariIni(),
+                'units' => 15,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(21_750_000.0, $this->nilai($user, $emas));
+        $this->assertSame(15.0, (float) $emas->fresh()->units);
+    }
+
+    /**
+     * Nilainya tetap, beratnya dibetulkan (salah ketik): hanya beratnya yang
+     * disimpan — tanpa transaksi penyesuaian bernilai nol.
+     */
+    public function test_hanya_membetulkan_satuan_tanpa_mencatat_transaksi(): void
+    {
+        $user = User::factory()->create();
+        $emas = Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['opening_balance' => 14_500_000, 'units' => 100]);
+
+        $this->actingAs($user)
+            ->post(route('accounts.valuation.store', $emas), [
+                'value' => 14_500_000,
+                'occurred_on' => $this->hariIni(),
+                'units' => 10,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(10.0, (float) $emas->fresh()->units);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    /** Satuan kosong berarti "tidak diubah", bukan "hapus". */
+    public function test_satuan_kosong_tidak_menghapus_yang_tercatat(): void
+    {
+        $user = User::factory()->create();
+        $emas = Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['opening_balance' => 14_500_000, 'units' => 10]);
+
+        $this->actingAs($user)->post(route('accounts.valuation.store', $emas), [
+            'value' => 15_000_000,
+            'occurred_on' => $this->hariIni(),
+            'units' => '',
+        ]);
+
+        $this->assertSame(10.0, (float) $emas->fresh()->units);
+    }
+
+    public function test_nilai_dan_satuan_sama_tetap_ditolak(): void
+    {
+        $user = User::factory()->create();
+        $emas = Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['opening_balance' => 14_500_000, 'units' => 10]);
+
+        $this->actingAs($user)
+            ->post(route('accounts.valuation.store', $emas), [
+                'value' => 14_500_000,
+                'occurred_on' => $this->hariIni(),
+                'units' => 10,
+            ])
+            ->assertSessionHasErrors('value');
+    }
+
+    public function test_halaman_investasi_memuat_satuan_dan_nama_satuannya(): void
+    {
+        $user = User::factory()->create();
+        Account::factory()->for($user)->jenis(AccountKind::Gold)
+            ->create(['opening_balance' => 14_500_000, 'units' => 10.5]);
+
+        $this->actingAs($user)
+            ->get(route('investments.index'))
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->where('investments.0.units', 10.5)
+                ->where('investments.0.unit', 'gram')
+                ->where('kinds', fn ($k) => collect($k)->pluck('unit', 'value')->all() === [
+                    'stock' => 'lot', 'fund' => 'unit', 'gold' => 'gram',
+                ]));
+    }
+
     public function test_tamu_tidak_bisa_membuka_investasi(): void
     {
         $this->get(route('investments.index'))->assertRedirect(route('login'));
