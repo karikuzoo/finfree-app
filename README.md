@@ -10,7 +10,7 @@ Sejak September 2026 Arus juga **mencatat uang pengguna**: rekening & aset, tran
 
 ## Daftar Fitur
 
-Kolom **Rilis** mengacu pada roadmap di [PRD.md](PRD.md) §12. Kode FR merujuk ke requirement fungsional di PRD §6.
+Kolom **Rilis** mengacu pada roadmap di [PRD.md](claude/PRD.md) §12. Kode FR merujuk ke requirement fungsional di PRD §6.
 
 ### 🔐 Autentikasi & Akun
 
@@ -82,7 +82,7 @@ Alat hitung sekali pakai, terpisah dari Tujuan — jawab "kalau begini hasilnya 
 
 ### 🏦 Rekening, Transaksi & Utang
 
-Nilai **Fase 1–5** di tabel-tabel berikut merujuk ke tabel perluasan pencatat keuangan di [PRD.md](PRD.md) §12 — bukan "Fase 2" pasca-MVP.
+Nilai **Fase 1–5** di tabel-tabel berikut merujuk ke tabel perluasan pencatat keuangan di [PRD.md](claude/PRD.md) §12 — bukan "Fase 2" pasca-MVP.
 
 | Fitur                                                                                             | Rilis  | FR           |
 | ------------------------------------------------------------------------------------------------- | ------ | ------------ |
