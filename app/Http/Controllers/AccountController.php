@@ -30,6 +30,7 @@ class AccountController extends Controller
         $tersedia = $this->saldo->availability($user);
 
         $rekening = $user->accounts()
+            ->withExists('transactions')
             ->orderBy('created_at')
             ->get()
             ->map(fn (Account $r) => [
@@ -49,6 +50,10 @@ class AccountController extends Controller
                 // Nilainya bergerak sendiri mengikuti pasar, jadi kartunya
                 // menawarkan "Perbarui nilai" alih-alih "Pindahkan dana".
                 'needs_valuation' => $r->kind->perluPenilaian(),
+                // Aturan yang sama dengan StoreAccountRequest: jenis dikunci
+                // begitu ada transaksi. Dikirim supaya pilihannya terkunci di
+                // form sejak awal, bukan baru ditolak setelah disimpan.
+                'kind_locked' => (bool) $r->transactions_exists,
             ]);
 
         return Inertia::render('Account/Index', [

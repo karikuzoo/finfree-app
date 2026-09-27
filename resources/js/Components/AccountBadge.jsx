@@ -23,8 +23,15 @@ const IKON = {
     gold: { label: 'Emas', latar: '#3A3118', warna: '#F1CC80' },
 };
 
-export default function AccountBadge({ rekening, size = 'md', className = '' }) {
-    const lencana = lencanaRekening(rekening);
+/**
+ * `rekening`: lencana diturunkan dari jenis + lembaganya (kartu rekening).
+ * `lembaga`: lencana lembaga/platform itu sendiri (pemilih lembaga), apa pun
+ * jenis rekeningnya.
+ */
+export default function AccountBadge({ rekening, lembaga: lembagaLangsung, size = 'md', className = '' }) {
+    const lencana = lembagaLangsung
+        ? { jenis: 'lembaga', lembaga: lembagaLangsung }
+        : lencanaRekening(rekening ?? {});
     const u = UKURAN[size] ?? UKURAN.md;
 
     if (lencana.jenis === 'lembaga') {

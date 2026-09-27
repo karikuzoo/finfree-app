@@ -1,5 +1,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import AccountBadge from "@/Components/AccountBadge";
+import { InstitutionField } from "@/Components/InstitutionPicker";
+import { lembagaSetelahGantiJenis } from "@/utils/institutions";
 import CurrencyInput from "@/Components/CurrencyInput";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
@@ -246,7 +248,13 @@ function FormInvestasi({ show, kinds, onClose }) {
                         id="inv_kind"
                         className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500"
                         value={form.data.kind}
-                        onChange={(e) => form.setData("kind", e.target.value)}
+                        onChange={(e) =>
+                            form.setData((data) => ({
+                                ...data,
+                                kind: e.target.value,
+                                institution: lembagaSetelahGantiJenis(data.institution, data.kind, e.target.value),
+                            }))
+                        }
                     >
                         {kinds.map((jenis) => (
                             <option key={jenis.value} value={jenis.value}>
@@ -257,18 +265,19 @@ function FormInvestasi({ show, kinds, onClose }) {
                     <InputError message={form.errors.kind} className="mt-2" />
                 </div>
 
-                <div>
-                    <InputLabel htmlFor="inv_institution" value="Lembaga (opsional)" />
-                    <TextInput
-                        id="inv_institution"
-                        className="mt-1.5 block w-full"
-                        value={form.data.institution ?? ""}
-                        onChange={(e) => form.setData("institution", e.target.value)}
-                        maxLength={100}
-                        placeholder="Sekuritas, Manajer investasi, ..."
-                    />
-                    <InputError message={form.errors.institution} className="mt-2" />
-                </div>
+                <InstitutionField
+                    id="inv_institution"
+                    kind={form.data.kind}
+                    value={form.data.institution}
+                    error={form.errors.institution}
+                    onChange={(nama) =>
+                        form.setData((data) => ({
+                            ...data,
+                            institution: nama,
+                            name: data.name.trim() === "" ? nama : data.name,
+                        }))
+                    }
+                />
 
                 <div>
                     <InputLabel htmlFor="inv_value" value="Nilainya saat ini" />

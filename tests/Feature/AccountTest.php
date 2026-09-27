@@ -157,6 +157,29 @@ class AccountTest extends TestCase
         $this->assertSame(AccountKind::Bank, $rekening->fresh()->kind);
     }
 
+    /**
+     * Halaman menerima penanda kuncinya, dengan aturan yang SAMA seperti
+     * penolakannya di atas — supaya pilihan jenis terkunci di form sejak
+     * awal, bukan baru ditolak setelah disimpan.
+     */
+    public function test_halaman_menandai_rekening_yang_jenisnya_terkunci(): void
+    {
+        $user = User::factory()->create();
+        Account::factory()->for($user)->jenis(AccountKind::Bank)
+            ->create(['name' => 'A bebas', 'opening_balance' => 5_000_000]);
+        $terkunci = Account::factory()->for($user)->jenis(AccountKind::Bank)
+            ->create(['name' => 'B terkunci', 'opening_balance' => 5_000_000]);
+        Transaction::factory()->for($user)->for($terkunci)->pengeluaran(100_000)->create();
+
+        $this->actingAs($user)
+            ->get(route('accounts.index'))
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->where('accounts', fn ($daftar) => collect($daftar)->pluck('kind_locked', 'name')->all() === [
+                    'A bebas' => false,
+                    'B terkunci' => true,
+                ]));
+    }
+
     /** Mengirim jenis yang SAMA tidak boleh ikut tertolak oleh penguncian itu. */
     public function test_rekening_bertransaksi_tetap_bisa_diganti_namanya(): void
     {

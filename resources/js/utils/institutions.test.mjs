@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cariLembaga, lencanaRekening } from "./institutions.js";
+import { cariLembaga, lembagaSetelahGantiJenis, lencanaRekening } from "./institutions.js";
 
 /**
  * Kolom `institution` dulu teks bebas. Isian lama harus tetap dikenali
@@ -51,4 +51,32 @@ test("nama rekening yang kebetulan berupa kata biasa tidak salah dikenali", () =
 /** Lembaga yang diisi tapi tidak dikenal mengalahkan tebakan dari nama. */
 test("lembaga tak dikenal tidak ditimpa tebakan dari nama", () => {
     assert.deepEqual(lencanaRekening({ kind: "bank", institution: "Bank DKI", name: "BCA lama" }), { jenis: "ikon", ikon: "bank" });
+});
+
+test("platform investasi dikenali per jenisnya", () => {
+    assert.equal(cariLembaga("Stockbit", "stock")?.id, "stockbit");
+    assert.equal(cariLembaga("Indo Premier", "stock")?.id, "ipot");
+    assert.equal(cariLembaga("NEO HOTS", "stock")?.id, "mirae");
+    assert.equal(cariLembaga("Logam Mulia", "gold")?.id, "antam");
+    assert.equal(cariLembaga("Bibit", "fund")?.id, "bibit");
+    // Pluang melayani ketiganya.
+    for (const jenis of ["stock", "fund", "gold"]) {
+        assert.equal(cariLembaga("Pluang", jenis)?.id, "pluang", jenis);
+    }
+    // Bank bukan platform saham, dan sebaliknya.
+    assert.equal(cariLembaga("BCA", "stock"), null);
+    assert.equal(cariLembaga("Stockbit"), null);
+});
+
+/**
+ * Ganti jenis di form: pilihan dari daftar lama dikosongkan — "BCA" tidak
+ * bermakna untuk rekening saham. Isian bebas, dan lembaga yang sah di kedua
+ * jenis, dibiarkan.
+ */
+test("lembagaSetelahGantiJenis", () => {
+    assert.equal(lembagaSetelahGantiJenis("BCA", "bank", "stock"), "");
+    assert.equal(lembagaSetelahGantiJenis("Stockbit", "stock", "gold"), "");
+    assert.equal(lembagaSetelahGantiJenis("Pluang", "stock", "gold"), "Pluang");
+    assert.equal(lembagaSetelahGantiJenis("Broker kecil", "stock", "gold"), "Broker kecil");
+    assert.equal(lembagaSetelahGantiJenis("BCA", "bank", "bank"), "BCA");
 });

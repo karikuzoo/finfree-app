@@ -39,6 +39,38 @@ export const LEMBAGA = [
     { id: 'shopeepay', nama: 'ShopeePay', singkatan: 'SPay', warna: '#EE4D2D', teks: '#FFFFFF', alias: ['shopee pay'], dariNama: true, dompet: true },
 ];
 
+/*
+ * Tempat menyimpan aset investasi. Satu platform bisa melayani beberapa jenis
+ * (Pluang: saham, reksa dana, emas), jadi entrinya didefinisikan sekali lalu
+ * dirujuk dari tiap daftar jenis.
+ */
+const P = {
+    stockbit: { id: 'stockbit', nama: 'Stockbit', singkatan: 'SB', warna: '#1B8E5A', teks: '#FFFFFF', alias: [] },
+    ajaib: { id: 'ajaib', nama: 'Ajaib', singkatan: 'AJB', warna: '#1A3FBF', teks: '#FFFFFF', alias: ['ajaib sekuritas'] },
+    ipot: { id: 'ipot', nama: 'IPOT', singkatan: 'IPOT', warna: '#E4002B', teks: '#FFFFFF', alias: ['indo premier', 'indopremier', 'indo premier sekuritas'] },
+    mirae: { id: 'mirae', nama: 'Mirae Asset', label: 'Mirae', singkatan: 'MRA', warna: '#F58220', teks: '#FFFFFF', alias: ['mirae', 'neo hots', 'hots', 'mirae asset sekuritas'] },
+    bions: { id: 'bions', nama: 'BIONS', singkatan: 'BNS', warna: '#F15A23', teks: '#FFFFFF', alias: ['bni sekuritas'] },
+    most: { id: 'most', nama: 'MOST', singkatan: 'MOST', warna: '#003A70', teks: '#F8B51C', alias: ['mandiri sekuritas'] },
+    bibit: { id: 'bibit', nama: 'Bibit', singkatan: 'BBT', warna: '#00A650', teks: '#FFFFFF', alias: [] },
+    pluang: { id: 'pluang', nama: 'Pluang', singkatan: 'PLG', warna: '#6C2BD9', teks: '#FFFFFF', alias: [] },
+    bareksa: { id: 'bareksa', nama: 'Bareksa', singkatan: 'BRK', warna: '#1E88E5', teks: '#FFFFFF', alias: [] },
+    tanamduit: { id: 'tanamduit', nama: 'Tanamduit', singkatan: 'TMD', warna: '#00A99D', teks: '#FFFFFF', alias: ['tanam duit'] },
+    makmur: { id: 'makmur', nama: 'Makmur', singkatan: 'MKR', warna: '#0B6E4F', teks: '#FFFFFF', alias: [] },
+    antam: { id: 'antam', nama: 'Antam', singkatan: 'ANTM', warna: '#8C6D1F', teks: '#FFFFFF', alias: ['logam mulia', 'antam logam mulia'] },
+    pegadaian: { id: 'pegadaian', nama: 'Pegadaian', singkatan: 'PGD', warna: '#00A551', teks: '#FFFFFF', alias: ['tabungan emas pegadaian'] },
+    treasury: { id: 'treasury', nama: 'Treasury', singkatan: 'TRS', warna: '#1F3A93', teks: '#FFFFFF', alias: [] },
+    tokopedia: { id: 'tokopedia', nama: 'Tokopedia Emas', label: 'Tokopedia', singkatan: 'TKP', warna: '#42B549', teks: '#FFFFFF', alias: ['tokopedia'] },
+    indogold: { id: 'indogold', nama: 'IndoGold', singkatan: 'IDG', warna: '#C9A227', teks: '#1A1A1A', alias: ['indo gold'] },
+};
+
+/** Daftar pilihan per jenis rekening, dalam urutan tampil di pemilih. */
+export const DAFTAR_PER_JENIS = {
+    bank: LEMBAGA,
+    stock: [P.stockbit, P.ajaib, P.ipot, P.mirae, P.bions, P.most, P.bibit, P.pluang],
+    fund: [P.bibit, P.bareksa, P.ajaib, P.tanamduit, P.makmur, P.pluang],
+    gold: [P.antam, P.pegadaian, P.pluang, P.treasury, P.tokopedia, P.indogold],
+};
+
 /**
  * "PT Bank Central Asia Tbk." → "central asia"; "Bank BCA" → "bca".
  * Kata "bank" dibuang, jadi alias ditulis tanpanya juga dikenali.
@@ -54,12 +86,27 @@ function rapikan(teks) {
 
 const kunci = (l) => [l.id, l.nama, ...l.alias].map(rapikan).filter(Boolean);
 
-/** Lembaga dari isian kolom `institution` — cocok penuh, bukan sebagian. */
-export function cariLembaga(teks) {
+/**
+ * Lembaga dari isian kolom `institution` — cocok penuh, bukan sebagian —
+ * di antara pilihan untuk jenis rekening itu.
+ */
+export function cariLembaga(teks, kind = 'bank') {
     const t = rapikan(teks);
     if (t === '') return null;
 
-    return LEMBAGA.find((l) => kunci(l).includes(t)) ?? null;
+    return (DAFTAR_PER_JENIS[kind] ?? []).find((l) => kunci(l).includes(t)) ?? null;
+}
+
+/**
+ * Lembaga setelah jenis rekening diganti di form. Pilihan dari daftar jenis
+ * lama dikosongkan — "BCA" tidak bermakna untuk rekening saham, dan
+ * membiarkannya membuat pemilih saham terbuka di "Lainnya" berisi "BCA".
+ * Isian bebas dibiarkan.
+ */
+export function lembagaSetelahGantiJenis(teks, jenisLama, jenisBaru) {
+    if (jenisLama === jenisBaru) return teks;
+
+    return cariLembaga(teks, jenisLama) && !cariLembaga(teks, jenisBaru) ? '' : teks;
 }
 
 /**
@@ -76,8 +123,9 @@ function cariDariNama(nama) {
  * Lencana untuk sebuah rekening: lembaga yang dikenali, atau ikon jenisnya.
  *
  * Saham, reksa dana, emas, dan tunai SELALU memakai ikon jenisnya, bukan
- * lembaganya: yang ingin dikenali sekilas di sana adalah macam asetnya, dan
- * lembaganya (Bibit, Ajaib, Pluang…) terlalu beragam untuk didaftar.
+ * lembaganya: yang ingin dikenali sekilas di KARTU adalah macam asetnya.
+ * Lencana platformnya (Stockbit, Antam…) hanya tampil di pemilih, tempat
+ * yang sedang dipilih memang platformnya.
  *
  * @returns {{ jenis: 'lembaga', lembaga: object } | { jenis: 'ikon', ikon: string }}
  */

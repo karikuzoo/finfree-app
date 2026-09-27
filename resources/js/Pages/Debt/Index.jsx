@@ -89,8 +89,9 @@ export default function DebtIndex({ debts, totalRemaining, monthlyPrincipal, acc
                 )}
             </div>
 
+            {/* Dipasang ulang tiap dibuka/ditutup — lihat catatan di Account/Index.jsx. */}
             <FormUtang
-                key={menyunting?.id ?? "baru"}
+                key={menambah ? "baru" : (menyunting?.id ?? "tutup")}
                 show={menambah || menyunting !== null}
                 utang={menyunting}
                 onClose={() => {

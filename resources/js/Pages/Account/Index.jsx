@@ -1,7 +1,8 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import AccountBadge from "@/Components/AccountBadge";
 import CurrencyInput from "@/Components/CurrencyInput";
-import InstitutionPicker from "@/Components/InstitutionPicker";
+import { InstitutionField } from "@/Components/InstitutionPicker";
+import { lembagaSetelahGantiJenis } from "@/utils/institutions";
 import DangerButton from "@/Components/DangerButton";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -65,7 +66,15 @@ export default function AccountIndex({ accounts, totalAssets, composition, kinds
                 )}
             </div>
 
+            {/*
+                `key` berganti setiap kali form dibuka ATAU ditutup, supaya ia
+                dipasang ulang dari nol. Tanpa ini useForm menyimpan isian
+                terakhir: mengubah saham menjadi emas yang ditolak, lalu
+                menutup dan membuka lagi, menampilkan "emas" beserta galatnya
+                — bukan data rekening yang sebenarnya.
+            */}
             <FormRekening
+                key={menambah ? "baru" : (menyunting?.id ?? "tutup")}
                 show={menambah || menyunting !== null}
                 rekening={menyunting}
                 kinds={kinds}
@@ -329,9 +338,17 @@ function FormRekening({ show, rekening, kinds, onClose }) {
                     <InputLabel htmlFor="kind" value="Jenis" />
                     <select
                         id="kind"
-                        className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                        className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
                         value={form.data.kind}
-                        onChange={(e) => form.setData("kind", e.target.value)}
+                        onChange={(e) =>
+                            form.setData((data) => ({
+                                ...data,
+                                kind: e.target.value,
+                                institution: lembagaSetelahGantiJenis(data.institution, data.kind, e.target.value),
+                            }))
+                        }
+                        disabled={Boolean(rekening?.kind_locked)}
+                        aria-describedby={rekening?.kind_locked ? "kind-terkunci" : undefined}
                     >
                         {kinds.map((jenis) => (
                             <option key={jenis.value} value={jenis.value}>
@@ -339,56 +356,37 @@ function FormRekening({ show, rekening, kinds, onClose }) {
                             </option>
                         ))}
                     </select>
-                    <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
-                        Hanya bank dan tunai yang boleh menyimpan dana
-                        tujuan — nilai saham dan emas bergerak sendiri, sehingga
-                        tujuan yang dananya di sana bisa meleset diam-diam.
-                    </p>
+                    {rekening?.kind_locked ? (
+                        <p id="kind-terkunci" className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                            Jenis tidak bisa diubah karena rekening ini sudah
+                            punya riwayat transaksi. Untuk memindahkan asetnya,
+                            buat rekening baru lalu catat transfer.
+                        </p>
+                    ) : (
+                        <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                            Hanya bank dan tunai yang boleh menyimpan dana
+                            tujuan — nilai saham dan emas bergerak sendiri, sehingga
+                            tujuan yang dananya di sana bisa meleset diam-diam.
+                        </p>
+                    )}
                     <InputError message={form.errors.kind} className="mt-2" />
                 </div>
 
-                <div>
-                    {form.data.kind === "bank" ? (
-                        <>
-                            <p id="institution-label" className="mb-2 block text-sm font-medium text-text-secondary">
-                                Bank atau dompet digital (opsional)
-                            </p>
-                            <InstitutionPicker
-                                value={form.data.institution}
-                                onChange={(nama) =>
-                                    form.setData((data) => ({
-                                        ...data,
-                                        institution: nama,
-                                        // Nama kosong diisi nama lembaganya —
-                                        // "BCA" lebih baik daripada rekening
-                                        // tanpa nama, dan tetap bisa diubah.
-                                        name: data.name.trim() === "" ? nama : data.name,
-                                    }))
-                                }
-                            />
-                        </>
-                    ) : (
-                        <>
-                            <InputLabel htmlFor="institution" value="Lembaga (opsional)" />
-                            <TextInput
-                                id="institution"
-                                className="mt-1.5 block w-full"
-                                value={form.data.institution ?? ""}
-                                onChange={(e) => form.setData("institution", e.target.value)}
-                                maxLength={100}
-                                placeholder={
-                                    {
-                                        cash: "mis. Dompet, Brankas",
-                                        stock: "Sekuritas, mis. Ajaib, Stockbit",
-                                        fund: "Aplikasi, mis. Bibit, Bareksa",
-                                        gold: "mis. Antam, Pegadaian, Pluang",
-                                    }[form.data.kind] ?? ""
-                                }
-                            />
-                        </>
-                    )}
-                    <InputError message={form.errors.institution} className="mt-2" />
-                </div>
+                <InstitutionField
+                    kind={form.data.kind}
+                    value={form.data.institution}
+                    error={form.errors.institution}
+                    onChange={(nama) =>
+                        form.setData((data) => ({
+                            ...data,
+                            institution: nama,
+                            // Nama kosong diisi nama lembaganya — "BCA" lebih
+                            // baik daripada rekening tanpa nama, dan tetap
+                            // bisa diubah.
+                            name: data.name.trim() === "" ? nama : data.name,
+                        }))
+                    }
+                />
 
                 <div>
                     <InputLabel htmlFor="opening_balance" value="Saldo saat mulai mencatat" />

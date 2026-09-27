@@ -128,7 +128,9 @@ export default function TransactionIndex({
                 )}
             </div>
 
+            {/* Dipasang ulang tiap dibuka/ditutup — lihat catatan di Account/Index.jsx. */}
             <FormTransaksi
+                key={menambah ? "baru" : (menyunting?.id ?? "tutup")}
                 show={menambah || menyunting !== null}
                 transaksi={menyunting}
                 accounts={accounts}
