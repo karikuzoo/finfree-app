@@ -1,4 +1,5 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import AccountBadge from "@/Components/AccountBadge";
 import CurrencyInput from "@/Components/CurrencyInput";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
@@ -102,11 +103,14 @@ function KartuInvestasi({ aset, onNilai }) {
     return (
         <div className="rounded-card border border-border bg-bg-card p-5">
             <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="truncate font-semibold text-text-primary">{aset.name}</p>
-                    <p className="truncate text-xs text-text-muted">
-                        {aset.institution || "—"}
-                    </p>
+                <div className="flex min-w-0 items-center gap-3">
+                    <AccountBadge rekening={aset} />
+                    <div className="min-w-0">
+                        <p className="truncate font-semibold text-text-primary">{aset.name}</p>
+                        <p className="truncate text-xs text-text-muted">
+                            {aset.institution || "—"}
+                        </p>
+                    </div>
                 </div>
                 <span className="shrink-0 rounded-full bg-bg-cardAlt px-2.5 py-1 text-xs font-semibold text-text-secondary">
                     {aset.kind_label}

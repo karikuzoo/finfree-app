@@ -19,9 +19,11 @@ createInertiaApp({
 
         root.render(<App {...props} />);
     },
-    // Garis tipis di tepi atas layar saat berpindah halaman.
-    // Warnanya disamakan dengan lime-500 tema Malam (DESIGN.md §2).
+    // Garis tipis di tepi atas layar saat berpindah halaman — pasangan
+    // penanda "Memuat…" di PageTransition.jsx. Warnanya aksen mint tema Arus.
+    // Tundaannya disamakan (250 ms) supaya keduanya muncul bersamaan.
     progress: {
         color: '#98EDCE',
+        delay: 250,
     },
 });

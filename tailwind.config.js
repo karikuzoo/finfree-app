@@ -12,6 +12,24 @@ export default {
 
     theme: {
         extend: {
+            // Isi halaman masuk saat pindah menu (PageTransition.jsx).
+            // Pendek dan kecil sengaja: aplikasi keuangan dibuka berkali-kali
+            // sehari, dan animasi yang terasa di kunjungan pertama menjadi
+            // penghalang di kunjungan keseratus.
+            //
+            // Berakhir di `transform: none` dengan fill `backwards`, bukan
+            // `both`: transform yang tertinggal setelah animasi menjadikan
+            // pembungkusnya patokan bagi setiap elemen `position: fixed` di
+            // dalam halaman, dan elemen itu ikut bergeser bersama isinya.
+            keyframes: {
+                'masuk-halaman': {
+                    from: { opacity: '0', transform: 'translateY(6px)' },
+                    to: { opacity: '1', transform: 'none' },
+                },
+            },
+            animation: {
+                'masuk-halaman': 'masuk-halaman 220ms ease-out backwards',
+            },
             fontFamily: {
                 sans: ['Segoe UI', ...defaultTheme.fontFamily.sans],
                 // JetBrains Mono dikeluarkan dari tumpukan: fontnya tidak lagi
