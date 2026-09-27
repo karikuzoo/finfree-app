@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { todayInJakarta, nowInJakartaParts } from "./timezone.js";
+import { formatRelativeTime, todayInJakarta, nowInJakartaParts } from "./timezone.js";
 
 /**
  * Pasangan frontend dari tests/Feature/AppTimezoneTest.php di backend.
@@ -33,4 +33,27 @@ test("nowInJakartaParts.bulan sudah 0-indexed (Januari = 0)", () => {
     const { bulan } = nowInJakartaParts();
 
     assert.ok(bulan >= 0 && bulan <= 11);
+});
+
+/**
+ * Waktu terbit berita. "kemarin" dihitung dari TANGGAL WIB, bukan selisih 24
+ * jam — berita pukul 23.00 WIB yang dibaca pukul 07.00 esoknya adalah
+ * berita kemarin, meski selisihnya baru 8 jam.
+ */
+test("formatRelativeTime mengikuti kalender WIB", () => {
+    // 27 Sep 2026 07.00 WIB = 00.00 UTC
+    const sekarang = new Date("2026-09-27T00:00:00Z");
+
+    assert.equal(formatRelativeTime("2026-09-26T23:59:30Z", sekarang), "baru saja");
+    assert.equal(formatRelativeTime("2026-09-26T23:48:00Z", sekarang), "12 menit lalu");
+    // 04.00 WIB hari yang sama
+    assert.equal(formatRelativeTime("2026-09-26T21:00:00Z", sekarang), "3 jam lalu");
+    // 23.00 WIB kemarin — baru 8 jam, tetapi sudah tanggal kemarin
+    assert.equal(formatRelativeTime("2026-09-26T16:00:00Z", sekarang), "kemarin");
+    assert.equal(formatRelativeTime("2026-09-23T05:00:00Z", sekarang), "4 hari lalu");
+    assert.equal(formatRelativeTime("2026-09-15T05:00:00Z", sekarang), "15 Sep 2026");
+});
+
+test("formatRelativeTime diam untuk masukan rusak", () => {
+    assert.equal(formatRelativeTime("bukan tanggal"), "");
 });

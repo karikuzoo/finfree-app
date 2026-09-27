@@ -1,23 +1,22 @@
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Head } from '@inertiajs/react';
+import { formatRelativeTime } from '@/utils/timezone';
+import { Head, Link } from '@inertiajs/react';
 
 /**
- * Berita finansial. Masih kerangka — modul ini dijadwalkan di Rilis 3
- * (PRD §12) dan punya gerbang mulai: kualitas hasil pencarian sumber berita
- * diuji lebih dulu dengan kata kunci nyata. Bila cakupannya kurang, sumbernya
- * diganti atau modulnya dicoret — jangan dipaksakan.
+ * Berita finansial (PRD FR-16, FR-17, keputusan D-16).
  *
- * Kategori di bawah adalah FR-17. Perlu diingat kategori itu tidak datang
- * dari sumber; ia diklasifikasi sendiri saat ingest (FR-28).
+ * Seluruh isinya datang jadi dari NewsController, yang membaca cache —
+ * halaman ini tidak pernah memanggil sumber berita sendiri, dan kunci API
+ * tidak pernah sampai ke browser.
+ *
+ * Yang ditampilkan hanya METADATA: judul, ringkasan, sumber, waktu terbit,
+ * dan tautan ke artikel aslinya. Artikel dibaca di situs penerbitnya — Arus
+ * tidak menyalin isinya, dan tidak memuat gambarnya (paket gratis sumbernya
+ * tidak mengizinkan).
  */
-export default function NewsIndex() {
-    const categories = [
-        'Kebijakan Moneter',
-        'Pasar Saham',
-        'Properti',
-        'Investasi',
-        'Tips Keuangan',
-    ];
+export default function NewsIndex({ articles, categories, activeCategory, lastUpdated, stale }) {
+    const adaBerita = articles.data.length > 0;
+    const totalSemua = categories.reduce((n, k) => n + k.count, 0);
 
     return (
         <PublicLayout>
@@ -28,53 +27,199 @@ export default function NewsIndex() {
                     Berita &amp; Analisis Keuangan
                 </h1>
                 <p className="mt-3 max-w-2xl text-base leading-relaxed text-text-secondary">
-                    Perkembangan ekonomi Indonesia dan dunia — kebijakan
-                    moneter, pasar saham, properti, dan investasi — dihimpun
-                    dari media pemberitaan sebagai konteks saat Anda mengambil
-                    keputusan finansial.
+                    Perkembangan ekonomi Indonesia — kebijakan moneter, pasar
+                    saham, properti, dan investasi — dihimpun dari media
+                    pemberitaan sebagai konteks saat Anda mengambil keputusan
+                    finansial.
                 </p>
 
-                <div className="mt-8 flex flex-wrap gap-2">
-                    {categories.map((c) => (
-                        <span
-                            key={c}
-                            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-text-muted"
+                <nav aria-label="Kategori berita" className="mt-8 flex flex-wrap gap-2">
+                    <Chip href={route('news.index')} aktif={activeCategory === null} jumlah={totalSemua}>
+                        Semua
+                    </Chip>
+                    {categories.map((k) => (
+                        <Chip
+                            key={k.slug}
+                            href={route('news.index', { kategori: k.slug })}
+                            aktif={activeCategory === k.slug}
+                            jumlah={k.count}
                         >
-                            {c}
-                        </span>
+                            {k.label}
+                        </Chip>
                     ))}
-                </div>
+                </nav>
 
-                <div className="mt-10 rounded-card border border-border bg-bg-card px-6 py-14 text-center">
-                    <svg
-                        className="mx-auto h-14 w-14 text-text-muted"
-                        viewBox="0 0 32 32"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                    >
-                        <rect x="4" y="6" width="24" height="20" rx="2.5" />
-                        <path d="M9 12h8M9 17h14M9 21h10" />
-                    </svg>
+                {stale && totalSemua > 0 && <BannerBasi lastUpdated={lastUpdated} />}
 
-                    <h2 className="mt-5 text-lg font-semibold text-text-primary">
-                        Belum ada berita
-                    </h2>
-                    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
-                        Modul berita dijadwalkan pada Rilis 3, setelah fitur
-                        tujuan dan kalkulator selesai.
-                    </p>
-                    <p className="mx-auto mt-3 max-w-md text-xs leading-relaxed text-text-muted">
-                        Sumber beritanya belum dikunci. Penyedia yang
-                        direncanakan adalah API berita umum, sehingga cakupan
-                        berita ekonomi berbahasa Indonesia perlu diuji dulu
-                        sebelum modul ini dianggap layak rilis.
-                    </p>
-                </div>
+                {adaBerita ? (
+                    <ul className="mt-6 space-y-3">
+                        {articles.data.map((a) => (
+                            <KartuBerita key={a.id} artikel={a} tampilkanKategori={activeCategory === null} />
+                        ))}
+                    </ul>
+                ) : (
+                    <Kosong adaBeritaLain={totalSemua > 0} />
+                )}
+
+                {(articles.prev_page_url || articles.next_page_url) && (
+                    <div className="mt-8 flex items-center justify-between">
+                        {articles.prev_page_url ? (
+                            <Link
+                                href={articles.prev_page_url}
+                                className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-cardAlt"
+                            >
+                                ← Lebih baru
+                            </Link>
+                        ) : (
+                            <span />
+                        )}
+
+                        <p className="text-xs text-text-muted">
+                            Halaman {articles.current_page} dari {articles.last_page}
+                        </p>
+
+                        {articles.next_page_url ? (
+                            <Link
+                                href={articles.next_page_url}
+                                className="rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-cardAlt"
+                            >
+                                Lebih lama →
+                            </Link>
+                        ) : (
+                            <span />
+                        )}
+                    </div>
+                )}
+
+                {/*
+                    Disclaimer permanen, bukan sekali tampil (NFR-9): berita
+                    yang dihimpun otomatis mudah terbaca sebagai rekomendasi.
+                */}
+                <p className="mt-10 border-t border-border pt-5 text-xs leading-relaxed text-text-muted">
+                    Berita dihimpun otomatis dari media pemberitaan melalui
+                    NewsData.io dan diperbarui tiap jam. Arus tidak menulis,
+                    menyunting, atau memverifikasi isinya — baca selengkapnya
+                    di situs penerbitnya. Bukan nasihat investasi.
+                </p>
             </div>
         </PublicLayout>
+    );
+}
+
+function Chip({ href, aktif, jumlah, children }) {
+    return (
+        <Link
+            href={href}
+            preserveScroll
+            aria-current={aktif ? 'page' : undefined}
+            className={
+                'rounded-full border px-3 py-1.5 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-lime-500 ' +
+                (aktif
+                    ? 'border-lime-500 bg-lime-softBg text-lime-500'
+                    : 'border-border text-text-secondary hover:border-border-strong hover:text-text-primary')
+            }
+        >
+            {children}
+            <span className="num-tabular ml-1.5 text-text-muted">{jumlah}</span>
+        </Link>
+    );
+}
+
+function KartuBerita({ artikel, tampilkanKategori }) {
+    return (
+        <li className="rounded-card border border-border bg-bg-card p-5 transition hover:border-border-strong">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+                {tampilkanKategori && artikel.category_label && (
+                    <>
+                        <span className="font-semibold text-lime-500">{artikel.category_label}</span>
+                        <span aria-hidden="true">·</span>
+                    </>
+                )}
+                <span className="font-medium text-text-secondary">{artikel.source}</span>
+                <span aria-hidden="true">·</span>
+                <time dateTime={artikel.published_at}>{formatRelativeTime(artikel.published_at)}</time>
+            </div>
+
+            <h2 className="mt-2 text-base font-semibold leading-snug text-text-primary">
+                {/*
+                    Tab baru, karena artikelnya di situs lain dan pembaca
+                    kembali ke daftar ini. `noopener noreferrer` supaya situs
+                    penerbit tidak bisa mengendalikan tab Arus lewat
+                    window.opener.
+                */}
+                <a
+                    href={artikel.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500"
+                >
+                    {artikel.title}
+                    <span className="sr-only"> (buka di tab baru)</span>
+                </a>
+            </h2>
+
+            {artikel.summary && (
+                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-text-secondary">
+                    {artikel.summary}
+                </p>
+            )}
+        </li>
+    );
+}
+
+/**
+ * Cache yang lama tidak diperbarui tetap DITAMPILKAN — berita kemarin lebih
+ * berguna daripada halaman kosong — tetapi disebut terus terang, supaya
+ * pembaca tidak mengira itu berita terbaru.
+ */
+function BannerBasi({ lastUpdated }) {
+    return (
+        <div role="status" className="mt-6 rounded-lg border border-state-warning/40 bg-bg-cardAlt px-4 py-3 text-sm leading-relaxed text-text-secondary">
+            {lastUpdated
+                ? `Berita belum diperbarui sejak ${formatRelativeTime(lastUpdated)}. Yang tampil di bawah adalah hasil pengambilan terakhir.`
+                : 'Berita belum pernah berhasil diperbarui. Yang tampil di bawah adalah hasil pengambilan terakhir.'}
+        </div>
+    );
+}
+
+function Kosong({ adaBeritaLain }) {
+    return (
+        <div className="mt-6 rounded-card border border-border bg-bg-card px-6 py-14 text-center">
+            <svg
+                className="mx-auto h-14 w-14 text-text-muted"
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+            >
+                <rect x="4" y="6" width="24" height="20" rx="2.5" />
+                <path d="M9 12h8M9 17h14M9 21h10" />
+            </svg>
+
+            {adaBeritaLain ? (
+                <>
+                    <h2 className="mt-5 text-lg font-semibold text-text-primary">
+                        Belum ada berita di kategori ini
+                    </h2>
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
+                        Coba kategori lain, atau kembali lagi nanti — berita
+                        diperbarui tiap jam.
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h2 className="mt-5 text-lg font-semibold text-text-primary">
+                        Berita belum tersedia
+                    </h2>
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
+                        Berita sedang dihimpun dan akan muncul di sini setelah
+                        pengambilan pertama selesai.
+                    </p>
+                </>
+            )}
+        </div>
     );
 }

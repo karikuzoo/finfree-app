@@ -39,6 +39,10 @@
         <env name="DB_DATABASE" value="fingoal_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Kosong dengan sengaja: .env pengembang memuat kunci sungguhan, dan
+             test tidak boleh memakan kuota harian NewsData.io. Test berita
+             mengisi kunci palsu sendiri dan memalsukan HTTP-nya. -->
+        <env name="NEWSDATA_IO_API_KEY" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

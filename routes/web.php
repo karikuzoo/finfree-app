@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\GoalCalculatorController;
+use App\Http\Controllers\NewsController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\GoalExportController;
 use App\Http\Controllers\HistoryController;
@@ -58,7 +59,8 @@ Route::middleware('throttle:60,1')->group(function () {
         ->name('calculator.goal');
 });
 
-Route::get('/berita', fn () => Inertia::render('News/Index'))->name('news.index');
+// Berita (PRD FR-16, FR-17). Publik; hanya membaca cache — lihat NewsController.
+Route::get('/berita', [NewsController::class, 'index'])->name('news.index');
 
 // Lihat komentar panjang di AvatarFileController — ini pengganti
 // Storage::disk('public')->url(), bukan duplikat symlink /storage.

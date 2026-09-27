@@ -80,3 +80,48 @@ export function formatJakartaTime(iso) {
 export function formatJakartaDateLong(iso) {
     return jakartaDateLongFormatter.format(new Date(iso));
 }
+
+const jakartaDateShortFormatter = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+});
+
+/**
+ * "baru saja", "12 menit lalu", "3 jam lalu", "kemarin", "4 hari lalu" —
+ * lalu tanggal biasa ("20 Sep 2026") setelah seminggu. Dipakai untuk waktu
+ * terbit berita, yang lebih mudah dinilai kesegarannya dalam bentuk ini
+ * daripada sebagai tanggal.
+ *
+ * "kemarin" dihitung dari TANGGAL WIB, bukan selisih 24 jam: berita pukul
+ * 23.00 kemarin yang dibaca pukul 07.00 hari ini adalah berita kemarin,
+ * meski selisihnya baru 8 jam.
+ *
+ * `sekarang` bisa diisi supaya hasilnya bisa diuji.
+ */
+export function formatRelativeTime(iso, sekarang = new Date()) {
+    const waktu = new Date(iso);
+    const detik = Math.floor((sekarang - waktu) / 1000);
+
+    if (Number.isNaN(detik)) return '';
+    if (detik < 60) return 'baru saja';
+
+    const menit = Math.floor(detik / 60);
+    if (menit < 60) return `${menit} menit lalu`;
+
+    const hariIni = tanggalJakarta(sekarang);
+    const hariItu = tanggalJakarta(waktu);
+    const selisihHari = Math.round((Date.parse(hariIni) - Date.parse(hariItu)) / 86_400_000);
+
+    if (selisihHari === 0) return `${Math.floor(menit / 60)} jam lalu`;
+    if (selisihHari === 1) return 'kemarin';
+    if (selisihHari < 7) return `${selisihHari} hari lalu`;
+
+    return jakartaDateShortFormatter.format(waktu);
+}
+
+/** "2026-09-27" menurut kalender WIB. */
+function tanggalJakarta(date) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
+}
