@@ -100,7 +100,7 @@ export default function AllocationBreakdownChart({
         return null;
     }
 
-    // Alokasi NYATA dipakai bila pengguna sudah mencatatnya di Dompet.
+    // Alokasi NYATA dipakai bila pengguna sudah mencatatnya di halaman Dana tujuan.
     // Selama belum, yang tergambar tetap saran — pai kosong terbaca sebagai
     // kerusakan, bukan sebagai "belum diisi".
     const adaNyata = Boolean(comparison?.has_actual);
@@ -136,7 +136,7 @@ export default function AllocationBreakdownChart({
             </div>
             <p className="mt-1 text-xs text-text-muted">
                 {adaNyata
-                    ? "Dari alokasi yang Anda catat di Dompet, disandingkan dengan saran."
+                    ? "Dari alokasi yang Anda catat di halaman Dana tujuan, disandingkan dengan saran."
                     : "Ilustrasi berdasarkan jangka waktu dan profil risiko — bukan nasihat investasi."}
             </p>
 
@@ -213,7 +213,7 @@ function Perbandingan({ baris, adaNyata, total, terbesar }) {
                     href={route("wallet.index")}
                     className="font-semibold text-lime-500 hover:text-lime-400"
                 >
-                    Dompet
+                    Dana tujuan
                 </Link>{" "}
                 untuk melihat sejauh mana ia sudah mendekati saran ini.
             </p>

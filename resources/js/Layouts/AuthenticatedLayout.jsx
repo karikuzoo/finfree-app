@@ -3,7 +3,7 @@ import Avatar from '@/Components/Avatar';
 import { Link, usePage } from '@inertiajs/react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useState } from 'react';
-import { DashboardIcon, GoalIcon, WalletIcon, HistoryIcon, CalculatorIcon, NewsIcon, UserIcon, LogoutIcon } from '@/Components/Icons';
+import { DashboardIcon, FundIcon, GoalIcon, WalletIcon, HistoryIcon, CalculatorIcon, NewsIcon, UserIcon, LogoutIcon } from '@/Components/Icons';
 
 const groups = [
     { title: 'KEUANGAN PRIBADI', items: [
@@ -12,7 +12,7 @@ const groups = [
         ['Rekening & aset', 'accounts.index', 'accounts.*', WalletIcon],
         ['Investasi', 'investments.index', 'investments.*', CalculatorIcon],
         ['Tujuan saya', 'goals.index', 'goals.*', GoalIcon],
-        ['Dompet & aset', 'wallet.index', 'wallet.*', WalletIcon],
+        ['Dana tujuan', 'wallet.index', 'wallet.*', FundIcon],
         ['Riwayat', 'history.index', 'history.*', HistoryIcon],
     ] },
     { title: 'RENCANAKAN MASA DEPAN', items: [

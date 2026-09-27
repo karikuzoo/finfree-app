@@ -9,13 +9,13 @@ export default function WalletIndex({ totalAssets = 0, goals = [] }) {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Dompet" />
+            <Head title="Dana tujuan" />
 
             <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-text-primary">
-                            Dompet
+                            Dana tujuan
                         </h1>
                         <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
                             Rincian dana yang telah Anda kumpulkan dan saran penempatannya untuk masing-masing tujuan.
@@ -48,7 +48,7 @@ export default function WalletIndex({ totalAssets = 0, goals = [] }) {
                         </svg>
 
                         <h2 className="mt-5 text-lg font-semibold text-text-primary">
-                            Dompet Masih Kosong
+                            Dana Tujuan Masih Kosong
                         </h2>
                         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
                             Mulai catat setoran pada tujuan finansial Anda, dan pantau rincian uang yang sudah terkumpul di halaman ini.

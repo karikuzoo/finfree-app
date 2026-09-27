@@ -4,7 +4,8 @@ import { Link } from "@inertiajs/react";
  * Dorongan di atas Dashboard saat sebuah tujuan tertinggal dari rencananya.
  *
  * Murni IN-APP, bukan notifikasi push atau email — ia hanya muncul saat
- * pengguna membuka dashboard (PRD FR-30).
+ * pengguna membuka dashboard. Status "tertinggal"-nya berasal dari
+ * perbandingan rencana vs realisasi (PRD FR-35).
  *
  * Dulu banner ini berdiri di atas hari beruntun dan setoran harian: "jangan
  * putus streak-mu". Keduanya hilang bersama pencatatan setoran — dana tujuan

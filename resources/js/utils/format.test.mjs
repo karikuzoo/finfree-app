@@ -99,7 +99,9 @@ test("spellRupiah menyebut satuan yang benar", () => {
 test("spellRupiah tepat di batas satuan", () => {
     assert.equal(spellRupiah(999_999), "");
     assert.equal(spellRupiah(1_000_000), "1 juta");
-    assert.equal(spellRupiah(999_999_999), "1000 juta");
+    assert.equal(spellRupiah(999_999_999), "1 miliar");
+    assert.equal(spellRupiah(999_999_999_999), "1 triliun");
+    assert.equal(spellRupiah(999_990_000), "999,99 juta");
     assert.equal(spellRupiah(1_000_000_000), "1 miliar");
 });
 

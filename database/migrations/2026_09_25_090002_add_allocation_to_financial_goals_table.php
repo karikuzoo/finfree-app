@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * di rekening BCA untuk "DP rumah" tidak mengurangi saldo BCA dan tidak
  * menciptakan uang baru — ia cuma menyatakan bagian mana dari saldo itu yang
  * sudah punya tujuan. Karena itu total alokasi seluruh target pada sebuah
- * rekening tidak boleh melebihi saldonya; dijaga GoalAllocationGuard.
+ * rekening tidak boleh melebihi saldonya; dijaga LedgerGuard.
  *
  * `account_id` NULLABLE dan dibatasi ke rekening bank/tunai saja (ditegakkan
  * di request, bukan di sini): nilai saham dan emas bergerak sendiri, sehingga

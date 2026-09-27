@@ -5,6 +5,7 @@ import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
+import TombolSisihkan from "@/Components/TombolSisihkan";
 import { formatRupiah } from "@/utils/format";
 import { Head, Link, useForm } from "@inertiajs/react";
 import { useState } from "react";
@@ -281,19 +282,6 @@ function BarisRencana({ baris, urutan, onSesuaikan }) {
 }
 
 /**
- * "Sudah saya sisihkan" — satu klik menaikkan dana yang ditandai sebesar
- * alokasi yang disarankan.
- *
- * Sebelum ini pengguna harus membuka form alokasi dan mengetik ulang TOTAL
- * barunya: menghitung sendiri 10.000.000 + 3.750.000. Aritmetika yang memang
- * tugas aplikasi.
- *
- * Yang sudah disisihkan bulan ini ditampilkan apa adanya, termasuk bila
- * jumlahnya belum sebanyak yang disarankan — rencana yang hanya mengenal
- * "sudah" dan "belum" memaksa orang berbohong pada dirinya sendiri di bulan
- * yang cuma sanggup separuh.
- */
-/**
  * Seluruh halaman ini bergantung pada anggaran. Tanpa pemasukan, kemampuan
  * menabungnya nol, tiap baris mendapat alokasi nol, dan kekurangan dananya
  * tampil sebesar seluruh kebutuhan — angka menakutkan yang sebenarnya cuma
@@ -322,71 +310,6 @@ function AnggaranKosong({ onIsi }) {
             >
                 Isi anggaran
             </button>
-        </div>
-    );
-}
-
-function TombolSisihkan({ baris }) {    const form = useForm({ amount: baris.allocation });
-
-    const sisihkan = () => {
-        // transform() dipanggil TERPISAH, tidak dirantai.
-        //
-        // Di adapter React, transform() mengembalikan undefined — ia hanya
-        // memasang callback-nya ke sebuah ref. Merantainya seperti di adapter
-        // Vue (`form.transform(...).post(...)`) melempar TypeError, dan
-        // tombolnya diam sepenuhnya: tidak ada yang terkirim, tidak ada pesan
-        // galat di layar.
-        //
-        // Dan memang harus lewat transform, bukan useForm saja: nominalnya
-        // dibaca dari props SAAT dikirim. Setelah sekali berhasil, alokasi
-        // yang disarankan berubah, sedangkan state awal useForm tidak ikut
-        // diperbarui — klik kedua akan mengirim angka yang sudah basi.
-        form.transform(() => ({ amount: baris.allocation }));
-        form.post(route("goals.set-aside", baris.goal_id), { preserveScroll: true });
-    };
-
-    const sudah = baris.set_aside_this_month;
-
-    if (baris.achieved) {
-        return null;
-    }
-
-    return (
-        <div className="min-w-0">
-            {/*
-                Tombolnya TIDAK pernah lenyap begitu saja. Versi pertama
-                menyembunyikannya saat alokasinya nol, dan hasilnya sebuah
-                halaman yang menyuruh menyisihkan uang tanpa menyediakan
-                caranya — tanpa satu kata pun menjelaskan sebabnya.
-            */}
-            {!baris.can_set_aside ? (
-                <p className="text-xs leading-relaxed text-text-muted">
-                    Tentukan dulu rekening tempat dananya berada lewat
-                    &ldquo;Sesuaikan target&rdquo;.
-                </p>
-            ) : baris.allocation <= 0 ? (
-                <p className="text-xs leading-relaxed text-text-muted">
-                    Belum ada dana yang bisa dialokasikan untuk target ini bulan
-                    ini.
-                </p>
-            ) : (
-                <button
-                    type="button"
-                    onClick={sisihkan}
-                    disabled={form.processing}
-                    className="rounded-lg bg-lime-500 px-3 py-1.5 text-sm font-semibold text-onPrimary transition hover:bg-lime-400 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card"
-                >
-                    {form.processing ? "Menyimpan…" : "Sudah saya sisihkan"}
-                </button>
-            )}
-
-            {sudah > 0 && (
-                <p className="num-tabular mt-1.5 text-xs text-state-success">
-                    Bulan ini sudah disisihkan {formatRupiah(sudah)}
-                </p>
-            )}
-
-            <InputError message={form.errors.amount} className="mt-1.5" />
         </div>
     );
 }

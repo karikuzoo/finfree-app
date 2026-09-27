@@ -111,20 +111,27 @@ class SavingsPlanController extends Controller
             ]);
         }
 
-        $baru = round((float) $financialGoal->allocated_amount + $nominal, 2);
-        $target = (float) $financialGoal->target_amount;
+        DB::transaction(function () use ($user, $financialGoal, $nominal) {
+            // Dibaca ulang dengan KUNCI. Menjumlahkan dari model yang dimuat
+            // route binding berarti dua permintaan bersamaan (dua tab, atau
+            // tombol yang ditekan lagi sebelum halaman sempat dimuat ulang)
+            // membaca angka lama yang sama: salah satu setorannya hilang dari
+            // alokasi, padahal aktivitasnya tetap tercatat dua kali.
+            $goal = FinancialGoal::whereKey($financialGoal->id)->lockForUpdate()->firstOrFail();
 
-        if ($baru > $target) {
-            $sisa = round($target - (float) $financialGoal->allocated_amount, 2);
+            $baru = round((float) $goal->allocated_amount + $nominal, 2);
+            $target = (float) $goal->target_amount;
 
-            throw ValidationException::withMessages([
-                'amount' => 'Melebihi nominal target. Sisa yang dibutuhkan tinggal '
-                    .number_format($sisa, 0, ',', '.').'.',
-            ]);
-        }
+            if ($baru > $target) {
+                $sisa = round($target - (float) $goal->allocated_amount, 2);
 
-        DB::transaction(function () use ($user, $financialGoal, $baru, $nominal) {
-            $financialGoal->update(['allocated_amount' => $baru]);
+                throw ValidationException::withMessages([
+                    'amount' => 'Melebihi nominal target. Sisa yang dibutuhkan tinggal '
+                        .number_format($sisa, 0, ',', '.').'.',
+                ]);
+            }
+
+            $goal->update(['allocated_amount' => $baru]);
             $this->penjaga->assertConsistent($user, 'amount');
 
             // Dicatat ke user_activities — dan ini BUKAN duplikasi seperti
@@ -133,9 +140,9 @@ class SavingsPlanController extends Controller
             // terekam di mana pun. `allocated_amount` hanya angka berjalan:
             // kapan dan berapa ia naik tidak bisa dihitung dari apa pun.
             $user->activities()->create([
-                'financial_goal_id' => $financialGoal->id,
+                'financial_goal_id' => $goal->id,
                 'type' => 'goal_set_aside',
-                'goal_name' => $financialGoal->name,
+                'goal_name' => $goal->name,
                 'amount' => $nominal,
             ]);
         });

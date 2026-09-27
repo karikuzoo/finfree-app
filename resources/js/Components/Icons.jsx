@@ -44,6 +44,23 @@ export function GoalIcon({ className }) {
     );
 }
 
+/**
+ * Tumpukan koin — "Dana tujuan". Sengaja bukan WalletIcon: dipakai
+ * berdampingan dengan "Rekening & aset" di sidebar, dan dua menu berikon sama
+ * terbaca sebagai dua pintu ke halaman yang sama.
+ */
+export function FundIcon({ className }) {
+    return (
+        <svg className={className} {...commonProps}>
+            <ellipse cx="9" cy="6.5" rx="5.5" ry="2.5" />
+            <path d="M3.5 6.5v4c0 1.38 2.46 2.5 5.5 2.5s5.5-1.12 5.5-2.5v-4" />
+            <path d="M3.5 10.5v4c0 1.38 2.46 2.5 5.5 2.5 1.02 0 1.98-.13 2.8-.35" />
+            <ellipse cx="16" cy="15" rx="4.5" ry="2" />
+            <path d="M11.5 15v3c0 1.1 2.01 2 4.5 2s4.5-.9 4.5-2v-3" />
+        </svg>
+    );
+}
+
 export function WalletIcon({ className }) {
     // Ikon dari Flaticon ("wallet-buyer") — beda gaya dari ikon lain di
     // file ini (solid/fill, bukan outline/stroke), karena SVG aslinya

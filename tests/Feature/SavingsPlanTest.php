@@ -590,6 +590,100 @@ class SavingsPlanTest extends TestCase
     }
 
     /**
+     * Bug yang melahirkan test ini: kebutuhan dihitung dari dana SAAT INI,
+     * sehingga menyisihkan Rp 10 juta hanya menurunkannya ke ±Rp 9,17 juta
+     * (sisa bulannya belum berkurang) — dan tombolnya langsung menyarankan
+     * menyisihkan lagi di bulan yang sama.
+     */
+    public function test_setelah_menyisihkan_penuh_tidak_disarankan_lagi_bulan_ini(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 50_000_000, 0);
+        $rekening = $this->rekening($user, 500_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $sebelum = $this->rencana($user)["rows"][0];
+        $this->assertSame($sebelum["allocation"], $sebelum["remaining_this_month"]);
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), [
+            "amount" => $sebelum["remaining_this_month"],
+        ])->assertSessionHasNoErrors();
+
+        $sesudah = $this->rencana($user)["rows"][0];
+
+        // Angka bulan ini tetap — yang berubah hanya sisanya.
+        $this->assertSame($sebelum["need"], $sesudah["need"]);
+        $this->assertSame($sebelum["allocation"], $sesudah["allocation"]);
+        $this->assertSame(0.0, $sesudah["remaining_this_month"]);
+        $this->assertFalse($sesudah["achieved"]);
+        $this->assertTrue($sesudah["can_set_aside"]);
+    }
+
+    public function test_menyisihkan_sebagian_mengurangi_sisa_bulan_ini(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 50_000_000, 0);
+        $rekening = $this->rekening($user, 500_000_000);
+        $goal = $this->tujuan($user, ["account_id" => $rekening->id]);
+
+        $alokasi = $this->rencana($user)["rows"][0]["allocation"];
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => 1_000_000]);
+
+        $this->assertSame(
+            round($alokasi - 1_000_000, 2),
+            $this->rencana($user)["rows"][0]["remaining_this_month"],
+        );
+    }
+
+    /**
+     * Setoran bulan ini tidak boleh menggeser pembagian ke target lain —
+     * kemampuan yang "dibebaskan" oleh kebutuhan yang turun bukan uang baru.
+     */
+    public function test_menyisihkan_tidak_menggeser_alokasi_target_lain(): void
+    {
+        $user = User::factory()->create();
+        // Cukup untuk seluruh target pertama dan sebagian target kedua —
+        // supaya alokasi target kedua bergantung pada sisa dari yang pertama.
+        $this->anggaran($user, 6_000_000, 0);
+        $rekening = $this->rekening($user, 500_000_000);
+        $utama = $this->tujuan($user, [
+            "account_id" => $rekening->id,
+            "priority" => GoalPriority::High->value,
+        ]);
+        $this->tujuan($user, ["name" => "Liburan", "account_id" => $rekening->id]);
+
+        $sebelum = $this->rencana($user)["rows"];
+
+        $this->actingAs($user)->post(route("goals.set-aside", $utama), [
+            "amount" => $sebelum[0]["allocation"],
+        ]);
+
+        $sesudah = $this->rencana($user)["rows"];
+
+        $this->assertSame($sebelum[1]["allocation"], $sesudah[1]["allocation"]);
+    }
+
+    /** Menyisihkan sampai target penuh tetap membuat barisnya tercapai. */
+    public function test_menyisihkan_hingga_penuh_menandai_tercapai(): void
+    {
+        $user = User::factory()->create();
+        $this->anggaran($user, 10_000_000, 0);
+        $rekening = $this->rekening($user, 500_000_000);
+        $goal = $this->tujuan($user, [
+            "account_id" => $rekening->id,
+            "target_amount" => 10_000_000,
+            "allocated_amount" => 9_000_000,
+        ]);
+
+        $this->actingAs($user)->post(route("goals.set-aside", $goal), ["amount" => 1_000_000]);
+
+        $baris = $this->rencana($user)["rows"][0];
+        $this->assertTrue($baris["achieved"]);
+        $this->assertFalse($baris["can_set_aside"]);
+    }
+
+    /**
      * Penanda "sudah bulan ini" harus RESET tiap bulan — kalau tidak, rencana
      * bulan depan akan terlihat seolah sudah dikerjakan.
      */

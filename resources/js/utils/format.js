@@ -66,29 +66,39 @@ export function formatCompactRupiah(value) {
  * Mengembalikan string kosong di bawah satu juta: "delapan ratus ribu" tidak
  * menambah kejelasan apa pun, dan keterangan yang selalu muncul berhenti
  * dibaca.
+ *
+ * Naik satuan bila pembulatannya mencapai 1000: 999.999.999 dibaca
+ * "1 miliar", bukan "1000 juta" — sedangkan 999.990.000 tetap "999,99 juta".
  */
 export function spellRupiah(value) {
     const n = Math.abs(Number(value) || 0);
 
     const satuan = [
-        [1_000_000_000_000, 'triliun'],
-        [1_000_000_000, 'miliar'],
         [1_000_000, 'juta'],
+        [1_000_000_000, 'miliar'],
+        [1_000_000_000_000, 'triliun'],
     ];
 
-    for (const [nilai, kata] of satuan) {
-        if (n >= nilai) {
-            const angka = (n / nilai)
-                .toFixed(2)
-                .replace(/(\.\d*?)0+$/, '$1')
-                .replace(/\.$/, '')
-                .replace('.', ',');
+    let i = satuan.findLastIndex(([nilai]) => n >= nilai);
 
-            return `${angka} ${kata}`;
-        }
+    if (i === -1) {
+        return '';
     }
 
-    return '';
+    let bulat = Number((n / satuan[i][0]).toFixed(2));
+
+    if (bulat >= 1000 && i < satuan.length - 1) {
+        i += 1;
+        bulat = Number((n / satuan[i][0]).toFixed(2));
+    }
+
+    const angka = bulat
+        .toFixed(2)
+        .replace(/(\.\d*?)0+$/, '$1')
+        .replace(/\.$/, '')
+        .replace('.', ',');
+
+    return `${angka} ${satuan[i][1]}`;
 }
 
 /** "1.500.000" atau "Rp 1.500.000" -> 1500000 */

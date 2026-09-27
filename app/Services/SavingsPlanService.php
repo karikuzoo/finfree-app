@@ -154,9 +154,23 @@ class SavingsPlanService
         $baris = [];
 
         foreach ($tujuan as $goal) {
-            $kebutuhan = $this->monthlyNeed($goal);
+            $sudah = round((float) ($sudahBulanIni[$goal->id] ?? 0), 2);
+
+            // Kebutuhan bulan ini dihitung dari dana di AWAL bulan, bukan dari
+            // dana saat ini. Kalau memakai dana saat ini, menyisihkan Rp 10 juta
+            // hanya menurunkan kebutuhannya menjadi ±Rp 9,17 juta — sisa bulannya
+            // belum berkurang — dan rencana langsung menyuruh menyisihkan lagi
+            // di bulan yang sama. Dengan titik awal yang tetap, angka bulan ini
+            // diam sepanjang bulan, dan setoran bulan ini mengurangi SISANYA.
+            $awalBulan = max(0.0, (float) $goal->allocated_amount - $sudah);
+            $kebutuhan = $this->monthlyNeed($goal, $awalBulan);
             $alokasi = round(min($kebutuhan, max(0, $tersisa)), 2);
             $tersisa = round($tersisa - $alokasi, 2);
+
+            // Tercapai atau tidaknya tetap dilihat dari dana SAAT INI.
+            $masihKurang = ($sudah > 0
+                ? $this->monthlyNeed($goal, (float) $goal->allocated_amount)
+                : $kebutuhan) > 0;
 
             $baris[] = [
                 'goal_id' => $goal->id,
@@ -173,18 +187,23 @@ class SavingsPlanService
                 // Setara harian, supaya angkanya terasa sebagai kebiasaan
                 // sehari-hari dan bukan tagihan bulanan yang menakutkan.
                 'daily_equivalent' => round($alokasi / 30, 2),
-                'achieved' => $kebutuhan <= 0,
+                'achieved' => ! $masihKurang,
 
                 // Menutup lingkaran umpan balik: tanpa ini halaman rencana
                 // mengulang perintah yang sama persis tiap bulan, tidak peduli
                 // pengguna sudah mengikutinya atau belum.
-                'set_aside_this_month' => round((float) ($sudahBulanIni[$goal->id] ?? 0), 2),
+                'set_aside_this_month' => $sudah,
+
+                // Yang disarankan tombol "Sudah saya sisihkan": sisa alokasi
+                // bulan ini. Nol begitu bulan ini sudah dipenuhi — menyisihkan
+                // lebih tetap boleh lewat "jumlah lain", hanya tidak disarankan.
+                'remaining_this_month' => round(max(0, $alokasi - $sudah), 2),
 
                 // Target tanpa rekening tidak bisa memakai tombol "Sudah saya
                 // sisihkan" — tidak ada saldo yang bisa ditandai. Dikirim
                 // supaya tombolnya bisa menjelaskan alasannya, bukan sekadar
                 // menolak saat ditekan.
-                'can_set_aside' => $goal->account_id !== null && $kebutuhan > 0,
+                'can_set_aside' => $goal->account_id !== null && $masihKurang,
             ];
         }
 
@@ -199,16 +218,17 @@ class SavingsPlanService
      * tanpa tanggal, setoran berapa pun secara matematis "cukup". Ia
      * dikembalikan nol dan tidak menyerap kemampuan menabung, supaya tidak
      * menggeser target yang benar-benar dikejar tanggal.
+     *
+     * `$terkumpul` diterima dari pemanggil, bukan dibaca dari tujuannya — lihat
+     * mapping(): kebutuhan bulan ini dihitung dari dana di awal bulan.
      */
-    private function monthlyNeed(FinancialGoal $goal): float
+    private function monthlyNeed(FinancialGoal $goal, float $terkumpul): float
     {
         $bulan = $this->monthsLeft($goal);
 
         if ($bulan === null) {
             return 0.0;
         }
-
-        $terkumpul = (float) $goal->allocated_amount;
 
         if ($terkumpul >= (float) $goal->target_amount) {
             return 0.0;
