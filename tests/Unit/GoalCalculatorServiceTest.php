@@ -274,6 +274,41 @@ class GoalCalculatorServiceTest extends TestCase
         $this->assertSame($hasil['total_interest'], end($hasil['series'])['cumulative_interest']);
     }
 
+    /**
+     * Fix-lalu-float: tahun-tahun pertama angsurannya sama persis dengan
+     * pinjaman bunga tetap, lalu dihitung ulang dari sisa pokok — dan tetap
+     * lunas tepat nol.
+     */
+    public function test_pinjaman_bunga_tetap_lalu_mengambang(): void
+    {
+        $tetap = $this->calculator->calculateLoan(500_000_000, 7, 240);
+        $campur = $this->calculator->calculateLoan(500_000_000, 7, 240, floatingRate: 11, fixedMonths: 36);
+
+        $this->assertSame($tetap['monthly_installment'], $campur['monthly_installment']);
+        $this->assertSame(36, $campur['fixed_months']);
+        $this->assertSame(0, end($campur['yearly'])['balance']);
+        $this->assertSame(500_000_000, array_sum(array_column($campur['yearly'], 'principal_paid')));
+
+        // Tiga tahun pertama identik — sisa pokok di akhir tahun ke-3 sama.
+        $this->assertSame($tetap['yearly'][2]['balance'], $campur['yearly'][2]['balance']);
+
+        // Tahap kedua = anuitas sisa pokok, sisa tenor, bunga baru.
+        $sisa = $campur['yearly'][2]['balance'];
+        $i = 0.11 / 12;
+        $this->assertSame((int) ceil($sisa * $i / (1 - (1 + $i) ** -204)), $campur['installment_after_float']);
+        $this->assertGreaterThan($campur['monthly_installment'], $campur['installment_after_float']);
+        $this->assertGreaterThan($tetap['total_interest'], $campur['total_interest']);
+    }
+
+    public function test_pinjaman_masa_tetap_sepanjang_tenor_sama_dengan_bunga_tetap(): void
+    {
+        $hasil = $this->calculator->calculateLoan(100_000_000, 8, 60, floatingRate: 12, fixedMonths: 60);
+
+        $this->assertNull($hasil['installment_after_float']);
+        $this->assertNull($hasil['fixed_months']);
+        $this->assertSame($this->calculator->calculateLoan(100_000_000, 8, 60)['total_interest'], $hasil['total_interest']);
+    }
+
     public function test_pinjaman_menolak_pokok_nol(): void
     {
         $this->expectException(InvalidArgumentException::class);

@@ -69,6 +69,67 @@ describe('Kalkulator Pinjaman / KPR', () => {
         expect(screen.getByText('Rp 491.786.000')).toBeInTheDocument();
     });
 
+    it('bunga tetap lalu mengambang memunculkan isian masa tetap dan bunga mengambang', async () => {
+        render(<CalculatorLoan input={null} result={null} />);
+
+        expect(screen.queryByLabelText('Lama bunga tetap (tahun)')).toBeNull();
+        await userEvent.click(screen.getByRole('button', { name: 'Tetap lalu mengambang' }));
+
+        expect(screen.getByLabelText('Bunga tetap (% / tahun)')).toBeInTheDocument();
+        expect(screen.getByLabelText('Bunga mengambang (% / tahun)')).toBeInTheDocument();
+        expect(screen.getByLabelText('Lama bunga tetap (tahun)')).toBeInTheDocument();
+    });
+
+    /**
+     * Isian yang tidak berlaku untuk jenis bunganya, dan data keuangan saat
+     * cek kesehatan dilewati, tidak ikut terkirim — URL hasilnya hanya
+     * membawa angka yang benar-benar dipakai.
+     */
+    it('isian yang tidak berlaku tidak ikut terkirim', async () => {
+        const { kiriman } = sadapKiriman('get');
+        render(
+            <CalculatorLoan
+                input={{ ...input, rate_type: 'fixed', fixed_years: '3', floating_rate: '11', monthly_income: '' }}
+                result={null}
+            />,
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: 'Hitung Sekarang' }));
+
+        expect(kiriman[0].data).toEqual({
+            principal: '500000000',
+            annual_interest_rate: '10',
+            months: '240',
+            rate_type: 'fixed',
+        });
+    });
+
+    it('cek kesehatan tertutup dulu, terbuka sendiri bila pendapatan sudah diisi', async () => {
+        const { unmount } = render(<CalculatorLoan input={null} result={null} />);
+        expect(screen.queryByLabelText('Pendapatan bersih per bulan')).toBeNull();
+        await userEvent.click(screen.getByRole('button', { name: 'Isi data keuangan' }));
+        expect(screen.getByLabelText('Pendapatan bersih per bulan')).toBeInTheDocument();
+        expect(screen.getByLabelText('Pajak tahunan (PBB)')).toBeInTheDocument();
+        unmount();
+
+        render(<CalculatorLoan input={{ ...input, monthly_income: '20000000' }} result={null} />);
+        expect(screen.getByLabelText('Pendapatan bersih per bulan')).toBeInTheDocument();
+    });
+
+    it('fix-lalu-float menampilkan angsuran sesudah bunga mengambang', () => {
+        render(
+            <CalculatorLoan
+                input={{ ...input, rate_type: 'fix_float', fixed_years: '3', floating_rate: '11' }}
+                result={hasil({ fixed_months: 36, installment_after_float: 5_900_000, monthly_installment: 3_876_495 })}
+            />,
+        );
+
+        expect(screen.getByText('Angsuran 3 tahun pertama')).toBeInTheDocument();
+        expect(screen.getByText('Angsuran setelah bunga mengambang (11%)')).toBeInTheDocument();
+        expect(screen.getByText('Rp 5.900.000')).toBeInTheDocument();
+        expect(screen.getByText(/Mulai bulan ke-37/)).toBeInTheDocument();
+    });
+
     /** Bug "tombol diam" (Goal.jsx): pastikan tombolnya benar-benar mengirim. */
     it('Hitung Sekarang mengirim isian ke route kalkulator pinjaman', async () => {
         const { kiriman } = sadapKiriman('get');

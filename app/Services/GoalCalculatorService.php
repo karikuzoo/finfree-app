@@ -166,16 +166,30 @@ class GoalCalculatorService
      * menyesuaikan supaya sisa pokok berakhir tepat nol — kasus uji wajib
      * (CLAUDE.md §6.8).
      *
+     * BUNGA TETAP LALU MENGAMBANG (fix-lalu-float, umum di KPR Indonesia):
+     * bila `$floatingRate` diisi dan `$fixedMonths` berada di dalam tenor,
+     * `$fixedMonths` angsuran pertama memakai `$annualInterestRate`, lalu
+     * angsuran DIHITUNG ULANG dari sisa pokok, sisa tenor, dan bunga
+     * mengambang — cara bank menyesuaikan angsuran saat masa bunga tetap
+     * habis. `installment_after_float` berisi angsuran tahap kedua itu; NULL
+     * bila tidak ada tahap kedua.
+     *
      * @return array{
      *     monthly_installment: int, last_installment: int,
+     *     installment_after_float: int|null, fixed_months: int|null,
      *     total_payment: int, total_interest: int, principal: int,
      *     monthly_rate: float, months: int,
      *     yearly: array<int, array{year: int, principal_paid: int, interest_paid: int, balance: int}>,
      *     series: array<int, array{month: int, balance: int, cumulative_interest: int}>,
      * }
      */
-    public function calculateLoan(float $principal, float $annualInterestRate, int $months): array
-    {
+    public function calculateLoan(
+        float $principal,
+        float $annualInterestRate,
+        int $months,
+        ?float $floatingRate = null,
+        int $fixedMonths = 0,
+    ): array {
         if ($months < 1) {
             throw new InvalidArgumentException('Tenor minimal 1 bulan.');
         }
@@ -184,16 +198,20 @@ class GoalCalculatorService
             throw new InvalidArgumentException('Pokok pinjaman harus lebih besar dari nol.');
         }
 
-        if ($annualInterestRate < 0) {
+        if ($annualInterestRate < 0 || ($floatingRate !== null && $floatingRate < 0)) {
             throw new InvalidArgumentException('Suku bunga tidak boleh negatif.');
         }
 
         $pokok = (int) round($principal);
         $i = $annualInterestRate / 100 / 12;
 
-        $angsuran = ($i === 0.0)
-            ? (int) ceil($pokok / $months)
-            : (int) ceil($pokok * $i / (1 - (1 + $i) ** -$months));
+        $angsuran = $this->annuityInstallment($pokok, $i, $months);
+        $angsuranAwal = $angsuran;
+
+        // Tahap kedua hanya ada bila masa bunga tetap berakhir SEBELUM tenor
+        // habis. Masa tetap sepanjang tenor sama saja dengan bunga tetap.
+        $adaTahapKedua = $floatingRate !== null && $fixedMonths > 0 && $fixedMonths < $months;
+        $angsuranMengambang = null;
 
         $sisa = $pokok;
         $totalBunga = 0;
@@ -203,6 +221,11 @@ class GoalCalculatorService
         $deret = [['month' => 0, 'balance' => $pokok, 'cumulative_interest' => 0]];
 
         for ($bulan = 1; $bulan <= $months && $sisa > 0; $bulan++) {
+            if ($adaTahapKedua && $bulan === $fixedMonths + 1) {
+                $i = $floatingRate / 100 / 12;
+                $angsuran = $angsuranMengambang = $this->annuityInstallment($sisa, $i, $months - $fixedMonths);
+            }
+
             $bunga = (int) round($sisa * $i);
             $pokokDibayar = ($bulan === $months) ? $sisa : min($sisa, $angsuran - $bunga);
             $bayar = $pokokDibayar + $bunga;
@@ -224,16 +247,26 @@ class GoalCalculatorService
         }
 
         return [
-            'monthly_installment' => $angsuran,
+            'monthly_installment' => $angsuranAwal,
             'last_installment' => $angsuranTerakhir,
+            'installment_after_float' => $angsuranMengambang,
+            'fixed_months' => $adaTahapKedua ? $fixedMonths : null,
             'principal' => $pokok,
             'total_payment' => $totalBayar,
             'total_interest' => $totalBunga,
-            'monthly_rate' => $i,
+            'monthly_rate' => $annualInterestRate / 100 / 12,
             'months' => $months,
             'yearly' => array_values($tahunan),
             'series' => $deret,
         ];
+    }
+
+    /** Angsuran anuitas dalam rupiah penuh, dibulatkan ke atas. */
+    private function annuityInstallment(int $pokok, float $i, int $bulan): int
+    {
+        return ($i === 0.0)
+            ? (int) ceil($pokok / $bulan)
+            : (int) ceil($pokok * $i / (1 - (1 + $i) ** -$bulan));
     }
 
     /**
