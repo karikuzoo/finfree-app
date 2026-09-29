@@ -9,10 +9,12 @@ use App\Http\Requests\UpdateGoalRequest;
 use App\Models\FinancialGoal;
 use App\Services\DashboardSummaryService;
 use App\Services\GoalCalculatorService;
+use App\Services\GoalRecalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -246,6 +248,32 @@ class GoalController extends Controller
             ->route('goals.index')
             ->with('status', "Tujuan \"{$financialGoal->name}\" berhasil diperbarui.");
     }
+    /**
+     * FR-36: menerima salah satu tawaran rekalkulasi. Angkanya dihitung ulang
+     * di GoalRecalculationService — yang dikirim browser hanya NAMA pilihannya.
+     */
+    public function recalculate(
+        Request $request,
+        FinancialGoal $financialGoal,
+        GoalRecalculationService $recalculations,
+    ): RedirectResponse {
+        abort_unless($financialGoal->user_id === $request->user()->id, 403);
+
+        $data = $request->validate([
+            'option' => ['required', Rule::in(GoalRecalculationService::OPTIONS)],
+        ]);
+
+        $recalculations->apply($request->user(), $financialGoal, $data['option']);
+
+        $pesan = match ($data['option']) {
+            'contribution' => 'Setoran bulanan dinaikkan',
+            'date' => 'Tanggal target dimundurkan',
+            'target' => 'Nominal target diturunkan',
+        };
+
+        return back()->with('status', "{$pesan} untuk \"{$financialGoal->name}\".");
+    }
+
     /**
      * Menjadikan sebuah tujuan sebagai tujuan utama di Dashboard.
      *

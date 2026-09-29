@@ -2,6 +2,7 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import Modal from "@/Components/Modal";
 import DangerButton from "@/Components/DangerButton";
 import SecondaryButton from "@/Components/SecondaryButton";
+import TawaranRekalkulasi from "@/Components/TawaranRekalkulasi";
 import { formatRupiah } from "@/utils/format";
 import { Head, Link, router, useForm } from "@inertiajs/react";
 import { useState } from "react";
@@ -247,7 +248,7 @@ function KartuTujuan({ goal, utama }) {
                 tujuan dibuat, bukan hitungan ulang terhadap sisa waktu hari
                 ini. Kata "rencana" ada di labelnya supaya tidak disangka
                 kebutuhan terkini; menghitung ulang saat realisasi meleset
-                adalah FR-36, fitur tersendiri yang menawarkan pilihan.
+                ditawarkan terpisah di bawahnya (FR-36, TawaranRekalkulasi).
 
                 Sebelum ini angkanya dihitung, disimpan ke goal_calculations,
                 lalu tidak pernah ditampilkan di mana pun — padahal inilah satu
@@ -266,6 +267,8 @@ function KartuTujuan({ goal, utama }) {
                     </span>
                 </div>
             )}
+
+            <TawaranRekalkulasi goalId={goal.id} tawaran={goal.recalculation} />
 
             <Modal show={confirmingDeletion} onClose={() => setConfirmingDeletion(false)} maxWidth="md">
                 <div className="p-6">

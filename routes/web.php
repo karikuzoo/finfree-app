@@ -130,6 +130,10 @@ Route::middleware('auth')->group(function () {
         ->name('goals.update');
     Route::patch('/tujuan/{financialGoal}/utama', [GoalController::class, 'setPrimary'])
         ->name('goals.primary');
+    // FR-36: menerima tawaran rekalkulasi (naikkan setoran / mundurkan
+    // tanggal / turunkan target) untuk tujuan yang tertinggal.
+    Route::post('/tujuan/{financialGoal}/rekalkulasi', [GoalController::class, 'recalculate'])
+        ->name('goals.recalculate');
     // Rekening & aset dan Transaksi (PRD FR-63..FR-69). Keduanya lapisan
     // baru di bawah Tujuan: target menandai sebagian saldo rekening, bukan
     // menyimpan uangnya sendiri.

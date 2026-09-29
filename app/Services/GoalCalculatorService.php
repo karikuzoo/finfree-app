@@ -99,6 +99,81 @@ class GoalCalculatorService
     }
 
     /**
+     * FR-36: jumlah bulan PALING SEDIKIT sampai setoran `$monthlyContribution`
+     * cukup untuk mencapai target — dasar tawaran "mundurkan tanggal target".
+     *
+     * Dicari satu per satu lewat calculateMonthlyContribution(), bukan dengan
+     * rumus logaritma kebalikannya: inflasi ikut menaikkan target setiap bulan
+     * tambahan, dan pembulatan ke atas setorannya membuat bentuk tertutup
+     * meleset satu bulan di tepinya. Memakai fungsi yang sama menjamin angka
+     * yang ditawarkan persis cocok dengan angka yang akan tersimpan.
+     *
+     * NULL bila tidak tercapai dalam `$maxMonths` — terjadi bila inflasi lebih
+     * tinggi dari imbal hasil dan setorannya terlalu kecil untuk mengejarnya.
+     */
+    public function monthsToReach(
+        float $targetAmount,
+        float $currentAmount,
+        float $monthlyContribution,
+        float $annualReturnRate,
+        float $annualInflationRate = 0.0,
+        int $fromMonths = 1,
+        int $maxMonths = 600,
+    ): ?int {
+        for ($bulan = max(1, $fromMonths); $bulan <= $maxMonths; $bulan++) {
+            $perlu = $this->calculateMonthlyContribution(
+                $targetAmount, $currentAmount, $bulan, $annualReturnRate, $annualInflationRate,
+            )['monthly_contribution_required'];
+
+            if ($perlu <= $monthlyContribution) {
+                return $bulan;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * FR-36: nominal target TERBESAR (nilai hari ini) yang masih tercapai
+     * dengan setoran `$monthlyContribution` selama `$months` bulan — dasar
+     * tawaran "turunkan nominal target".
+     *
+     * Kebalikan calculateMonthlyContribution(): nilai masa depan yang bisa
+     * dikumpulkan, lalu dikempiskan kembali oleh inflasi (D-1). Dibulatkan
+     * KE BAWAH ke ribuan rupiah — sama alasannya dengan setoran yang
+     * dibulatkan ke atas: pembulatan tidak boleh membuat target meleset — lalu
+     * diperiksa ulang dengan fungsi aslinya supaya galat float di tepi
+     * pembulatan tidak lolos.
+     */
+    public function affordableTarget(
+        float $currentAmount,
+        float $monthlyContribution,
+        int $months,
+        float $annualReturnRate,
+        float $annualInflationRate = 0.0,
+    ): int {
+        $this->guard(1.0, $currentAmount, $months, $annualReturnRate, $annualInflationRate);
+
+        $monthlyRate = $this->monthlyRate($annualReturnRate);
+        $growthFactor = ($monthlyRate === 0.0) ? 1.0 : (1 + $monthlyRate) ** $months;
+
+        $terkumpul = ($monthlyRate === 0.0)
+            ? $currentAmount + $monthlyContribution * $months
+            : $currentAmount * $growthFactor + $monthlyContribution * ($growthFactor - 1) / $monthlyRate;
+
+        $faktorInflasi = (1 + $annualInflationRate / 100) ** ($months / 12);
+        $target = (int) (floor($terkumpul / $faktorInflasi / 1000) * 1000);
+
+        while ($target > 0 && $this->calculateMonthlyContribution(
+            $target, $currentAmount, $months, $annualReturnRate, $annualInflationRate,
+        )['monthly_contribution_required'] > $monthlyContribution) {
+            $target -= 1000;
+        }
+
+        return max(0, $target);
+    }
+
+    /**
      * Konversi effective annual rate menjadi rate bulanan.
      *
      * Sengaja BUKAN r/12. Untuk 12% setahun, r/12 memberi 1% per bulan yang

@@ -15,7 +15,8 @@ const KATA_TRANSAKSI = {
  * Dua sumber bercampur di sini (lihat HistoryController):
  *
  * - Peristiwa tujuan dari `user_activities` — `goal_created`, `goal_deleted`,
- *   `goal_updated`, `goal_set_aside`, `contribution_recorded`. Yang terakhir sudah tidak pernah
+ *   `goal_updated`, `goal_recalculated` (FR-36), `goal_set_aside`,
+ *   `contribution_recorded`. Yang terakhir sudah tidak pernah
  *   dibuat lagi sejak pencatatan setoran dipensiunkan, tetapi barisnya masih
  *   ada di basis data pengguna lama dan tetap harus bisa dibaca.
  * - Transaksi, bertanda awalan `transaction:` — dibentuk saat digabungkan,
@@ -42,6 +43,9 @@ export function describeActivity(activity) {
     }
     if (activity.type === 'goal_updated') {
         return `Mengubah tujuan ${nama}`;
+    }
+    if (activity.type === 'goal_recalculated') {
+        return `Menghitung ulang rencana ${nama}`;
     }
     return `Membuat tujuan ${nama}`;
 }

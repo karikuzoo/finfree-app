@@ -34,6 +34,7 @@ class DashboardSummaryService
 
     public function __construct(
         private readonly InvestmentAllocationService $allocations,
+        private readonly GoalRecalculationService $recalculations,
     ) {
     }
 
@@ -108,6 +109,10 @@ class DashboardSummaryService
      *   pengguna: "andai disisihkan rata rata, seharusnya sudah sejauh
      *   mana". NULL untuk goal tanpa target_date atau yang baru dibuat
      *   hari yang sama (pembagi durasi = 0).
+     *   Sesudah rekalkulasi (FR-36), garis awalnya pindah ke hari
+     *   rekalkulasi dan dana saat itu — lihat onTrackStatus().
+     * - `recalculation`: tawaran FR-36 untuk tujuan yang tertinggal, atau
+     *   NULL — lihat GoalRecalculationService.
      * - `suggested_allocation`: lihat InvestmentAllocationService — tabel
      *   ILUSTRATIF, bukan hasil kajian produk.
      */
@@ -128,8 +133,8 @@ class DashboardSummaryService
             'name' => $goal->name,
             // Setoran bulanan SESUAI RENCANA — dari snapshot saat tujuan
             // dibuat, bukan dihitung ulang terhadap sisa waktu hari ini.
-            // Menghitung ulang adalah FR-36 (rekalkulasi saat realisasi
-            // meleset), fitur tersendiri dengan tawaran pilihan ke pengguna.
+            // Angka ini hanya berubah bila pengguna menyunting tujuannya
+            // atau menerima tawaran rekalkulasi FR-36 (GoalRecalculationService).
             // NULL untuk tujuan tanpa tenggat: tanpa jangka waktu, setoran
             // bulanan tidak punya arti dan snapshotnya memang tidak dibuat.
             'planned_monthly_contribution' => $goal->latestCalculation
@@ -148,7 +153,13 @@ class DashboardSummaryService
             'days_remaining' => $goal->target_date
                 ? max(0, (int) Carbon::now()->startOfDay()->diffInDays($goal->target_date, false))
                 : null,
-            'on_track' => $this->onTrackStatus($goal, $currentAmount, $targetAmount),
+            'on_track' => $onTrack = $this->onTrackStatus($goal, $currentAmount, $targetAmount),
+            // FR-36: tawaran rekalkulasi, hanya untuk tujuan yang tertinggal.
+            // NULL juga bila setoran rencananya ternyata masih cukup — lihat
+            // GoalRecalculationService::optionsFor().
+            'recalculation' => ($onTrack['status'] ?? null) === 'behind'
+                ? $this->recalculations->optionsFor($goal)
+                : null,
             'suggested_allocation' => $suggested,
             // Perbandingan saran vs alokasi NYATA yang dicatat pengguna di
             // halaman Dompet (financial_goals.asset_allocation). Dihitung di
@@ -272,7 +283,16 @@ class DashboardSummaryService
             return null;
         }
 
-        $start = Carbon::parse($goal->created_at)->startOfDay();
+        // Garis awalnya hari tujuan dibuat dengan dana nol — KECUALI bila
+        // snapshot terakhir adalah rekalkulasi (FR-36). Sesudah pengguna
+        // menerima rencana baru, rencana lama tidak lagi berlaku: ukurannya
+        // dimulai dari hari rekalkulasi dan dana yang terkumpul saat itu.
+        // Tanpa ini status "tertinggal" tidak pernah pulih, dan tawaran
+        // rekalkulasinya muncul terus.
+        $rekalkulasi = $goal->latestCalculation?->calculation_snapshot['recalculation'] ?? null;
+
+        $start = Carbon::parse($rekalkulasi ? $goal->latestCalculation->created_at : $goal->created_at)->startOfDay();
+        $baseline = $rekalkulasi ? min($targetAmount, (float) $rekalkulasi['baseline_amount']) : 0.0;
         $end = Carbon::parse($goal->target_date)->startOfDay();
         $totalDays = $start->diffInDays($end);
 
@@ -281,7 +301,7 @@ class DashboardSummaryService
         }
 
         $elapsedDays = min($totalDays, max(0, $start->diffInDays(Carbon::now()->startOfDay())));
-        $expectedAmount = round(($elapsedDays / $totalDays) * $targetAmount, 2);
+        $expectedAmount = round($baseline + ($elapsedDays / $totalDays) * ($targetAmount - $baseline), 2);
 
         if ($currentAmount >= $expectedAmount) {
             return ['status' => 'on_track', 'gap_amount' => 0.0];

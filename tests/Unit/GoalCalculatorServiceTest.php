@@ -181,4 +181,58 @@ class GoalCalculatorServiceTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->calculator->calculateMonthlyContribution(100_000_000, -1, 12, 8, 0);
     }
+
+    // ── FR-36: kebalikan rumus untuk tawaran rekalkulasi ────────────────
+
+    /**
+     * Return 0% supaya angkanya bisa dihitung tangan: sisa 110 juta dengan
+     * setoran 3.333.334 butuh 33 bulan (110 jt / 33 = 3.333.333,33 → ke atas
+     * 3.333.334), dan 32 bulan belum cukup.
+     */
+    public function test_bulan_tercepat_dengan_setoran_tetap(): void
+    {
+        $this->assertSame(33, $this->calculator->monthsToReach(120_000_000, 10_000_000, 3_333_334, 0, 0));
+        $this->assertSame(33, $this->calculator->monthsToReach(120_000_000, 10_000_000, 3_333_334, 0, 0, fromMonths: 25));
+    }
+
+    /**
+     * Sifat yang dijanjikan ke pengguna: setoran untuk bulan yang ditawarkan
+     * tidak melebihi setorannya sekarang, dan sebulan lebih cepat pasti
+     * melebihi — dengan imbal hasil dan inflasi sungguhan.
+     */
+    public function test_bulan_tercepat_adalah_batas_yang_tepat(): void
+    {
+        $bulan = $this->calculator->monthsToReach(300_000_000, 25_000_000, 3_000_000, 6, 3.5);
+
+        $this->assertNotNull($bulan);
+        $this->assertLessThanOrEqual(3_000_000, $this->calculator->calculateMonthlyContribution(300_000_000, 25_000_000, $bulan, 6, 3.5)['monthly_contribution_required']);
+        $this->assertGreaterThan(3_000_000, $this->calculator->calculateMonthlyContribution(300_000_000, 25_000_000, $bulan - 1, 6, 3.5)['monthly_contribution_required']);
+    }
+
+    /**
+     * Inflasi lebih tinggi dari imbal hasil dengan setoran kecil: target masa
+     * depan lari lebih cepat daripada tabungannya. Tidak boleh berputar
+     * selamanya dan tidak boleh mengarang tanggal.
+     */
+    public function test_bulan_tercepat_null_bila_tak_pernah_tercapai(): void
+    {
+        $this->assertNull($this->calculator->monthsToReach(1_000_000_000, 0, 100_000, 0, 10, maxMonths: 600));
+    }
+
+    public function test_target_terjangkau_dengan_setoran_tetap(): void
+    {
+        // 10 jt + 3.333.334 × 24 = 90.000.016 → dibulatkan ke bawah ke ribuan.
+        $this->assertSame(90_000_000, $this->calculator->affordableTarget(10_000_000, 3_333_334, 24, 0, 0));
+    }
+
+    public function test_target_terjangkau_benar_benar_terjangkau(): void
+    {
+        $target = $this->calculator->affordableTarget(25_000_000, 3_000_000, 60, 6, 3.5);
+
+        $this->assertSame(0, $target % 1000);
+        $this->assertLessThanOrEqual(3_000_000, $this->calculator->calculateMonthlyContribution($target, 25_000_000, 60, 6, 3.5)['monthly_contribution_required']);
+        // Seribu rupiah lebih besar sudah tidak terjangkau — jadi ini memang
+        // yang terbesar, bukan sekadar "cukup kecil".
+        $this->assertGreaterThan(3_000_000, $this->calculator->calculateMonthlyContribution($target + 1000,25_000_000, 60, 6, 3.5)['monthly_contribution_required']);
+    }
 }
