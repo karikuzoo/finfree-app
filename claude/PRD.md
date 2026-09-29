@@ -136,7 +136,7 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 
 ### 6.7 Pencatatan Realisasi (prasyarat dashboard progres)
 
-> **Status (25 Sep 2026): FR-32, FR-33, dan FR-34 dipensiunkan** (commit `4537b6c`, keputusan D-10). Controller, form, dan route setoran (`goals.contributions.*`) sudah dihapus; tabel `goal_contributions` dipertahankan hanya supaya riwayat lama tidak hilang, dan nilainya sudah dipindahkan ke `financial_goals.allocated_amount` oleh migrasi `add_allocation_to_financial_goals_table`. Dana tujuan kini **ditandai** dari saldo rekening (FR-73) dan dinaikkan lewat tombol "Sudah saya sisihkan" (FR-85). FR-35 tetap berjalan (`on_track` di `DashboardSummaryService`), tetapi kini membandingkan rencana terhadap `allocated_amount`. FR-36 belum dibangun. Teks di bawah dipertahankan sebagai jejak rancangan, bukan dihapus.
+> **Status (25 Sep 2026): FR-32, FR-33, dan FR-34 dipensiunkan** (commit `4537b6c`, keputusan D-10). Controller, form, dan route setoran (`goals.contributions.*`) sudah dihapus; tabel `goal_contributions` dipertahankan hanya supaya riwayat lama tidak hilang, dan nilainya sudah dipindahkan ke `financial_goals.allocated_amount` oleh migrasi `add_allocation_to_financial_goals_table`. Dana tujuan kini **ditandai** dari saldo rekening (FR-73) dan dinaikkan lewat tombol "Sudah saya sisihkan" (FR-85). FR-35 tetap berjalan (`on_track` di `DashboardSummaryService`), tetapi kini membandingkan rencana terhadap `allocated_amount`. FR-36 dibangun 29 Sep 2026 — lihat catatan di bawah FR-36. Teks di bawah dipertahankan sebagai jejak rancangan, bukan dihapus.
 
 Tanpa bagian ini, `current_amount` tidak pernah berubah dan progress bar di FR-13 selamanya diam — dashboard hanya menampilkan hasil kalkulasi, bukan progres. Ini juga menghapus alasan pengguna untuk kembali, sehingga metrik retensi di §9 tidak akan tercapai.
 
@@ -155,6 +155,12 @@ Tanpa bagian ini, `current_amount` tidak pernah berubah dan progress bar di FR-1
 - FR-34: `current_amount` sebuah tujuan adalah hasil turunan dari dana awal + akumulasi setoran tercatat, bukan angka yang diedit langsung.
 - FR-35: Dashboard membandingkan **rencana vs realisasi**: setoran seharusnya sampai bulan ini vs yang benar-benar tercatat, beserta selisihnya (tertinggal/di depan target).
 - FR-36: Bila realisasi meleset, sistem menawarkan rekalkulasi: naikkan setoran, mundurkan tanggal target, atau turunkan nominal target.
+
+  **Dibangun 29 Sep 2026** (`GoalRecalculationService`, route `goals.recalculate`, komponen `TawaranRekalkulasi` di halaman Tujuan — tidak di Dashboard). Aturannya:
+  - Ditawarkan bila `on_track` = tertinggal **dan** setoran yang dibutuhkan sekarang (dari `allocated_amount` dan sisa bulan) lebih besar dari setoran rencana. Status tertinggal diukur linear, sedangkan rencana memakai imbal hasil majemuk; tanpa syarat kedua, tujuan yang rencananya masih cukup ikut ditawari "naikkan setoran" dengan angka yang sama.
+  - Tiap pilihan menahan dua hal dan mengubah satu. Tanggal baru = bulan tercepat yang tercapai dengan setoran rencana (maks. 50 tahun, bila tidak tercapai pilihannya tidak ditawarkan); target baru = nominal terbesar yang tercapai, dibulatkan ke bawah ke ribuan, dan hanya ditawarkan bila masih di atas dana terkumpul. Rumusnya `monthsToReach()` dan `affordableTarget()` di `GoalCalculatorService`.
+  - Browser hanya mengirim nama pilihan; angkanya dihitung ulang di server sebelum disimpan. Hasilnya snapshot baru di `goal_calculations` dengan `calculation_snapshot.recalculation` = `{option, baseline_amount}`, plus aktivitas `goal_recalculated`.
+  - **Garis awal `on_track` berpindah**: bila snapshot terakhir adalah rekalkulasi, progres linear diukur dari tanggal snapshot itu dan `baseline_amount`, bukan dari `created_at` dengan dana nol. Tanpa ini tujuan tetap "tertinggal" dengan selisih yang sama dan tawarannya tidak pernah hilang. Batasannya: menyunting tujuan lewat form ubah membuat snapshot biasa, sehingga garis awalnya kembali ke `created_at`; snapshot juga tidak ikut cadangan (lihat `BackupService`).
 
 ### 6.8 Data Pribadi & Akun
 - FR-37: Pengguna dapat **menghapus akun beserta seluruh datanya** secara mandiri (hak penghapusan, UU 27/2022 tentang Pelindungan Data Pribadi).

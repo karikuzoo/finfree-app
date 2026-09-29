@@ -114,7 +114,7 @@ Nilai **Fase 1–5** di tabel-tabel berikut merujuk ke tabel perluasan pencatat 
 | ~~Lihat, edit, hapus riwayat setoran~~ — dipensiunkan | 1 | FR-33 |
 | ~~Progres dihitung dari dana awal + akumulasi setoran tercatat~~ — kini dari dana yang ditandai | 1 | FR-34 |
 | Perbandingan **rencana vs realisasi** — tertinggal atau di depan target | 1 | FR-35 |
-| Tawaran rekalkulasi saat realisasi meleset dari rencana (belum dibangun) | 1 | FR-36 |
+| Tawaran rekalkulasi saat realisasi meleset dari rencana — naikkan setoran, mundurkan tanggal, atau turunkan target | 1 | FR-36 |
 
 Pencatatan setoran lewat kalender dipensiunkan pada Fase 3 (keputusan D-10 di PRD §13): begitu rekening dan transaksi ada, setoran ke tujuan menjadi tempat kedua untuk mencatat uang yang sama. Yang kini membuat dashboard hidup adalah transaksi bulanan dan tombol "Sudah saya sisihkan". Riwayat setoran lama tetap tersimpan dan nilainya sudah dipindahkan ke dana tujuan.
 
@@ -183,4 +183,4 @@ npm run test:ui
 
 **Yang sudah bisa dipakai hari ini:** halaman depan, autentikasi lengkap (daftar, masuk, verifikasi email, reset kata sandi, batas laju), profil beserta foto dan data identitas, kalkulator tujuan publik dengan grafik proyeksi, dashboard (kekayaan bersih, arus kas, komposisi aset, progres tujuan) beserta kalender aktivitas dan pengingat, pembuatan, pengubahan, penghapusan, dan ekspor Excel tujuan finansial, Rekening & aset, Transaksi, Investasi, Utang & cicilan, Rencana menabung dengan tombol "Sudah saya sisihkan", Riwayat, cadangan & pemulihan data, halaman Berita dari NewsData.io, dan halaman error khusus.
 
-**Yang belum:** rekalkulasi saat realisasi meleset (FR-36). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.
+**Rekalkulasi saat realisasi meleset (FR-36) dibangun 29 Sep 2026** — tawarannya ada di kartu tujuan yang tertinggal (halaman Tujuan). Pencatatan setoran lewat kalender sudah dipensiunkan (PRD D-10). Peta lengkapnya ada di [PRD.md](PRD.md) §12.

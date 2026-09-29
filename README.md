@@ -112,7 +112,7 @@ Nilai **Fase 1–5** di tabel-tabel berikut merujuk ke tabel perluasan pencatat 
 | ~~Lihat, edit, hapus riwayat setoran~~ — dipensiunkan                                           | 1     | FR-33 |
 | ~~Progres dihitung dari dana awal + akumulasi setoran tercatat~~ — kini dari dana yang ditandai | 1     | FR-34 |
 | Perbandingan **rencana vs realisasi** — tertinggal atau di depan target                         | 1     | FR-35 |
-| Tawaran rekalkulasi saat realisasi meleset dari rencana (belum dibangun)                        | 1     | FR-36 |
+| Tawaran rekalkulasi saat realisasi meleset — naikkan setoran, mundurkan tanggal, turunkan target | 1     | FR-36 |
 
 Pencatatan setoran lewat kalender dipensiunkan pada Fase 3 (keputusan D-10 di PRD §13): begitu rekening dan transaksi ada, setoran ke tujuan menjadi tempat kedua untuk mencatat uang yang sama. Yang kini membuat dashboard hidup adalah transaksi bulanan dan tombol "Sudah saya sisihkan". Riwayat setoran lama tetap tersimpan dan nilainya sudah dipindahkan ke dana tujuan.
 
