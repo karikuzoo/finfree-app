@@ -1,6 +1,7 @@
 import ActivityCalendar from "@/Components/ActivityCalendar";
 import AllocationBreakdownChart from "@/Components/AllocationBreakdownChart";
 import AssetCompositionChart from "@/Components/AssetCompositionChart";
+import MonthInput from "@/Components/MonthInput";
 import AssetGrowthChart from "@/Components/AssetGrowthChart";
 import DailyReminderBanner from "@/Components/DailyReminderBanner";
 import GoalHeroCard from "@/Components/GoalHeroCard";
@@ -211,13 +212,11 @@ function Kepala({ nama, bulan, onGantiBulan }) {
                     di atas dan kalender di bawah tidak pernah bicara tentang
                     periode yang berbeda.
                 */}
-                <input
-                    type="month"
+                <MonthInput
                     value={bulan}
-                    onChange={(e) => onGantiBulan(e.target.value)}
+                    onChange={onGantiBulan}
                     max={todayInJakarta().slice(0, 7)}
-                    aria-label="Pilih bulan"
-                    className="num-tabular rounded-lg border-border-strong bg-bg-base text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                    label="Pilih bulan"
                 />
 
                 <Link

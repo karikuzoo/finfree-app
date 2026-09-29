@@ -163,8 +163,11 @@ Card berjudul **"Strategi Mencapai Target Ini"**. Panel ini belum ada di mockup 
 
 ### 5.8 Input Tanggal & Jam — jangan pakai bawaan browser
 
-**Aturan: tanggal memakai `DateInput`, jam memakai pemilih di `ActivityCalendar`.
-`<input type="date">` dan `<input type="time">` tidak dipakai di mana pun.**
+**Aturan: tanggal memakai `DateInput`, bulan memakai `MonthInput`, jam memakai
+pemilih di `ActivityCalendar`. `<input type="date">`, `<input type="month">`, dan
+`<input type="time">` tidak dipakai di mana pun.** (`MonthInput` dipakai untuk
+memilih periode di Dashboard dan Transaksi: kisi 12 bulan, panah tahun, dan
+"Bulan ini" — menggantikan panel bawaan browser yang berbahasa Inggris.)
 
 Ketiga masalah berikut tidak satu pun bisa diperbaiki lewat CSS — kontrol
 bawaan itu digambar oleh browser, di luar jangkauan stylesheet halaman:

@@ -1,6 +1,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import CurrencyInput from "@/Components/CurrencyInput";
 import DangerButton from "@/Components/DangerButton";
+import MonthInput from "@/Components/MonthInput";
 import DateInput from "@/Components/DateInput";
 import InputError from "@/Components/InputError";
 import KeteranganRekening from "@/Components/KeteranganRekening";
@@ -61,13 +62,11 @@ export default function TransactionIndex({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                        <input
-                            type="month"
+                        <MonthInput
                             value={bulan}
-                            onChange={(e) => gantiBulan(e.target.value)}
+                            onChange={gantiBulan}
                             max={todayInJakarta().slice(0, 7)}
-                            aria-label="Pilih bulan"
-                            className="num-tabular rounded-lg border-border-strong bg-bg-base text-sm text-text-primary focus:border-lime-500 focus:ring-lime-500"
+                            label="Pilih bulan"
                         />
                         <PrimaryButton
                             onClick={() => setMenambah(true)}
