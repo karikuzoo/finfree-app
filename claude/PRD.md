@@ -177,6 +177,8 @@ Alat hitung sekali pakai, terpisah dari Tujuan. Daftar di bawah **bukan** salina
 - FR-43: **Jadikan Tujuan.** Hasil kalkulator dapat langsung disimpan menjadi Tujuan, dengan parameter yang sudah terisi. Ini jembatan antara kedua pilar dan jalur konversi paling alami dari pengguna iseng menjadi pengguna aktif.
 - FR-44: Kalkulator utilitas **dapat diakses tanpa login**; menyimpan hasil (FR-43) barulah menuntut akun. Kalkulator adalah pintu masuk paling murah untuk menarik pengguna baru — mengunci di balik pendaftaran membuang keunggulan itu.
 - FR-45: Riwayat kalkulasi cepat tersimpan bagi pengguna yang login, dapat dibuka kembali dan diubah parameternya.
+
+> **Status (29 Sep 2026): FR-41, FR-42, FR-43, FR-44 dibangun; FR-45 belum.** Kalkulator Pinjaman (`/kalkulator/pinjaman`) dan Investasi (`/kalkulator/investasi`) memakai `GoalCalculatorService`. **Satu penyimpangan dari "konvensi rate yang sama":** bunga pinjaman dihitung `r / 12` seperti bank, bukan konversi efektif — suku bunga pinjaman adalah angka kontrak, dan angsuran yang tidak cocok dengan brosur bank akan dikira salah (CLAUDE.md §6.8). "Jadikan Tujuan" tersedia di kalkulator Tujuan dan Investasi, tidak di Pinjaman. Riwayat kalkulasi (FR-45) sebagian sudah terjawab oleh query string: setiap hasil punya URL yang bisa disimpan, dibagikan, dan dibuka ulang.
 - FR-46 *(Fase 2, bukan MVP)*: **Kalkulator Pajak (PPh 21).** Ditunda karena aturan pajak berubah tiap tahun dan menuntut pemeliharaan berkelanjutan — biaya perawatannya tidak sebanding untuk MVP, dan salah hitung pajak lebih berbahaya bagi kepercayaan pengguna daripada tidak menyediakannya sama sekali.
 
 **Yang sengaja tidak dibuat sebagai kalkulator terpisah:**

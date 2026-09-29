@@ -64,9 +64,9 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │   │   │   ├── DataController.php                  # cadangan & pemulihan JSON (FR-83, FR-84)
 │   │   │   └── HistoryController.php               # riwayat = user_activities UNION transactions
 │   │   │   ├── NewsController.php                  # halaman Berita — hanya MEMBACA news_article_cache (§7)
-│   │   │   # Tidak ada controller untuk /kalkulator (utilitas pinjaman & investasi) —
-│   │   │   # closure Inertia::render di routes/web.php. Rancangan lama (FinancialGoalController,
-│   │   │   # CalculatorController, UtilityCalculatorController, InvestmentRecommendationController)
+│   │   │   ├── UtilityCalculatorController.php     # /kalkulator/pinjaman & /kalkulator/investasi (FR-41, FR-42, §6.8)
+│   │   │   # /kalkulator (daftar) masih closure Inertia::render di routes/web.php. Rancangan lama
+│   │   │   # (FinancialGoalController, CalculatorController, InvestmentRecommendationController)
 │   │   │   # tidak pernah dibuat.
 │   │   └── Middleware/
 │   │       └── HandleInertiaRequests.php           # bawaan Breeze — taruh shared props (user login dsb) di sini
@@ -125,7 +125,7 @@ finfree-app/                          # satu project Laravel+Inertia, bukan dua 
 │       │   ├── Welcome.jsx      # halaman depan publik
 │       │   ├── Goal/            # Index.jsx, Create.jsx, Edit.jsx
 │       │   ├── Wallet/          # "Dana tujuan" (/dompet) — dana & penempatan per tujuan
-│       │   ├── Calculator/      # Index.jsx (utilitas) + Goal.jsx (kalkulator tujuan)
+│       │   ├── Calculator/      # Index.jsx (daftar), Goal.jsx (tujuan), Loan.jsx (FR-41), Investment.jsx (FR-42)
 │       │   ├── News/            # Index.jsx
 │       │   ├── Account/ Transaction/ Investment/ Debt/   # lapisan uang, masing-masing Index.jsx
 │       │   ├── SavingsPlan/         # Rencana menabung
@@ -504,7 +504,9 @@ Kalkulator Pinjaman/KPR (FR-41) dan Investasi (FR-42) memakai keluarga rumus yan
 
 - **Kalkulator Investasi** adalah arah maju dari rumus yang sudah ada: `PMT` diketahui, `FV` dicari. `FV = PV×(1+i)^n + PMT × ((1+i)^n − 1) / i`. Kasus `i = 0` tetap wajib ditangani.
 - **Kalkulator Pinjaman** adalah anuitas juga, hanya berpindah sisi: `angsuran = P × i / (1 − (1+i)^−n)`. Tabel amortisasi dihitung iteratif per bulan (bunga = sisa pokok × i, pokok = angsuran − bunga), dan **saldo akhir harus tepat nol** — selisih pembulatan dibebankan ke angsuran terakhir. Ini kasus uji wajib.
-- Konvensi konversi rate (§6.2) dan aturan uang (§6.5) berlaku sama. Mockup awal sudah menampilkan "Sistem Perhitungan: Anuitas Efektif" — pertahankan, metode hitung yang terbuka adalah pembeda kepercayaan yang murah.
+- Aturan uang (§6.5) berlaku sama. Konvensi konversi rate (§6.2) berlaku untuk kalkulator **Investasi**, supaya hasilnya bisa dicocokkan dua arah dengan kalkulator tujuan (`test_investasi_adalah_kebalikan_kalkulator_tujuan`).
+- **Pengecualian — kalkulator Pinjaman memakai `i = r / 12`, bukan konversi efektif** (diputuskan 29 Sep 2026). Suku bunga pinjaman adalah angka kontrak, dan bank di Indonesia menghitung angsuran dengan bunga tahunan dibagi dua belas; memakai konversi efektif membuat angsuran Arus lebih rendah dari brosur bank (Rp 500 jt, 10%, 20 th: ±4,68 jt vs 4,83 jt) dan pengguna yang mencocokkannya akan mengira Arus salah. Imbal hasil investasi adalah perkiraan, jadi di sana alasan itu tidak berlaku. Dikunci `test_pinjaman_memakai_bunga_tahunan_dibagi_dua_belas` — jangan "diseragamkan".
+- **Sudah diimplementasikan** (29 Sep 2026): `GoalCalculatorService::calculateLoan()` dan `projectInvestment()`, halaman `Calculator/Loan.jsx` dan `Calculator/Investment.jsx` di atas kerangka bersama `CalculatorFrame.jsx`. Metode hitung ditulis terbuka di bawah setiap hasil — pertahankan, itu pembeda kepercayaan yang murah. Kalkulator Investasi punya tombol **Jadikan Tujuan** (nilai akhir → target, inflasi 0); Pinjaman tidak, karena pinjaman bukan tabungan yang dikejar.
 - **Route** kalkulator utilitas (`/kalkulator/pinjaman`, `/kalkulator/investasi` di `UtilityCalculatorController`) didaftarkan **di luar** grup middleware `auth` di `routes/web.php` — halaman Inertia biasa yang bisa diakses tanpa login (PRD FR-44), bukan endpoint JSON terpisah. Pasang middleware `throttle` Laravel di grup route ini: halaman publik tanpa batas laju tetap jadi beban gratis bagi siapa pun yang ingin menyalahgunakannya.
 
 ### 6.9 Ringkasan Dashboard — agregasi di backend, dikirim lewat props Inertia
