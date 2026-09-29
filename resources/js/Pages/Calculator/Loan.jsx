@@ -47,7 +47,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
         monthly_income: input?.monthly_income ?? '',
         other_installments: input?.other_installments ?? '',
         monthly_expenses: input?.monthly_expenses ?? '',
-        annual_property_tax: input?.annual_property_tax ?? '',
+        annual_taxes: input?.annual_taxes ?? '',
     });
 
     // Bagian cek kesehatan terbuka sendiri bila pendapatan sudah pernah diisi
@@ -67,7 +67,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
             }
             if (kirim.rate_type === 'floating') delete kirim.fixed_years;
             if (!cekKesehatan) {
-                for (const k of ['monthly_income', 'other_installments', 'monthly_expenses', 'annual_property_tax']) delete kirim[k];
+                for (const k of ['monthly_income', 'other_installments', 'monthly_expenses', 'annual_taxes']) delete kirim[k];
             }
             return tanpaIsianKosong(kirim);
         });
@@ -223,12 +223,12 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     error={form.errors.monthly_expenses}
                                 />
                                 <IsianRupiah
-                                    id="annual_property_tax"
-                                    label="Pajak tahunan (PBB)"
-                                    hint="Pajak Bumi dan Bangunan rumah ini per tahun. Dihitung per bulan di hasil."
-                                    value={form.data.annual_property_tax}
-                                    onChange={(v) => form.setData('annual_property_tax', v)}
-                                    error={form.errors.annual_property_tax}
+                                    id="annual_taxes"
+                                    label="Pajak tahunan"
+                                    hint="Total pajak yang dibayar setahun sekali: PBB rumah, pajak kendaraan (STNK), dan lainnya. Dihitung per bulan di hasil."
+                                    value={form.data.annual_taxes}
+                                    onChange={(v) => form.setData('annual_taxes', v)}
+                                    error={form.errors.annual_taxes}
                                 />
                             </div>
                         )}

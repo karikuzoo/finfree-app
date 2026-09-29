@@ -10,7 +10,7 @@ use Tests\TestCase;
  * karena batasnya dibaca dari config/loan_health.php.
  *
  * Skenario dasar: pendapatan 20 jt, angsuran KPR 5 jt (DSR 25%), pengeluaran
- * 8 jt, tanpa cicilan lain & PBB → sisa 7 jt (35% pendapatan).
+ * 8 jt, tanpa cicilan lain & pajak → sisa 7 jt (35% pendapatan).
  */
 class LoanHealthServiceTest extends TestCase
 {
@@ -20,7 +20,7 @@ class LoanHealthServiceTest extends TestCase
             'monthlyIncome' => 20_000_000,
             'otherInstallments' => 0,
             'monthlyExpenses' => 8_000_000,
-            'annualPropertyTax' => 0,
+            'annualTaxes' => 0,
             'installment' => 5_000_000,
             'worstInstallment' => null,
             'worstLabel' => null,
@@ -60,14 +60,14 @@ class LoanHealthServiceTest extends TestCase
 
     /**
      * Rasio aman tidak cukup: pengeluaran besar bisa menghabiskan sisanya.
-     * PBB tidak masuk rasio, tetapi mengurangi sisa uang.
+     * Pajak tahunan tidak masuk rasio, tetapi mengurangi sisa uang.
      */
     public function test_rasio_aman_tapi_sisa_uang_minus_berisiko(): void
     {
-        $hasil = $this->nilai(['monthlyExpenses' => 14_000_000, 'annualPropertyTax' => 24_000_000]);
+        $hasil = $this->nilai(['monthlyExpenses' => 14_000_000, 'annualTaxes' => 24_000_000]);
 
         $this->assertSame(25.0, $hasil['now']['dsr']);
-        $this->assertSame(2_000_000, $hasil['monthly_property_tax']);
+        $this->assertSame(2_000_000, $hasil['monthly_taxes']);
         $this->assertSame(-1_000_000, $hasil['now']['residual']);
         $this->assertSame('risky', $hasil['status']);
         $this->assertStringContainsString('kurang Rp 1.000.000', $hasil['reasons'][1]);

@@ -12,8 +12,9 @@ namespace App\Services;
  * yang sehat.
  *
  * 1. Rasio cicilan (DSR) = (angsuran KPR + cicilan lain) ÷ pendapatan.
- *    PBB tidak ikut di sini — DSR bank hanya menghitung cicilan.
- * 2. Sisa uang = pendapatan − semua cicilan − pengeluaran − PBB/12.
+ *    Pajak tahunan tidak ikut di sini — DSR bank hanya menghitung cicilan.
+ * 2. Sisa uang = pendapatan − semua cicilan − pengeluaran − pajak tahunan/12
+ *    (PBB, pajak kendaraan, dan pajak tahunan lain, diisi sebagai satu total).
  * 3. Label: status terburuk dari DSR dan sisa uang (batas di
  *    config/loan_health.php).
  *
@@ -39,7 +40,7 @@ class LoanHealthService
      *     status: string,
      *     now: array{installments: int, dsr: float, residual: int},
      *     worst: array{installments: int, dsr: float, residual: int, label: string}|null,
-     *     monthly_property_tax: int,
+     *     monthly_taxes: int,
      *     reasons: array<int, string>,
      * }
      */
@@ -47,16 +48,16 @@ class LoanHealthService
         float $monthlyIncome,
         float $otherInstallments,
         float $monthlyExpenses,
-        float $annualPropertyTax,
+        float $annualTaxes,
         int $installment,
         ?int $worstInstallment = null,
         ?string $worstLabel = null,
     ): array {
-        $pbbBulanan = (int) round($annualPropertyTax / 12);
+        $pajakBulanan = (int) round($annualTaxes / 12);
 
-        $sekarang = $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pbbBulanan, $installment);
+        $sekarang = $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pajakBulanan, $installment);
         $terberat = ($worstInstallment !== null && $worstInstallment > $installment)
-            ? $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pbbBulanan, $worstInstallment) + ['label' => $worstLabel ?? 'bila bunga naik']
+            ? $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pajakBulanan, $worstInstallment) + ['label' => $worstLabel ?? 'bila bunga naik']
             : null;
 
         $dinilai = $terberat ?? $sekarang;
@@ -66,7 +67,7 @@ class LoanHealthService
             'status' => $this->terburuk($this->statusDsr($dinilai['dsr']), $this->statusSisa($dinilai['residual'], $monthlyIncome)),
             'now' => $sekarang,
             'worst' => $terberat,
-            'monthly_property_tax' => $pbbBulanan,
+            'monthly_taxes' => $pajakBulanan,
             'reasons' => $alasan,
             // Dikirim supaya teks patokan di halaman selalu sama dengan yang
             // benar-benar dipakai menilai, meski config-nya disetel ulang.
@@ -79,14 +80,14 @@ class LoanHealthService
     }
 
     /** @return array{installments: int, dsr: float, residual: int} */
-    private function keadaan(float $pendapatan, float $cicilanLain, float $pengeluaran, int $pbbBulanan, int $angsuran): array
+    private function keadaan(float $pendapatan, float $cicilanLain, float $pengeluaran, int $pajakBulanan, int $angsuran): array
     {
         $semuaCicilan = $angsuran + (int) round($cicilanLain);
 
         return [
             'installments' => $semuaCicilan,
             'dsr' => $pendapatan > 0 ? round($semuaCicilan / $pendapatan * 100, 1) : 0.0,
-            'residual' => (int) round($pendapatan - $semuaCicilan - $pengeluaran - $pbbBulanan),
+            'residual' => (int) round($pendapatan - $semuaCicilan - $pengeluaran - $pajakBulanan),
         ];
     }
 
@@ -145,7 +146,7 @@ class LoanHealthService
         } elseif ($pendapatan > 0 && $dinilai['residual'] < $pendapatan * $minSisa / 100) {
             $kalimat[] = "Sisa uang{$kapan} hanya {$rupiah($dinilai['residual'])} per bulan — di bawah {$minSisa}% pendapatan, nyaris tanpa ruang untuk dana darurat.";
         } else {
-            $kalimat[] = "Sisa uang{$kapan}: {$rupiah($dinilai['residual'])} per bulan, sesudah semua cicilan, pengeluaran, dan PBB.";
+            $kalimat[] = "Sisa uang{$kapan}: {$rupiah($dinilai['residual'])} per bulan, sesudah semua cicilan, pengeluaran, dan pajak.";
         }
 
         return $kalimat;

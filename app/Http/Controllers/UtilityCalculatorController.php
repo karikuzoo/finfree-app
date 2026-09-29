@@ -54,7 +54,7 @@ class UtilityCalculatorController extends Controller
             'monthly_income' => ['nullable', 'numeric', 'min:1', 'max:999999999999'],
             'other_installments' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'monthly_expenses' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            'annual_property_tax' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+            'annual_taxes' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
         ], [
             'principal.required' => 'Pokok pinjaman wajib diisi.',
             'principal.min' => 'Pokok pinjaman harus lebih besar dari nol.',
@@ -107,7 +107,7 @@ class UtilityCalculatorController extends Controller
                     monthlyIncome: (float) $input['monthly_income'],
                     otherInstallments: (float) ($input['other_installments'] ?? 0),
                     monthlyExpenses: (float) ($input['monthly_expenses'] ?? 0),
-                    annualPropertyTax: (float) ($input['annual_property_tax'] ?? 0),
+                    annualTaxes: (float) ($input['annual_taxes'] ?? 0),
                     installment: $result['monthly_installment'],
                     worstInstallment: $terberat,
                     worstLabel: $labelTerberat,

@@ -109,7 +109,7 @@ describe('Kalkulator Pinjaman / KPR', () => {
         expect(screen.queryByLabelText('Pendapatan bersih per bulan')).toBeNull();
         await userEvent.click(screen.getByRole('button', { name: 'Isi data keuangan' }));
         expect(screen.getByLabelText('Pendapatan bersih per bulan')).toBeInTheDocument();
-        expect(screen.getByLabelText('Pajak tahunan (PBB)')).toBeInTheDocument();
+        expect(screen.getByLabelText('Pajak tahunan')).toBeInTheDocument();
         unmount();
 
         render(<CalculatorLoan input={{ ...input, monthly_income: '20000000' }} result={null} />);

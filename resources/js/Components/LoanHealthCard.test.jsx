@@ -8,7 +8,7 @@ const health = (ubah = {}) => ({
     status: 'risky',
     now: { installments: 5_000_000, dsr: 25, residual: 7_000_000 },
     worst: { installments: 8_500_000, dsr: 42.5, residual: -500_000, label: 'setelah 3 tahun bunga tetap' },
-    monthly_property_tax: 100_000,
+    monthly_taxes: 100_000,
     reasons: ['Angsuran KPR memakan 25% pendapatan (patokan sehat: sampai 30%).', 'Setelah 3 tahun bunga tetap, rasionya menjadi 42,5% — di atas batas 40%.'],
     thresholds: { dsr_healthy_max: 30, dsr_caution_max: 40, residual_min_percentage: 10 },
     ...ubah,

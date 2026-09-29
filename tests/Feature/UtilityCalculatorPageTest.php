@@ -142,7 +142,7 @@ class UtilityCalculatorPageTest extends TestCase
             ->assertSessionHasErrors(['fixed_years' => 'Masa bunga tetap harus lebih pendek dari tenor. Bila bunganya tetap sepanjang tenor, pilih "Tetap".']);
     }
 
-    public function test_cek_kesehatan_memakai_pbb_dan_cicilan_lain(): void
+    public function test_cek_kesehatan_memakai_pajak_tahunan_dan_cicilan_lain(): void
     {
         $this->get(route('calculator.loan', $this->kpr([
             'annual_interest_rate' => 0,
@@ -150,12 +150,12 @@ class UtilityCalculatorPageTest extends TestCase
             'monthly_income' => 20000000,
             'other_installments' => 1000000,
             'monthly_expenses' => 10000000,
-            'annual_property_tax' => 1200000,
+            'annual_taxes' => 1200000,
         ])))
             ->assertInertia(fn (Assert $page) => $page
                 // Angsuran 5 jt + cicilan lain 1 jt = 30% → sehat; sisa 3,9 jt.
                 ->where('health.now.dsr', 30)
-                ->where('health.monthly_property_tax', 100000)
+                ->where('health.monthly_taxes', 100000)
                 ->where('health.now.residual', 3900000)
                 ->where('health.status', 'healthy'));
     }

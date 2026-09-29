@@ -46,9 +46,9 @@ export default function LoanHealthCard({ health }) {
                 ))}
             </ul>
 
-            {health.monthly_property_tax > 0 && (
+            {health.monthly_taxes > 0 && (
                 <p className="mt-3 text-xs text-text-muted">
-                    PBB dihitung {formatRupiah(health.monthly_property_tax)} per bulan dan mengurangi sisa uang,
+                    Pajak tahunan dihitung {formatRupiah(health.monthly_taxes)} per bulan dan mengurangi sisa uang,
                     tetapi tidak masuk rasio cicilan — bank juga tidak memasukkannya.
                 </p>
             )}

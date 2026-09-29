@@ -18,7 +18,7 @@ return [
     'dsr_caution_max' => 40,
 
     /*
-     * Sisa uang per bulan setelah cicilan, pengeluaran, dan PBB/12, dalam
+     * Sisa uang per bulan setelah cicilan, pengeluaran, dan pajak tahunan/12, dalam
      * persen pendapatan. Rasio cicilan yang aman tetap bisa menyisakan
      * nyaris nol bila pengeluarannya besar — tanpa sisa, tidak ada ruang
      * untuk dana darurat atau kenaikan harga. Di bawah batas ini dinilai
