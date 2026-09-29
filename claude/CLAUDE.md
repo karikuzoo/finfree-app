@@ -605,7 +605,7 @@ Route yang **dihapus** di `4537b6c`: `goals.contributions.store` (`POST /tujuan/
 - **Klasifikasi (FR-28, diubah D-16)** mencocokkan pola kategori ke judul + ringkasan: kategori kueri diutamakan bila polanya cocok, lalu kategori pertama lain yang cocok, lalu **dibuang** bila tidak ada yang cocok. Aturan awal "tidak cocok → Lainnya, tidak dibuang" ditinggalkan: pada pengambilan sungguhan pertama, artikel yang kata kuncinya hanya ada di isi berita adalah Posyandu, menteri yang marah di sawah, dan koin perak Romawi.
 - **Daftar pengecualian** (`news.exclude`) membuang ramalan zodiak, lowongan kerja, prakiraan cuaca, dan berita harta pejabat — semuanya ditemukan lolos meski kueri dan kategorinya benar.
 - **Pembersihan teks:** sebagian judul tiba dengan entitas HTML yang rusak di hulu (`danquot;` untuk `&quot;` — sumbernya mengganti `&` dengan "dan"). Dipulihkan di `cleanText()`.
-- **Yang disimpan:** judul, ringkasan, sumber, waktu terbit, tautan artikel, dan **tautan** foto artikel (`image_url`, HTTPS saja — gambar HTTP ditolak browser di halaman HTTPS). Fotonya dimuat langsung dari server penerbit dengan `referrerPolicy="no-referrer"`, tidak pernah diunduh ke Arus; kartu selalu menyebut penerbit dan menautkan ke artikel asli. Isi penuh artikel tidak disimpan. Status hak foto: lihat D-16 — tinjau ulang sebelum rilis publik.
+- **Yang disimpan:** judul, ringkasan, sumber, waktu terbit, tautan artikel, dan **tautan** foto artikel (`image_url`, HTTPS saja — gambar HTTP ditolak browser di halaman HTTPS). Fotonya dimuat langsung dari server penerbit dengan `referrerPolicy="no-referrer"`, tidak pernah diunduh ke Arus; kartu selalu menyebut penerbit dan menautkan ke artikel asli. Isi penuh artikel tidak disimpan. Fotonya hanya dikirim ke browser bila `NEWS_SHOW_IMAGES` menyala — **bawaannya mati** (D-16, ditinjau 29 Sep 2026); bila mati, tidak ada foto, atau fotonya gagal dimuat, kartu memakai sampul ikon kategori (`SampulKategori` di `News/Index.jsx`).
 - **Deduplikasi (FR-29)** lewat `upsert` pada `url` yang UNIQUE. `category` tidak ikut diperbarui saat diambil ulang, supaya artikel tidak berpindah tab tiap jam.
 - **Kegagalan:** satu kategori gagal tidak menggagalkan yang lain, dan cache tidak pernah dikosongkan. `news.last_success_at` (cache) hanya diperbarui bila minimal satu kategori berhasil; `NewsController` mengirim `stale: true` bila nilainya kosong atau lebih tua dari 150 menit, dan halaman menampilkan banner sambil tetap menampilkan cache terakhir.
 - **Pemangkasan (FR-30):** artikel lebih tua dari 30 hari dihapus di akhir setiap pengambilan.
@@ -637,7 +637,8 @@ DB_DATABASE=fingoal
 DB_USERNAME=postgres
 DB_PASSWORD=
 
-NEWSDATA_IO_API_KEY=xxxx      # satu-satunya variabel modul Berita; sisanya di config/news.php
+NEWSDATA_IO_API_KEY=xxxx      # kunci modul Berita; aturan lainnya di config/news.php
+NEWS_SHOW_IMAGES=true         # foto artikel — HANYA untuk pengembangan; bawaannya mati (PRD D-16)
 
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
