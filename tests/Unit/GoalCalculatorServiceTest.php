@@ -182,6 +182,104 @@ class GoalCalculatorServiceTest extends TestCase
         $this->calculator->calculateMonthlyContribution(100_000_000, -1, 12, 8, 0);
     }
 
+    // ── FR-42: kalkulator Investasi ─────────────────────────────────────
+
+    /**
+     * Pemeriksaan silang dua arah: setoran yang dihitung kalkulator tujuan,
+     * bila diproyeksikan maju, harus menghasilkan target masa depannya
+     * kembali. Keduanya memakai konvensi rate yang sama, jadi tidak boleh ada
+     * selisih selain pembulatan setoran ke atas.
+     */
+    public function test_investasi_adalah_kebalikan_kalkulator_tujuan(): void
+    {
+        $tujuan = $this->calculator->calculateMonthlyContribution(1_000_000_000, 50_000_000, 120, 8, 2);
+        $maju = $this->calculator->projectInvestment(50_000_000, $tujuan['monthly_contribution_required'], 120, 8);
+
+        $this->assertSame($tujuan['future_value_projection'], $maju['final_value']);
+        $this->assertGreaterThanOrEqual($tujuan['future_value_target'], $maju['final_value']);
+    }
+
+    public function test_investasi_return_nol_tidak_membagi_nol(): void
+    {
+        $hasil = $this->calculator->projectInvestment(10_000_000, 1_000_000, 24, 0);
+
+        $this->assertSame(34_000_000, $hasil['final_value']);
+        $this->assertSame(0, $hasil['investment_growth']);
+    }
+
+    public function test_investasi_bagiannya_menjumlah_ke_nilai_akhir(): void
+    {
+        $hasil = $this->calculator->projectInvestment(25_000_000, 2_500_000, 180, 9);
+
+        $this->assertSame(
+            $hasil['final_value'],
+            $hasil['initial_amount'] + $hasil['total_contribution'] + $hasil['investment_growth'],
+        );
+        $this->assertSame(450_000_000, $hasil['total_contribution']);
+    }
+
+    // ── FR-41: kalkulator Pinjaman / KPR ────────────────────────────────
+
+    /**
+     * Konvensi bank: i = r/12, BUKAN effective annual. Rp 500 jt, 10%, 20 th
+     * → angsuran Rp 4.825.109 (ceil), yang dicocokkan dengan rumus anuitas
+     * standar. Bila suatu saat ada yang "menyeragamkan" konversinya ke
+     * monthlyRate(), angsurannya turun ke ±4,68 jt dan test ini gagal.
+     */
+    public function test_pinjaman_memakai_bunga_tahunan_dibagi_dua_belas(): void
+    {
+        $hasil = $this->calculator->calculateLoan(500_000_000, 10, 240);
+
+        $i = 0.10 / 12;
+        $harapan = (int) ceil(500_000_000 * $i / (1 - (1 + $i) ** -240));
+
+        $this->assertSame($harapan, $hasil['monthly_installment']);
+        $this->assertSame(4_825_109, $hasil['monthly_installment']);
+        $this->assertEqualsWithDelta($i, $hasil['monthly_rate'], 1e-12);
+    }
+
+    /** CLAUDE.md §6.8: kasus uji wajib. */
+    public function test_pinjaman_sisa_pokok_berakhir_tepat_nol(): void
+    {
+        foreach ([[500_000_000, 10, 240], [75_000_000, 7.25, 36], [1_234_567, 18, 7], [300_000_000, 11.5, 360]] as [$p, $r, $n]) {
+            $hasil = $this->calculator->calculateLoan($p, $r, $n);
+
+            $this->assertSame(0, end($hasil['yearly'])['balance'], "Sisa pokok tidak nol untuk {$p}/{$r}/{$n}");
+            $this->assertSame($p, array_sum(array_column($hasil['yearly'], 'principal_paid')));
+            $this->assertSame($hasil['total_payment'], $hasil['principal'] + $hasil['total_interest']);
+            // Angsuran terakhir menyerap kelebihan pembulatan, jadi tidak
+            // pernah lebih besar dari angsuran biasa.
+            $this->assertLessThanOrEqual($hasil['monthly_installment'], $hasil['last_installment']);
+            $this->assertSame((int) ceil($n / 12), count($hasil['yearly']));
+        }
+    }
+
+    public function test_pinjaman_tanpa_bunga_dibagi_rata(): void
+    {
+        $hasil = $this->calculator->calculateLoan(100, 0, 3);
+
+        $this->assertSame(34, $hasil['monthly_installment']);
+        $this->assertSame(32, $hasil['last_installment']);
+        $this->assertSame(0, $hasil['total_interest']);
+        $this->assertSame(100, $hasil['total_payment']);
+    }
+
+    public function test_pinjaman_deret_grafik_dari_pokok_penuh_ke_nol(): void
+    {
+        $hasil = $this->calculator->calculateLoan(120_000_000, 9, 30);
+
+        $this->assertSame(['month' => 0, 'balance' => 120_000_000, 'cumulative_interest' => 0], $hasil['series'][0]);
+        $this->assertSame([0, 12, 24, 30], array_column($hasil['series'], 'month'));
+        $this->assertSame(0, end($hasil['series'])['balance']);
+        $this->assertSame($hasil['total_interest'], end($hasil['series'])['cumulative_interest']);
+    }
+
+    public function test_pinjaman_menolak_pokok_nol(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->calculator->calculateLoan(0, 10, 12);
+    }
+
     // ── FR-36: kebalikan rumus untuk tawaran rekalkulasi ────────────────
 
     /**

@@ -4,11 +4,10 @@ import { Head, Link } from '@inertiajs/react';
 /**
  * Kalkulator utilitas — dapat diakses tanpa login (PRD FR-44).
  *
- * Halaman ini masih kerangka. Mesin hitungnya sudah ada dan teruji
- * (App\Services\GoalCalculatorService, 19 test terhadap
- * docs/fixtures/calculator-cases.json), tinggal disambungkan ke controller
- * dan form. Yang ditampilkan di bawah adalah daftar kalkulator yang akan
- * tersedia, bukan janji kosong tanpa dasar.
+ * Ketiganya memakai satu mesin hitung, GoalCalculatorService (CLAUDE.md
+ * §6.8). Kartu tanpa `href` tampil sebagai kartu biasa berlabel `rilis` —
+ * kini tidak ada lagi, tetapi cabangnya dipertahankan untuk kalkulator
+ * berikutnya (mis. PPh 21, FR-46).
  */
 export default function CalculatorIndex() {
     const calculators = [
@@ -20,12 +19,12 @@ export default function CalculatorIndex() {
         {
             name: 'Pinjaman / KPR',
             desc: 'Angsuran bulanan, total bunga, dan grafik amortisasi dari pokok pinjaman dan tenor.',
-            rilis: 'Rilis 2',
+            href: route('calculator.loan'),
         },
         {
             name: 'Investasi',
             desc: 'Proyeksi nilai akhir dari setoran rutin — kebalikan dari kalkulator tujuan.',
-            rilis: 'Rilis 2',
+            href: route('calculator.investment'),
         },
     ];
 
@@ -109,7 +108,9 @@ export default function CalculatorIndex() {
                         bukan sekadar dibagi dua belas — selisih keduanya
                         membesar untuk jangka panjang. Inflasi menaikkan nominal
                         target, bukan mengurangi imbal hasil, sehingga tidak ada
-                        perhitungan ganda.
+                        perhitungan ganda. Satu pengecualian: bunga pinjaman
+                        dibagi dua belas seperti di bank, karena itu angka
+                        kontrak — supaya angsurannya cocok dengan simulasi bank.
                     </p>
                 </div>
             </div>

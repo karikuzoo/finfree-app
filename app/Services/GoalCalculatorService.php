@@ -99,6 +99,144 @@ class GoalCalculatorService
     }
 
     /**
+     * FR-42: kalkulator Investasi — arah MAJU dari rumus tujuan. Setorannya
+     * diketahui, nilai akhirnya dicari (CLAUDE.md §6.8):
+     *
+     *   FV = PV × (1+i)^n + PMT × ((1+i)^n − 1) / i
+     *
+     * Konvensi rate sama dengan kalkulator tujuan (effective annual, ordinary
+     * annuity), supaya hasil keduanya bisa saling dicocokkan: setoran yang
+     * dihitung kalkulator tujuan, bila dimasukkan ke sini, menghasilkan
+     * targetnya kembali.
+     *
+     * @return array{final_value: int, total_contribution: int, initial_amount: int, investment_growth: int, monthly_rate: float, months: int}
+     */
+    public function projectInvestment(
+        float $initialAmount,
+        float $monthlyContribution,
+        int $months,
+        float $annualReturnRate,
+    ): array {
+        if ($months < 1) {
+            throw new InvalidArgumentException('Jangka waktu minimal 1 bulan.');
+        }
+
+        if ($initialAmount < 0 || $monthlyContribution < 0 || $annualReturnRate < 0) {
+            throw new InvalidArgumentException('Dana awal, setoran, dan imbal hasil tidak boleh negatif.');
+        }
+
+        $monthlyRate = $this->monthlyRate($annualReturnRate);
+        $growthFactor = ($monthlyRate === 0.0) ? 1.0 : (1 + $monthlyRate) ** $months;
+
+        $finalValue = ($monthlyRate === 0.0)
+            ? $initialAmount + $monthlyContribution * $months
+            : $initialAmount * $growthFactor + $monthlyContribution * ($growthFactor - 1) / $monthlyRate;
+
+        $finalValue = (int) round($finalValue);
+        $initial = (int) round($initialAmount);
+        $totalContribution = (int) round($monthlyContribution * $months);
+
+        return [
+            'final_value' => $finalValue,
+            'initial_amount' => $initial,
+            'total_contribution' => $totalContribution,
+            'investment_growth' => $finalValue - $initial - $totalContribution,
+            'monthly_rate' => $monthlyRate,
+            'months' => $months,
+        ];
+    }
+
+    /**
+     * FR-41: kalkulator Pinjaman / KPR — anuitas, dibayar di akhir bulan:
+     *
+     *   angsuran = P × i / (1 − (1+i)^−n)
+     *
+     * PENGECUALIAN KONVENSI RATE: di sini i = r / 12, BUKAN effective annual
+     * seperti monthlyRate(). Suku bunga pinjaman adalah angka KONTRAK, dan
+     * bank di Indonesia menghitung angsurannya dengan bunga tahunan dibagi dua
+     * belas. Memakai konversi efektif membuat angsuran Arus lebih rendah dari
+     * brosur bank untuk pinjaman yang sama (Rp 500 jt, 10%, 20 th: ±4,68 jt
+     * vs 4,83 jt) — pengguna yang mencocokkannya akan mengira Arus salah.
+     * Imbal hasil investasi adalah PERKIRAAN, jadi di sana konvensi efektif
+     * tetap berlaku. Diputuskan pengguna 29 Sep 2026, lihat CLAUDE.md §6.8.
+     *
+     * Tabel amortisasi dihitung per bulan dalam rupiah penuh: bunga = sisa
+     * pokok × i (dibulatkan), pokok = angsuran − bunga. Angsuran dibulatkan
+     * KE ATAS, sehingga kelebihan pembulatannya menumpuk; angsuran TERAKHIR
+     * menyesuaikan supaya sisa pokok berakhir tepat nol — kasus uji wajib
+     * (CLAUDE.md §6.8).
+     *
+     * @return array{
+     *     monthly_installment: int, last_installment: int,
+     *     total_payment: int, total_interest: int, principal: int,
+     *     monthly_rate: float, months: int,
+     *     yearly: array<int, array{year: int, principal_paid: int, interest_paid: int, balance: int}>,
+     *     series: array<int, array{month: int, balance: int, cumulative_interest: int}>,
+     * }
+     */
+    public function calculateLoan(float $principal, float $annualInterestRate, int $months): array
+    {
+        if ($months < 1) {
+            throw new InvalidArgumentException('Tenor minimal 1 bulan.');
+        }
+
+        if ($principal <= 0) {
+            throw new InvalidArgumentException('Pokok pinjaman harus lebih besar dari nol.');
+        }
+
+        if ($annualInterestRate < 0) {
+            throw new InvalidArgumentException('Suku bunga tidak boleh negatif.');
+        }
+
+        $pokok = (int) round($principal);
+        $i = $annualInterestRate / 100 / 12;
+
+        $angsuran = ($i === 0.0)
+            ? (int) ceil($pokok / $months)
+            : (int) ceil($pokok * $i / (1 - (1 + $i) ** -$months));
+
+        $sisa = $pokok;
+        $totalBunga = 0;
+        $totalBayar = 0;
+        $angsuranTerakhir = $angsuran;
+        $tahunan = [];
+        $deret = [['month' => 0, 'balance' => $pokok, 'cumulative_interest' => 0]];
+
+        for ($bulan = 1; $bulan <= $months && $sisa > 0; $bulan++) {
+            $bunga = (int) round($sisa * $i);
+            $pokokDibayar = ($bulan === $months) ? $sisa : min($sisa, $angsuran - $bunga);
+            $bayar = $pokokDibayar + $bunga;
+
+            $sisa -= $pokokDibayar;
+            $totalBunga += $bunga;
+            $totalBayar += $bayar;
+            $angsuranTerakhir = $bayar;
+
+            $tahun = (int) ceil($bulan / 12);
+            $tahunan[$tahun] ??= ['year' => $tahun, 'principal_paid' => 0, 'interest_paid' => 0, 'balance' => 0];
+            $tahunan[$tahun]['principal_paid'] += $pokokDibayar;
+            $tahunan[$tahun]['interest_paid'] += $bunga;
+            $tahunan[$tahun]['balance'] = $sisa;
+
+            if ($bulan % 12 === 0 || $sisa === 0) {
+                $deret[] = ['month' => $bulan, 'balance' => $sisa, 'cumulative_interest' => $totalBunga];
+            }
+        }
+
+        return [
+            'monthly_installment' => $angsuran,
+            'last_installment' => $angsuranTerakhir,
+            'principal' => $pokok,
+            'total_payment' => $totalBayar,
+            'total_interest' => $totalBunga,
+            'monthly_rate' => $i,
+            'months' => $months,
+            'yearly' => array_values($tahunan),
+            'series' => $deret,
+        ];
+    }
+
+    /**
      * FR-36: jumlah bulan PALING SEDIKIT sampai setoran `$monthlyContribution`
      * cukup untuk mencapai target — dasar tawaran "mundurkan tanggal target".
      *

@@ -11,6 +11,7 @@ use App\Http\Controllers\DebtController;
 use App\Http\Controllers\GoalCalculatorController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\UtilityCalculatorController;
 use App\Http\Controllers\GoalExportController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\GoalDailySavingsTargetController;
@@ -57,6 +58,13 @@ Route::middleware('throttle:60,1')->group(function () {
 
     Route::get('/kalkulator/tujuan', [GoalCalculatorController::class, 'show'])
         ->name('calculator.goal');
+
+    // Kalkulator utilitas (FR-41, FR-42) — publik, satu keluarga rumus
+    // dengan kalkulator tujuan (CLAUDE.md §6.8).
+    Route::get('/kalkulator/pinjaman', [UtilityCalculatorController::class, 'loan'])
+        ->name('calculator.loan');
+    Route::get('/kalkulator/investasi', [UtilityCalculatorController::class, 'investment'])
+        ->name('calculator.investment');
 });
 
 // Berita (PRD FR-16, FR-17). Publik; hanya membaca cache — lihat NewsController.
