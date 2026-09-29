@@ -65,6 +65,7 @@ Alat hitung sekali pakai, terpisah dari Tujuan — jawab "kalau begini hasilnya 
 | Fitur | Rilis | FR |
 |---|---|---|
 | Kalkulator Pinjaman/KPR — angsuran, total bunga, grafik amortisasi | 2 | FR-41 |
+| KPR: bunga tetap / tetap lalu mengambang / mengambang + cek kesehatan cicilan | 2 | FR-86 |
 | Kalkulator Investasi — proyeksi nilai akhir dari setoran rutin | 2 | FR-42 |
 | **Jadikan Tujuan** — simpan hasil kalkulator jadi target yang dipantau | 2 | FR-43 |
 | Dapat diakses **tanpa login**; menyimpan hasil baru butuh akun | 2 | FR-44 |
