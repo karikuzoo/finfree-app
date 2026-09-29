@@ -1,7 +1,10 @@
 import Brand from '@/Components/Brand';
 import Avatar from '@/Components/Avatar';
 import PageTransition from '@/Components/PageTransition';
-import { Link, usePage } from '@inertiajs/react';
+import Modal from '@/Components/Modal';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useState } from 'react';
 import { DashboardIcon, FundIcon, GoalIcon, WalletIcon, HistoryIcon, CalculatorIcon, NewsIcon, UserIcon, LogoutIcon } from '@/Components/Icons';
@@ -29,6 +32,15 @@ const groups = [
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const [mobileOpen, setMobileOpen] = useState(false);
+    // Keluar lewat dialog konfirmasi, bukan langsung: tombolnya menempel di
+    // bawah menu navigasi dan mudah tersentuh tanpa sengaja, terutama di menu
+    // ponsel. Menu ponsel ditutup lebih dulu supaya dua dialog tidak bertumpuk.
+    const [confirmingLogout, setConfirmingLogout] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const logout = () => {
+        setLoggingOut(true);
+        router.post(route('logout'), {}, { onFinish: () => setLoggingOut(false) });
+    };
     const activeLabel = groups.flatMap(group => group.items).find(item => route().current(item[2]))?.[0] || 'Ruang pribadi';
     const sidebar = <>
         <Link href={route('dashboard')} className="flex items-center gap-3 px-6 pt-8 text-text-primary">
@@ -42,7 +54,7 @@ export default function AuthenticatedLayout({ header, children }) {
             })}</div></div>)}
         </nav>
         <div className="m-5 mt-8 rounded-xl border border-border bg-gradient-to-br from-lime-softBg to-bg-surface p-4"><GoalIcon className="h-6 w-6 text-lime-500" /><p className="mt-3 text-sm leading-7 text-text-secondary">Langkah kecil hari ini.<br/><span className="text-text-primary">Masa depan lebih tenang.</span></p><Link href={route('goals.create')} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-lime-500">Susun tujuanmu <span aria-hidden="true">→</span></Link></div>
-        <div className="mx-5 mb-5 border-t border-border pt-5"><Link href={route('profile.edit')} className="flex min-w-0 items-center gap-3"><Avatar user={user} size={36}/><span className="min-w-0"><span className="block truncate text-sm font-medium">{user.name}</span><span className="text-xs text-text-muted">Akun pribadi</span></span></Link><Link href={route('logout')} method="post" as="button" className="mt-4 flex items-center gap-2 text-sm text-text-muted hover:text-text-primary"><LogoutIcon className="h-4 w-4"/> Keluar akun</Link></div>
+        <div className="mx-5 mb-5 border-t border-border pt-5"><Link href={route('profile.edit')} className="flex min-w-0 items-center gap-3"><Avatar user={user} size={36}/><span className="min-w-0"><span className="block truncate text-sm font-medium">{user.name}</span><span className="text-xs text-text-muted">Akun pribadi</span></span></Link><button type="button" onClick={() => { setMobileOpen(false); setConfirmingLogout(true); }} className="mt-4 flex items-center gap-2 text-sm text-text-muted hover:text-text-primary"><LogoutIcon className="h-4 w-4"/> Keluar akun</button></div>
     </>;
     return <div className="flex min-h-screen bg-bg-base">
         <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-lime-500 focus:p-3 focus:text-onPrimary">Lewati ke konten</a>
@@ -52,6 +64,16 @@ export default function AuthenticatedLayout({ header, children }) {
             <div className="flex min-h-[76px] items-center justify-between gap-3 border-b border-border px-4 sm:px-8"><div className="flex min-w-0 items-center gap-3"><button type="button" onClick={() => setMobileOpen(true)} aria-label="Buka menu navigasi" aria-expanded={mobileOpen} className="rounded-lg p-2 text-text-secondary lg:hidden"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><span className="hidden text-sm text-text-muted sm:inline">Ruang pribadi</span><span className="hidden text-text-muted sm:inline" aria-hidden="true">›</span><span className="truncate text-sm font-medium">{activeLabel}</span></div><Link href={route('profile.edit')} aria-label="Buka profil saya" className="flex shrink-0 items-center gap-3"><span className="hidden text-xs text-text-secondary sm:inline">Akun pribadi</span><Avatar user={user} size={32}/></Link></div>
             {header && <header className="px-4 pt-8 sm:px-8">{header}</header>}
             <main id="main-content" className="min-w-0 flex-1"><PageTransition>{children}</PageTransition></main>
+            <Modal show={confirmingLogout} onClose={() => setConfirmingLogout(false)} maxWidth="sm">
+                <div className="p-6">
+                    <h2 className="text-lg font-semibold text-text-primary">Keluar dari akun?</h2>
+                    <p className="mt-2 text-sm text-text-secondary">Anda perlu masuk lagi untuk membuka catatan keuangan Anda.</p>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <SecondaryButton onClick={() => setConfirmingLogout(false)}>Batal</SecondaryButton>
+                        <PrimaryButton onClick={logout} disabled={loggingOut}>{loggingOut ? 'Keluar...' : 'Keluar'}</PrimaryButton>
+                    </div>
+                </div>
+            </Modal>
             <footer className="mx-4 flex flex-wrap justify-between gap-3 border-t border-border py-5 text-xs text-text-muted sm:mx-8"><span><b className="font-semibold text-text-secondary">arus.</b> Uang lebih terarah. Hidup lebih tenang.</span><span>Simulasi edukatif · Bukan nasihat investasi</span></footer>
         </div>
     </div>;
