@@ -140,7 +140,7 @@ describe('Halaman Berita', () => {
         expect(foto).toHaveAttribute('loading', 'lazy');
     });
 
-    it('foto yang gagal dimuat disembunyikan, bukan jadi kotak rusak', () => {
+    it('foto yang gagal dimuat diganti sampul kategori, bukan jadi kotak rusak', () => {
         const { container } = tampilkan({
             articles: {
                 data: [artikel({ image: 'https://img.kontan.co.id/hilang.jpg' })],
@@ -152,16 +152,25 @@ describe('Halaman Berita', () => {
         fireEvent.error(container.querySelector('li img'));
 
         expect(container.querySelector('li img')).toBeNull();
+        expect(container.querySelector('[data-sampul-kategori]')).not.toBeNull();
         // Tulisannya tetap ada.
         expect(screen.getByRole('link', { name: /IHSG Diprediksi Sideways/ })).toBeInTheDocument();
     });
 
-    it('artikel tanpa foto tetap tampil tanpa kotak kosong', () => {
+    /**
+     * Foto dimatikan (NEWS_SHOW_IMAGES, D-16) atau artikelnya memang tanpa
+     * foto: server mengirim null, dan kartu memakai sampul kategori buatan
+     * sendiri dengan ukuran yang sama supaya daftar tidak meloncat.
+     */
+    it('tanpa foto, kartu memakai sampul kategori', () => {
         const { container } = tampilkan({
             articles: { data: [artikel({ image: null })], current_page: 1, last_page: 1 },
         });
 
         expect(container.querySelector('li img')).toBeNull();
+        const sampul = container.querySelector('[data-sampul-kategori]');
+        expect(sampul).toHaveAttribute('aria-hidden', 'true');
+        expect(sampul).toHaveAttribute('data-sampul-kategori', 'pasar-saham');
     });
 
     /** NFR-9: disclaimer permanen, bukan sekali tampil. */

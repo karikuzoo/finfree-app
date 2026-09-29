@@ -86,6 +86,21 @@ return [
      */
     'exclude' => 'zodiak|ramalan|shio|lowongan kerja|loker\b|prakiraan cuaca|cuaca hari ini|LHKPN|harta kekayaan|deretan (harta|properti|aset)',
 
+    /*
+     * Tampilkan foto artikel dari server penerbit? (PRD D-16)
+     *
+     * BAWAANNYA MATI. Syarat NewsData.io (dibaca 29 Sep 2026) menyatakan
+     * gambar tetap milik penerbitnya dan NewsData.io tidak berhak memberi
+     * izin memakainya — risikonya sepenuhnya di pihak Arus. Dimatikan secara
+     * bawaan supaya server yang lupa diatur tidak diam-diam memajang foto
+     * orang lain; pengembangan lokal menyalakannya lewat .env.
+     *
+     * Mati berarti tautan fotonya tidak dikirim ke browser sama sekali, dan
+     * kartu memakai sampul kategori buatan sendiri. Tautannya tetap disimpan
+     * saat ingest, jadi menyalakannya kembali tidak menuntut mengambil ulang.
+     */
+    'show_images' => (bool) env('NEWS_SHOW_IMAGES', false),
+
     // FR-30: artikel yang lebih tua dari ini dipangkas.
     'retention_days' => 30,
 

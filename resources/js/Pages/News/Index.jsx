@@ -133,8 +133,8 @@ function Chip({ href, aktif, jumlah, children }) {
 }
 
 function KartuBerita({ artikel, tampilkanKategori }) {
-    // Foto yang gagal dimuat (dihapus penerbit, diblokir) disembunyikan,
-    // bukan dibiarkan jadi kotak rusak.
+    // Foto yang gagal dimuat (dihapus penerbit, diblokir) diganti sampul
+    // kategori, bukan dibiarkan jadi kotak rusak.
     const [fotoGagal, setFotoGagal] = useState(false);
     const adaFoto = Boolean(artikel.image) && !fotoGagal;
 
@@ -188,7 +188,8 @@ function KartuBerita({ artikel, tampilkanKategori }) {
 
             {/*
                 Foto artikel dari penerbitnya (PRD D-16): dimuat langsung dari
-                server penerbit, tidak disalin ke Arus. Di SAMPING tulisan,
+                server penerbit, tidak disalin ke Arus. Hanya dikirim server
+                bila NEWS_SHOW_IMAGES menyala; selain itu sampul kategori. Di SAMPING tulisan,
                 bukan di atas — foto di atas menambah tinggi setiap kartu,
                 padahal halaman ini baru saja diringkas supaya tidak panjang.
 
@@ -197,7 +198,7 @@ function KartuBerita({ artikel, tampilkanKategori }) {
                 `no-referrer` karena sebagian server gambar penerbit menolak
                 permintaan yang membawa alamat situs lain.
             */}
-            {adaFoto && (
+            {adaFoto ? (
                 <img
                     src={artikel.image}
                     alt=""
@@ -207,8 +208,47 @@ function KartuBerita({ artikel, tampilkanKategori }) {
                     onError={() => setFotoGagal(true)}
                     className="h-16 w-20 shrink-0 self-start rounded-lg bg-bg-cardAlt object-cover sm:h-24 sm:w-32"
                 />
+            ) : (
+                <SampulKategori category={artikel.category} />
             )}
         </li>
+    );
+}
+
+/** Garis ikon per kategori config/news.php — viewBox 24, stroke. */
+const IKON_KATEGORI = {
+    // Gedung bank sentral.
+    'kebijakan-moneter': <path d="M3 9.5 12 4l9 5.5M5 10v7m4.667-7v7m4.666-7v7M19 10v7M3.5 20h17" />,
+    // Garis harga naik.
+    'pasar-saham': <path d="M3.5 19.5h17M5 15.5l4.5-4.5 3.5 3 6-6.5m0 0h-4m4 0v4" />,
+    // Rumah.
+    properti: <path d="M4 11 12 4.5l8 6.5M6 9.5v10h12v-10M10 19.5v-5h4v5" />,
+    // Tumpukan koin.
+    investasi: <path d="M12 8c3.866 0 7-1.12 7-2.5S15.866 3 12 3 5 4.12 5 5.5 8.134 8 12 8Zm-7-2.5v4C5 10.88 8.134 12 12 12s7-1.12 7-2.5v-4m-14 4v4C5 14.88 8.134 16 12 16s7-1.12 7-2.5v-4m-14 4v4C5 18.88 8.134 20 12 20s7-1.12 7-2.5v-4" />,
+    // Bola lampu.
+    'tips-keuangan': <path d="M9.5 18h5M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.44 1 1.1 1 1.85V16h5v-.25c0-.75.4-1.41 1-1.85A6 6 0 0 0 12 3Z" />,
+};
+
+/**
+ * Pengganti foto artikel (PRD D-16): ikon kategori buatan sendiri, dengan
+ * ukuran yang sama persis dengan fotonya supaya kartu tidak meloncat antara
+ * yang berfoto dan yang tidak.
+ *
+ * Muncul bila foto dimatikan (`NEWS_SHOW_IMAGES`), artikelnya memang tanpa
+ * foto, atau fotonya gagal dimuat. Dekoratif — kategori sudah tertulis di
+ * baris atas kartu — jadi disembunyikan dari pembaca layar.
+ */
+function SampulKategori({ category }) {
+    return (
+        <div
+            aria-hidden="true"
+            data-sampul-kategori={category}
+            className="flex h-16 w-20 shrink-0 items-center justify-center self-start rounded-lg bg-lime-softBg text-lime-500 sm:h-24 sm:w-32"
+        >
+            <svg className="h-7 w-7 sm:h-9 sm:w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                {IKON_KATEGORI[category] ?? <path d="M5 4.5h11.5A2.5 2.5 0 0 1 19 7v12.5H7.5A2.5 2.5 0 0 1 5 17V4.5Zm3.5 4h7m-7 3.5h7m-7 3.5h4" />}
+            </svg>
+        </div>
     );
 }
 

@@ -41,8 +41,47 @@ class NewsPageTest extends TestCase
         ]);
     }
 
+    /**
+     * D-16: foto berita milik penerbitnya, dan NewsData.io tidak memberi izin
+     * memakainya. Server yang lupa diatur tidak boleh memajangnya — tautannya
+     * bahkan tidak dikirim ke browser.
+     */
+    public function test_foto_berita_mati_bila_tidak_diatur(): void
+    {
+        // .env pengembang boleh menyalakannya; yang diuji di sini bawaan
+        // config/news.php saat variabelnya tidak ada sama sekali.
+        $asli = [$_ENV['NEWS_SHOW_IMAGES'] ?? null, $_SERVER['NEWS_SHOW_IMAGES'] ?? null, getenv('NEWS_SHOW_IMAGES')];
+        unset($_ENV['NEWS_SHOW_IMAGES'], $_SERVER['NEWS_SHOW_IMAGES']);
+        putenv('NEWS_SHOW_IMAGES');
+
+        try {
+            $this->assertFalse((require config_path('news.php'))['show_images']);
+        } finally {
+            if ($asli[0] !== null) $_ENV['NEWS_SHOW_IMAGES'] = $asli[0];
+            if ($asli[1] !== null) $_SERVER['NEWS_SHOW_IMAGES'] = $asli[1];
+            if ($asli[2] !== false) putenv("NEWS_SHOW_IMAGES={$asli[2]}");
+        }
+    }
+
+    public function test_foto_mati_tautannya_tidak_dikirim(): void
+    {
+        config(['news.show_images' => false]);
+        $this->berita('IHSG naik', 'pasar-saham');
+
+        $this->get(route('news.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('articles.data.0.title', 'IHSG naik')
+                ->where('articles.data.0.image', null));
+
+        // Tautannya tetap tersimpan, supaya menyalakannya lagi tidak menuntut
+        // mengambil ulang berita.
+        $this->assertNotNull(\App\Models\NewsArticle::sole()->image_url);
+    }
+
     public function test_tamu_bisa_membuka_berita(): void
     {
+        config(['news.show_images' => true]);
         $this->berita('IHSG naik', 'pasar-saham');
 
         $this->get(route('news.index'))

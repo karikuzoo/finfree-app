@@ -31,6 +31,10 @@ class NewsController extends Controller
             ? $request->query('kategori')
             : null;
 
+        // Lihat config/news.php `show_images`: bila mati, tautan fotonya tidak
+        // ikut dikirim sama sekali — bukan dikirim lalu disembunyikan React.
+        $tampilkanFoto = (bool) config('news.show_images');
+
         $artikel = NewsArticle::query()
             ->when($aktif, fn ($q) => $q->where('category', $aktif))
             ->orderByDesc('published_at')
@@ -43,7 +47,7 @@ class NewsController extends Controller
                 'id' => $a->id,
                 'title' => $a->title,
                 'summary' => $a->summary,
-                'image' => $a->image_url,
+                'image' => $tampilkanFoto ? $a->image_url : null,
                 'url' => $a->url,
                 'source' => $a->source_name ?: $a->source,
                 'category' => $a->category,
