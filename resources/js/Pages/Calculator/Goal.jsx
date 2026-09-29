@@ -2,12 +2,11 @@ import CurrencyInput from '@/Components/CurrencyInput';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
-import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
 import WhatIfPanel from '@/Components/WhatIfPanel';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatDuration, formatRupiah } from '@/utils/format';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 
 const tenorPresets = [
     { label: '1 thn', months: 12 },
@@ -275,7 +274,7 @@ export default function CalculatorGoal({ input, result }) {
                         ) : result.already_achieved ? (
                             <AchievedResult result={result} />
                         ) : (
-                            <FullResult result={result} />
+                            <FullResult result={result} input={input} />
                         )}
                     </div>
                 </div>
@@ -331,7 +330,7 @@ function AchievedResult({ result }) {
     );
 }
 
-function FullResult({ result }) {
+function FullResult({ result, input }) {
     return (
         <div className="mt-5">
             <div className="rounded-lg border-l-2 border-lime-500 bg-bg-cardAlt p-5">
@@ -344,6 +343,7 @@ function FullResult({ result }) {
             </div>
 
             <Breakdown result={result} />
+            <JadikanTujuan input={input} />
         </div>
     );
 }
@@ -406,16 +406,48 @@ function Breakdown({ result }) {
                     nyata berfluktuasi dan tidak dijamin.
                 </p>
             </div>
-
-            <div className="mt-5">
-                <SecondaryButton disabled className="w-full justify-center">
-                    Jadikan Tujuan
-                </SecondaryButton>
-                <p className="mt-2 text-center text-xs text-text-muted">
-                    Menyimpan hasil sebagai tujuan yang dipantau — tersedia di
-                    Rilis 1.
-                </p>
-            </div>
         </>
+    );
+}
+
+/**
+ * Membawa hasil kalkulator ke form Buat Tujuan. Angkanya diambil dari `input`
+ * — nilai yang sudah divalidasi server dan benar-benar menghasilkan angka di
+ * panel ini — bukan dari isian form yang mungkin sudah diubah tanpa dihitung
+ * ulang.
+ *
+ * Lewat query string, bukan state: tamu diarahkan ke halaman masuk lebih
+ * dulu, dan Laravel mengembalikannya ke URL yang dituju beserta query-nya,
+ * jadi angkanya tidak hilang di tengah jalan. Tidak ada yang tersimpan
+ * sebelum pengguna memberi nama dan menekan simpan di form itu.
+ *
+ * Hanya untuk hasil yang masih butuh setoran: target yang sudah tercapai
+ * tidak perlu dipantau sebagai tujuan.
+ */
+function JadikanTujuan({ input }) {
+    const masuk = Boolean(usePage().props.auth?.user);
+
+    const tujuan = route('goals.create', {
+        target_amount: input.target_amount,
+        initial_amount: input.current_amount || 0,
+        months: input.months,
+        estimated_return_rate: input.annual_return_rate,
+        estimated_inflation_rate: input.annual_inflation_rate || 0,
+    });
+
+    return (
+        <div className="mt-5">
+            <Link
+                href={tujuan}
+                className="inline-flex w-full items-center justify-center rounded-lg border border-border-strong px-4 py-2 text-xs font-semibold uppercase tracking-widest text-text-primary transition hover:border-lime-500 hover:text-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card"
+            >
+                Jadikan Tujuan
+            </Link>
+            <p className="mt-2 text-center text-xs text-text-muted">
+                {masuk
+                    ? 'Angka di atas ikut terisi — tinggal beri nama tujuannya.'
+                    : 'Masuk dulu untuk memantau progresnya — angka di atas ikut terbawa.'}
+            </p>
+        </div>
     );
 }

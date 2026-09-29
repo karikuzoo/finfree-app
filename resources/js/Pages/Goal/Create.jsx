@@ -88,11 +88,15 @@ const formatTanggalIndonesia = (iso) =>
  * yang terkirim — sama seperti kalkulator publik memperlakukan
  * WhatIfPanel-nya.
  */
-export default function GoalCreate({ isFirstGoal }) {
+export default function GoalCreate({ isFirstGoal, prefill = null }) {
+    // `prefill` datang dari tombol "Jadikan Tujuan" di kalkulator publik
+    // (GoalController::prefillFromCalculator). Imbal hasil & inflasinya
+    // TIDAK bertentangan dengan aturan "mulai dari nol" di bawah: angkanya
+    // dipilih sendiri oleh pengguna di kalkulator, bukan disodorkan Arus.
     const form = useForm({
         name: "",
-        target_amount: "",
-        initial_amount: "",
+        target_amount: prefill?.target_amount ?? "",
+        initial_amount: prefill?.initial_amount || "",
         target_date: "",
         // Nol, bukan angka "wajar" yang disodorkan lebih dulu. Angka yang
         // sudah terisi cenderung diterima apa adanya, dan asumsi imbal hasil
@@ -100,12 +104,12 @@ export default function GoalCreate({ isFirstGoal }) {
         // yang dijanjikan ke pengguna. Mulai dari nol berarti hasilnya polos:
         // target dibagi jangka waktu, tanpa menjanjikan pertumbuhan apa pun.
         // Pengguna menambahkan asumsi secara sadar, bukan mewarisinya.
-        estimated_return_rate: "0",
-        estimated_inflation_rate: "0",
+        estimated_return_rate: String(prefill?.estimated_return_rate ?? 0),
+        estimated_inflation_rate: String(prefill?.estimated_inflation_rate ?? 0),
     });
 
     const [mode, setMode] = useState("waktu");
-    const [months, setMonths] = useState("");
+    const [months, setMonths] = useState(prefill ? String(prefill.months) : "");
     const [dailyAmount, setDailyAmount] = useState("");
 
     // Tujuan tanpa tenggat kini jadi MODE tersendiri, bukan turunan dari
@@ -205,6 +209,13 @@ export default function GoalCreate({ isFirstGoal }) {
                         menghitung berapa yang perlu Anda sisihkan tiap bulan,
                         lalu memantau progresnya di Dashboard.
                     </p>
+
+                    {prefill && (
+                        <p className="mt-4 rounded-lg border border-border bg-lime-softBg px-4 py-3 text-sm leading-relaxed text-text-secondary">
+                            Angka di bawah terisi dari kalkulator. Periksa
+                            sekali lagi, lalu beri nama tujuannya.
+                        </p>
+                    )}
                 </div>
 
                 <form onSubmit={submit} className="space-y-6">

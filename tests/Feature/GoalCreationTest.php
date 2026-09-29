@@ -257,4 +257,76 @@ class GoalCreationTest extends TestCase
             ->get(route('goals.create'))
             ->assertInertia(fn ($page) => $page->where('isFirstGoal', false));
     }
+
+    // ── Dari kalkulator publik ("Jadikan Tujuan") ───────────────────────
+
+    private function dariKalkulator(array $ubah = []): array
+    {
+        return array_merge([
+            'target_amount' => 1000000000,
+            'initial_amount' => 50000000,
+            'months' => 120,
+            'estimated_return_rate' => 8,
+            'estimated_inflation_rate' => 2,
+        ], $ubah);
+    }
+
+    public function test_form_terisi_dari_kalkulator(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('goals.create', $this->dariKalkulator()))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('prefill.target_amount', 1000000000)
+                ->where('prefill.initial_amount', 50000000)
+                ->where('prefill.months', 120)
+                ->where('prefill.estimated_return_rate', 8)
+                ->where('prefill.estimated_inflation_rate', 2));
+    }
+
+    public function test_tanpa_query_form_kosong(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('goals.create'))
+            ->assertInertia(fn ($page) => $page->where('prefill', null));
+    }
+
+    /**
+     * Tautan yang disunting tangan cukup membuka form kosong, bukan halaman
+     * galat — isian awal hanya kenyamanan, validasi sungguhan saat disimpan.
+     */
+    public function test_query_yang_tidak_masuk_akal_diabaikan(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([['months' => 0], ['estimated_return_rate' => 99], ['initial_amount' => 2000000000], ['target_amount' => 'banyak']] as $rusak) {
+            $this->actingAs($user)
+                ->get(route('goals.create', $this->dariKalkulator($rusak)))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page->where('prefill', null));
+        }
+    }
+
+    /**
+     * Tamu dari kalkulator publik diarahkan masuk dulu, lalu dikembalikan ke
+     * form yang sama BESERTA angkanya — itulah alasan isiannya dibawa lewat
+     * query string, bukan state halaman.
+     */
+    public function test_tamu_kembali_ke_form_beserta_angkanya_setelah_masuk(): void
+    {
+        $user = User::factory()->create();
+        $tujuan = route('goals.create', $this->dariKalkulator());
+
+        $this->get($tujuan)->assertRedirect(route('login'));
+
+        // Laravel menyusun ulang urutan query, jadi yang diperiksa isinya —
+        // form yang dituju benar-benar terisi — bukan string URL-nya.
+        $kembali = $this->post(route('login'), ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirectContains('/tujuan/buat')
+            ->headers->get('Location');
+
+        $this->get($kembali)->assertInertia(fn ($page) => $page
+            ->where('prefill.target_amount', 1000000000)
+            ->where('prefill.months', 120));
+    }
 }

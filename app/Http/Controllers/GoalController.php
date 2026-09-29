@@ -67,7 +67,47 @@ class GoalController extends Controller
     {
         return Inertia::render('Goal/Create', [
             'isFirstGoal' => $request->user()->goals()->count() === 0,
+            'prefill' => $this->prefillFromCalculator($request),
         ]);
+    }
+
+    /**
+     * Isian awal dari tombol "Jadikan Tujuan" di kalkulator publik — dibawa
+     * lewat query string, supaya tetap utuh melewati halaman login bagi tamu
+     * (Laravel mengembalikan ke URL yang dituju, lengkap dengan query-nya).
+     *
+     * Hanya MENGISI form; tidak menyimpan apa pun. Batasnya sama dengan
+     * StoreGoalRequest, dan query yang tidak lolos diabaikan diam-diam —
+     * tautan yang disunting tangan cukup membuka form kosong, bukan halaman
+     * galat. Yang disimpan tetap melewati validasi penuh saat dikirim.
+     */
+    private function prefillFromCalculator(Request $request): ?array
+    {
+        if (! $request->has('target_amount')) {
+            return null;
+        }
+
+        $validator = validator($request->query(), [
+            'target_amount' => ['required', 'numeric', 'min:1', 'max:999999999999'],
+            'initial_amount' => ['nullable', 'numeric', 'min:0', 'lt:target_amount'],
+            'months' => ['required', 'integer', 'min:1', 'max:720'],
+            'estimated_return_rate' => ['required', 'numeric', 'min:0', 'max:30'],
+            'estimated_inflation_rate' => ['nullable', 'numeric', 'min:0', 'max:20'],
+        ]);
+
+        if ($validator->fails()) {
+            return null;
+        }
+
+        $data = $validator->validated();
+
+        return [
+            'target_amount' => (float) $data['target_amount'],
+            'initial_amount' => (float) ($data['initial_amount'] ?? 0),
+            'months' => (int) $data['months'],
+            'estimated_return_rate' => (float) $data['estimated_return_rate'],
+            'estimated_inflation_rate' => (float) ($data['estimated_inflation_rate'] ?? 0),
+        ];
     }
 
     public function store(StoreGoalRequest $request, GoalCalculatorService $calculator): RedirectResponse
