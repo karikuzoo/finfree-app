@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { todayInJakarta } from "@/utils/timezone";
 
 /**
- * Pemilih tanggal bertema Malam.
+ * Pemilih tanggal bertema Arus — gaya selnya sama dengan kalender Dashboard
+ * (ActivityCalendar).
  *
  * Menggantikan <input type="date"> bawaan browser, yang punya tiga masalah di
  * aplikasi ini: tampilannya selalu mengikuti tema sistem sehingga muncul putih
@@ -135,7 +136,6 @@ export default function DateInput({
                 tanggal: d,
                 tgl,
                 luar: false,
-                minggu: new Date(tahun, bulan, d).getDay() === 0,
                 // Perbandingan string aman karena format YYYY-MM-DD berurutan
                 // secara leksikografis sama seperti secara kronologis.
                 nonaktif: (min && tgl < min) || (max && tgl > max),
@@ -248,14 +248,12 @@ export default function DateInput({
                         <Panah arah="next" onClick={() => geser(1)} disabled={!bolehMaju} />
                     </div>
 
-                    <div className="mt-3 grid grid-cols-7 gap-px text-center">
-                        {HARI.map((nama, i) => (
+                    <div className="mt-3 grid grid-cols-7 gap-1 text-center">
+                        {/* Minggu tidak dimerahkan — di Arus merah berarti galat. */}
+                        {HARI.map((nama) => (
                             <div
                                 key={nama}
-                                className={
-                                    "pb-1.5 text-[10px] font-semibold uppercase tracking-wide " +
-                                    (i === 0 ? "text-state-danger" : "text-text-muted")
-                                }
+                                className="pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted"
                             >
                                 {nama}
                             </div>
@@ -266,7 +264,7 @@ export default function DateInput({
                                 <div
                                     key={s.key}
                                     aria-hidden="true"
-                                    className="py-1.5 text-sm text-text-disabled"
+                                    className="rounded-lg border border-transparent py-1.5 text-sm text-text-disabled"
                                 >
                                     {s.tanggal}
                                 </div>
@@ -281,16 +279,16 @@ export default function DateInput({
                                     }}
                                     aria-current={s.tgl === value}
                                     className={
-                                        "num-tabular rounded-md py-1.5 text-sm transition " +
+                                        // Sama dengan kalender Dashboard: terpilih
+                                        // mint penuh, hari ini mint lembut bergaris.
+                                        "num-tabular rounded-lg border py-1.5 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 " +
                                         (s.tgl === value
-                                            ? "bg-lime-500 font-bold text-onPrimary"
+                                            ? "border-lime-500 bg-lime-500 font-bold text-onPrimary"
                                             : s.nonaktif
-                                              ? "cursor-not-allowed text-text-disabled"
+                                              ? "cursor-not-allowed border-transparent text-text-disabled"
                                               : s.tgl === hariIni
-                                                ? "font-bold text-lime-500 hover:bg-bg-cardAlt"
-                                                : s.minggu
-                                                  ? "text-state-danger hover:bg-bg-cardAlt"
-                                                  : "text-text-primary hover:bg-bg-cardAlt")
+                                                ? "border-lime-500/60 bg-lime-softBg font-bold text-lime-500"
+                                                : "border-transparent text-text-primary hover:border-border-strong hover:bg-bg-cardAlt")
                                     }
                                 >
                                     {s.tanggal}

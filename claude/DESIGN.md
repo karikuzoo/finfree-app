@@ -180,7 +180,7 @@ ditentukan browser, sehingga 24 pilihan jam membuka panel setinggi hampir
 seluruh dialog.
 
 **Bentuk yang dipakai.** Sebuah tombol menampilkan nilai terpilih, dan
-mengkliknya membuka panel bertema Malam. Tanggal ditulis panjang ("1 September
+mengkliknya membuka panel bertema Arus. Tanggal ditulis panjang ("1 September
 2026") — format angka selalu menyisakan keraguan antara hari-bulan dan
 bulan-hari. Nama hari memakai singkatan tiga huruf `Min Sen Sel Rab Kam Jum
 Sab`; inisial satu huruf dalam Bahasa Indonesia menghasilkan M-S-S-R-K-J-S,
@@ -198,6 +198,19 @@ keduanya sekaligus dan pengguna kehilangan isian yang sedang diketik.
 
 Nilai yang dipertukarkan tetap `"YYYY-MM-DD"` dan `"HH:MM"` persis seperti
 kontrol bawaan, jadi seluruh aturan validasi di server tidak berubah.
+
+**Satu gaya untuk semua kalender** — pemilih tanggal (`DateInput`) dan
+kalender aktivitas Dashboard (`ActivityCalendar`) memakai sel dan kepala yang
+sama:
+
+| Unsur | Gaya |
+|---|---|
+| Sel tanggal | Kotak membulat (`rounded-lg`), garis tepi transparan; saat disorot `border-border-strong` + `bg-bg-cardAlt` — seperti chip dan tombol di bagian lain web, bukan lingkaran gaya kalender ponsel |
+| Hari ini | Latar `lime-softBg`, garis mint (`lime-500/60`), angka mint tebal — sama dengan chip aktif. Garis tepinya membuatnya tetap terbaca tanpa membedakan warna |
+| Terpilih (pemilih tanggal) | Mint penuh, angka `onPrimary` |
+| Hari Minggu | **Tidak** dimerahkan. Di Arus merah hanya untuk galat dan angka negatif |
+| Kepala | Panah + pilihan bulan + pilihan tahun. Kalender Dashboard menambah tombol "Hari ini" (bergaya chip) saat melihat bulan lain, di baris judul supaya judulnya tidak terlipat |
+| Penanda (Dashboard) | Titik 6px di bawah angka: biru `state-info` untuk catatan, kuning `state-warning` untuk pengingat, redup bila semua pengingatnya selesai |
 
 ### 5.9 Bacaan Nominal di bawah input rupiah
 
