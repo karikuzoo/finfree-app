@@ -9,10 +9,9 @@ import { router, useForm } from "@inertiajs/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * Kalender aktivitas bulanan, bergaya sama dengan pemilih tanggal
- * (DateInput) dan bagian lain web: sel kotak membulat, hari ini berlatar mint
- * lembut, Minggu tidak dimerahkan, penanda aktivitas berupa titik di bawah
- * angka. Minggu dimulai hari Minggu; tanggal dari bulan tetangga tampil redup.
+ * Kalender aktivitas bulanan bergaya kalender ponsel: minggu dimulai hari
+ * Minggu, tanggal dari bulan tetangga tetap tampil dalam warna redup, dan
+ * penanda aktivitas berupa garis tebal di bawah angka tanggal.
  *
  * Kenapa singkatan hari tiga huruf, bukan satu huruf seperti kalender
  * berbahasa Inggris: dalam Bahasa Indonesia inisial satu huruf menghasilkan
@@ -26,15 +25,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
  */
 
 const HARI = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-
-const BULAN = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-];
-
-// Sama dengan pilihan bulan/tahun di DateInput.
-const kelasPilihan =
-    "rounded-md border border-border bg-bg-card py-1 pl-2 pr-7 text-sm font-semibold text-text-primary focus:border-lime-500 focus:ring-1 focus:ring-lime-500";
 
 const iso = (tahun, bulan, tanggal) =>
     `${tahun}-${String(bulan + 1).padStart(2, "0")}-${String(tanggal).padStart(2, "0")}`;
@@ -107,6 +97,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                 tanggal: d,
                 tgl,
                 luarBulan: false,
+                hariMinggu: new Date(tahun, bulanIndex, d).getDay() === 0,
                 catatan: catatanPerTanggal[tgl] ?? null,
                 adaCatatan: Boolean(catatanPerTanggal[tgl]),
                 pengingat: pengingatPerTanggal[tgl] ?? [],
@@ -129,8 +120,8 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
         ? (sel.find((s) => s.tgl === tanggalTerpilih) ?? null)
         : null;
 
-    const pindahKe = (t, b) => {
-        const target = new Date(t, b, 1);
+    const geserBulan = (arah) => {
+        const target = new Date(tahun, bulanIndex + arah, 1);
         const param = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
 
         // Kunjungan Inertia biasa, tanpa `only` maupun `preserveState`.
@@ -147,9 +138,6 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
         );
     };
 
-    const geserBulan = (arah) => pindahKe(tahun, bulanIndex + arah);
-    const bulanBerjalan = tahun === tahunIni && bulanIndex === bulanIniIdx;
-
     const label =
         data.label ??
         new Date(tahun, bulanIndex, 1).toLocaleDateString("id-ID", {
@@ -157,16 +145,10 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
             year: "numeric",
         });
 
-    // Sepuluh tahun ke belakang, lima ke depan — catatan dan pengingat jarang
-    // jauh di luar itu. Tahun yang sedang dilihat selalu ikut, walau di luar.
-    const daftarTahun = [];
-    for (let t = tahunIni + 5; t >= tahunIni - 10; t--) daftarTahun.push(t);
-    if (!daftarTahun.includes(tahun)) daftarTahun.push(tahun);
-
     return (
         <div>
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+            <div className="flex items-start justify-between gap-2">
+                <div>
                     <h2 className="text-base font-semibold text-text-primary">
                         Aktivitas Bulanan
                     </h2>
@@ -198,67 +180,30 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                         </span>
                     </span>
                 ) : (
-                    !bulanBerjalan && (
-                        <button
-                            type="button"
-                            onClick={() => pindahKe(tahunIni, bulanIniIdx)}
-                            className="shrink-0 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-lime-500 transition hover:border-lime-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
-                        >
-                            Hari ini
-                        </button>
-                    )
+                    <div className="flex items-center gap-1">
+                        <TombolGeser
+                            arah="prev"
+                            onClick={() => geserBulan(-1)}
+                        />
+                        <span className="min-w-[7.5rem] text-center text-sm font-medium text-text-primary">
+                            {label}
+                        </span>
+                        <TombolGeser
+                            arah="next"
+                            onClick={() => geserBulan(1)}
+                        />
+                    </div>
                 )}
             </div>
 
-            {/*
-                Navigasi bulan di baris sendiri, dengan kepala yang sama seperti
-                pemilih tanggal (DateInput): panah, pilihan bulan dan tahun.
-                Dulu hanya panah, sehingga menengok setahun lalu berarti dua
-                belas klik. Satu baris dengan judul membuat judulnya terlipat
-                begitu tombol "Hari ini" muncul.
-            */}
-            {!placeholder && (
-                <div className="mt-3 flex items-center justify-between gap-1">
-                    <TombolGeser arah="prev" onClick={() => geserBulan(-1)} />
-                    <div className="flex items-center gap-1">
-                        <select
-                            aria-label="Bulan"
-                            value={bulanIndex}
-                            onChange={(e) => pindahKe(tahun, Number(e.target.value))}
-                            className={kelasPilihan}
-                        >
-                            {BULAN.map((nama, i) => (
-                                <option key={nama} value={i}>
-                                    {nama}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            aria-label="Tahun"
-                            value={tahun}
-                            onChange={(e) => pindahKe(Number(e.target.value), bulanIndex)}
-                            className={"num-tabular " + kelasPilihan}
-                        >
-                            {daftarTahun.map((t) => (
-                                <option key={t} value={t}>
-                                    {t}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <TombolGeser arah="next" onClick={() => geserBulan(1)} />
-                </div>
-            )}
-
-            <div className="mt-4 grid grid-cols-7 gap-1 text-center">
-                {/*
-                    Minggu tidak diwarnai merah. Di Arus merah berarti galat
-                    atau angka negatif; hari Minggu bukan keduanya.
-                */}
-                {HARI.map((nama) => (
+            <div className="mt-4 grid grid-cols-7 gap-px text-center">
+                {HARI.map((nama, i) => (
                     <div
                         key={nama}
-                        className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                        className={
+                            "pb-2 text-[11px] font-semibold uppercase tracking-wide " +
+                            (i === 0 ? "text-state-danger" : "text-text-muted")
+                        }
                     >
                         {nama}
                     </div>
@@ -269,7 +214,7 @@ export default function ActivityCalendar({ calendar, placeholder = false }) {
                         <div
                             key={s.key}
                             aria-hidden="true"
-                            className="flex h-12 items-start justify-center pt-2 text-sm text-text-disabled"
+                            className="py-2 text-sm text-text-disabled"
                         >
                             {s.tanggal}
                         </div>
@@ -348,27 +293,38 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
             title={sel.catatan?.body || undefined}
             aria-label={keterangan}
             className={
-                // Kotak membulat seperti chip dan tombol di bagian lain web,
-                // bukan lingkaran gaya kalender ponsel.
-                "flex h-12 flex-col items-center justify-start gap-1 rounded-lg border pt-2 text-sm tabular-nums transition focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 " +
-                (hariIni
-                    ? // Hari ini: latar mint lembut + garis mint, sama seperti
-                      // chip yang aktif. Tidak bergantung pada warna saja —
-                      // garis tepinya tetap terlihat tanpa membedakan warna.
-                      "border-lime-500/60 bg-lime-softBg font-bold text-lime-500"
-                    : "border-transparent font-medium text-text-primary") +
-                (nonaktif ? " cursor-default" : " cursor-pointer hover:border-border-strong hover:bg-bg-cardAlt")
+                "group flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 " +
+                (nonaktif
+                    ? "cursor-default"
+                    : "hover:bg-bg-cardAlt cursor-pointer")
             }
         >
-            {sel.tanggal}
+            {/*
+                Angka tanggal. Hari ini ditandai lingkaran terisi seperti
+                kalender ponsel — bukan sekadar warna teks, supaya tetap
+                terlihat oleh pengguna yang sulit membedakan warna.
+            */}
+            <span
+                className={
+                    "flex h-7 w-7 items-center justify-center rounded-full text-sm tabular-nums transition " +
+                    (hariIni
+                        ? "bg-lime-500 font-bold text-onPrimary"
+                        : sel.hariMinggu
+                          ? "font-medium text-state-danger"
+                          : "font-medium text-text-primary")
+                }
+            >
+                {sel.tanggal}
+            </span>
 
             {/*
-                Titik penanda di bawah angka. Tingginya tetap dipesan walau
-                kosong supaya baris tidak bergeser naik-turun antar minggu.
+                Garis penanda di bawah angka, seperti di kalender ponsel.
+                Tingginya tetap dipesan walau kosong supaya baris tidak
+                bergeser naik-turun antar minggu.
             */}
-            <span className="flex h-1.5 items-center gap-1" aria-hidden="true">
+            <span className="flex h-1.5 items-center gap-0.5">
                 {adaCatatan && (
-                    <span className="block h-1.5 w-1.5 rounded-full bg-state-info" />
+                    <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 )}
                 {/*
                     Pengingat yang SUDAH selesai tetap diberi penanda, hanya
@@ -378,7 +334,7 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
                 {pengingat.length > 0 && (
                     <span
                         className={
-                            "block h-1.5 w-1.5 rounded-full " +
+                            "block h-1 w-2.5 rounded-full " +
                             (belumSelesai > 0
                                 ? "bg-state-warning"
                                 : "bg-text-disabled")
@@ -386,23 +342,20 @@ function SelTanggal({ sel, hariIni, nonaktif, onClick }) {
                     />
                 )}
             </span>
+
         </button>
     );
 }
 
 function Keterangan() {
     return (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-[11px] text-text-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-3 text-[11px] text-text-muted">
             <span className="flex items-center gap-1.5">
-                <span className="block h-2.5 w-2.5 rounded-md border border-lime-500/60 bg-lime-softBg" />
-                Hari ini
-            </span>
-            <span className="flex items-center gap-1.5">
-                <span className="block h-1.5 w-1.5 rounded-full bg-state-info" />
+                <span className="block h-1 w-2.5 rounded-full bg-state-info" />
                 Ada catatan
             </span>
             <span className="flex items-center gap-1.5">
-                <span className="block h-1.5 w-1.5 rounded-full bg-state-warning" />
+                <span className="block h-1 w-2.5 rounded-full bg-state-warning" />
                 Ada pengingat
             </span>
             <span className="ml-auto">Klik tanggal untuk catatan &amp; pengingat</span>

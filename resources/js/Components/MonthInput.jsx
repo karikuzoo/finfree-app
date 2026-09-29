@@ -114,7 +114,7 @@ export default function MonthInput({ value, onChange, min, max, id, label = "Pil
                         <Panah arah="next" disabled={!bolehMaju} onClick={() => setTahunLihat((t) => t + 1)} />
                     </div>
 
-                    {/* Sel bergaya sama dengan DateInput dan kalender Dashboard. */}
+                    {/* Terpilih mint penuh; bulan berjalan mint lembut bergaris. */}
                     <div className="mt-3 grid grid-cols-4 gap-1.5">
                         {BULAN_PENDEK.map((nama, i) => {
                             const k = kunci(tahunLihat, i);
