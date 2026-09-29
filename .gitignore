@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Pengaturan Claude Code lokal (jalur Herd, launch.json) — khusus mesin masing-masing.
+/.claude/
