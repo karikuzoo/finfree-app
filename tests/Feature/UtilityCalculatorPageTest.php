@@ -130,6 +130,26 @@ class UtilityCalculatorPageTest extends TestCase
         $this->assertSame('Mulai tahun ke-5, rasionya sudah 30,3% — melewati batas sehat 30%.', $health['reasons'][1]);
     }
 
+    public function test_kenaikan_gaji_ikut_menilai_bunga_berjenjang(): void
+    {
+        $health = $this->get(route('calculator.loan', $this->berjenjang([
+            'monthly_income' => 15000000,
+            'monthly_expenses' => 6000000,
+            'income_growth' => 5,
+        ])))->assertOk()->viewData('page')['props']['health'];
+
+        $this->assertSame('mulai tahun ke-5', $health['worst']['label']);
+        $this->assertSame(18232594, $health['worst']['income']);
+        $this->assertSame('healthy', $health['status']);
+    }
+
+    public function test_kenaikan_gaji_di_atas_batas_ditolak(): void
+    {
+        $this->from(route('calculator.loan'))
+            ->get(route('calculator.loan', $this->berjenjang(['monthly_income' => 15000000, 'income_growth' => 45])))
+            ->assertSessionHasErrors(['income_growth' => 'Kenaikan gaji di atas 30% per tahun terlalu optimistis untuk perencanaan cicilan 10–30 tahun.']);
+    }
+
     /**
      * "Tetap lalu mengambang" kini dua jenjang — tanpa pilihan tersendiri.
      */

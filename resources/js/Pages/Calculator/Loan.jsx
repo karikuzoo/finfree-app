@@ -27,7 +27,7 @@ const JENIS_BUNGA = [
     { value: 'floating', label: 'Mengambang', hint: 'Bisa berubah kapan saja. Diuji dengan bunga bila naik.' },
 ];
 
-const DATA_KEUANGAN = ['monthly_income', 'other_installments', 'monthly_expenses', 'annual_taxes'];
+const DATA_KEUANGAN = ['monthly_income', 'income_growth', 'other_installments', 'monthly_expenses', 'annual_taxes'];
 
 const tahunKe = (bulan) => Math.floor((bulan - 1) / 12) + 1;
 
@@ -65,6 +65,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
             : jenjangAwal(),
         floating_rate: input?.floating_rate ?? '',
         monthly_income: input?.monthly_income ?? '',
+        income_growth: input?.income_growth ?? '',
         other_installments: input?.other_installments ?? '',
         monthly_expenses: input?.monthly_expenses ?? '',
         annual_taxes: input?.annual_taxes ?? '',
@@ -237,6 +238,24 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     onChange={(v) => form.setData('monthly_income', v)}
                                     error={galat.monthly_income}
                                 />
+                                <div>
+                                    <IsianPersen
+                                        id="income_growth"
+                                        label="Estimasi kenaikan gaji per tahun (%)"
+                                        placeholder="0"
+                                        max="30"
+                                        step="0.1"
+                                        value={form.data.income_growth}
+                                        onChange={(v) => form.setData('income_growth', v)}
+                                        error={galat.income_growth}
+                                    />
+                                    <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                                        Opsional. Dipakai menilai jenjang bunga di tahun-tahun berikutnya.
+                                        Kosongkan bila tidak yakin — penilaiannya jadi lebih hati-hati.
+                                        Pengeluaran dianggap tetap, jadi angka yang terlalu tinggi membuat
+                                        cicilan tampak lebih ringan dari kenyataan.
+                                    </p>
+                                </div>
                                 <IsianRupiah
                                     id="other_installments"
                                     label="Cicilan lain per bulan"
@@ -287,16 +306,16 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
     );
 }
 
-function IsianPersen({ id, label, placeholder, value, onChange, error }) {
+function IsianPersen({ id, label, placeholder, value, onChange, error, max = '50', step = '0.01' }) {
     return (
         <div>
             <InputLabel htmlFor={id} value={label} />
             <TextInput
                 id={id}
                 type="number"
-                step="0.01"
+                step={step}
                 min="0"
-                max="50"
+                max={max}
                 className="num-tabular mt-1.5 block w-full"
                 placeholder={placeholder}
                 value={value}

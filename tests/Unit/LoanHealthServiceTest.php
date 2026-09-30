@@ -23,6 +23,7 @@ class LoanHealthServiceTest extends TestCase
             'annualTaxes' => 0,
             'installment' => 5_000_000,
             'stages' => [],
+            'incomeGrowth' => 0.0,
         ], $ubah);
 
         return (new LoanHealthService)->evaluate(...$a);
@@ -127,6 +128,106 @@ class LoanHealthServiceTest extends TestCase
 
         // Kalimat sisa uang boleh menyebut tahunnya; RASIO-nya cukup sekali.
         $this->assertCount(1, array_filter($hasil['reasons'], fn ($r) => str_contains($r, 'tahun ke-4, rasionya')));
+    }
+
+    // ── Kenaikan gaji per tahun (30 Sep 2026) ───────────────────────────
+
+    /** Jenjang contoh pengguna: Rp 500 jt, 20 th, 3,75 / 6,75 / 9,75 / 10,75%. */
+    private function jenjangContoh(): array
+    {
+        return [
+            ['label' => 'mulai tahun ke-2', 'installment' => 3_763_866, 'year' => 2],
+            ['label' => 'mulai tahun ke-5', 'installment' => 4_546_179, 'year' => 5],
+            ['label' => 'mulai tahun ke-11', 'installment' => 4_739_763, 'year' => 11],
+        ];
+    }
+
+    public function test_tanpa_kenaikan_gaji_terberat_adalah_angsuran_terbesar(): void
+    {
+        $hasil = $this->nilai(['monthlyIncome' => 15_000_000, 'monthlyExpenses' => 6_000_000, 'installment' => 2_964_442, 'stages' => $this->jenjangContoh()]);
+
+        $this->assertSame('mulai tahun ke-11', $hasil['worst']['label']);
+        $this->assertSame(31.6, $hasil['worst']['dsr']);
+        $this->assertSame(15_000_000, $hasil['worst']['income']);
+    }
+
+    /**
+     * Dengan gaji naik 5% per tahun, pendapatan tahun ke-11 menjadi
+     * 15 jt × 1,05¹⁰ ≈ 24,4 jt — angsuran terbesar justru paling ringan.
+     * Yang terberat kini jenjang tahun ke-5: 4.546.179 ÷ (15 jt × 1,05⁴ =
+     * 18.232.594) = 24,9%. Itulah alasan terberat dipilih dari RASIO, bukan
+     * dari angsuran.
+     */
+    public function test_kenaikan_gaji_menggeser_jenjang_terberat(): void
+    {
+        $hasil = $this->nilai([
+            'monthlyIncome' => 15_000_000, 'monthlyExpenses' => 6_000_000,
+            'installment' => 2_964_442, 'stages' => $this->jenjangContoh(), 'incomeGrowth' => 5,
+        ]);
+
+        $this->assertSame('mulai tahun ke-5', $hasil['worst']['label']);
+        $this->assertSame(18_232_594, $hasil['worst']['income']);
+        $this->assertSame(24.9, $hasil['worst']['dsr']);
+        $this->assertSame('healthy', $hasil['status']);
+        $this->assertSame(5.0, $hasil['income_growth']);
+        $this->assertContains(
+            'Angka itu sudah memperhitungkan kenaikan gaji 5% per tahun: pendapatan mulai tahun ke-5 diperkirakan Rp 18.232.594.',
+            $hasil['reasons'],
+        );
+    }
+
+    /** Sisa uang juga dihitung dari pendapatan yang sudah naik, dan pengeluaran TETAP. */
+    public function test_sisa_uang_memakai_pendapatan_jenjang_itu(): void
+    {
+        $hasil = $this->nilai([
+            'monthlyIncome' => 15_000_000, 'monthlyExpenses' => 6_000_000,
+            'installment' => 2_964_442, 'stages' => $this->jenjangContoh(), 'incomeGrowth' => 5,
+        ]);
+
+        $this->assertSame(18_232_594 - 4_546_179 - 6_000_000, $hasil['worst']['residual']);
+    }
+
+    /**
+     * Gaji yang naik lebih cepat dari angsuran: tidak ada jenjang yang lebih
+     * berat dari tahun pertama. Labelnya jadi bergantung pada asumsi itu —
+     * dan itu disebut terang-terangan.
+     */
+    public function test_kenaikan_gaji_yang_menutup_kenaikan_angsuran_disebut(): void
+    {
+        $hasil = $this->nilai([
+            'monthlyIncome' => 15_000_000, 'monthlyExpenses' => 6_000_000, 'installment' => 2_964_442,
+            'stages' => [['label' => 'mulai tahun ke-2', 'installment' => 3_000_000, 'year' => 2]],
+            'incomeGrowth' => 10,
+        ]);
+
+        $this->assertNull($hasil['worst']);
+        $this->assertStringContainsString('Penilaian ini bergantung pada kenaikan gaji itu benar-benar terjadi.', implode(' ', $hasil['reasons']));
+    }
+
+    /** "Bila bunga naik" tidak punya tahun — dinilai dengan pendapatan sekarang. */
+    public function test_skenario_bunga_naik_tidak_ikut_dinaikkan_gajinya(): void
+    {
+        $hasil = $this->nilai([
+            'stages' => [['label' => 'bila bunga naik ke 12%', 'installment' => 7_000_000]],
+            'incomeGrowth' => 10,
+        ]);
+
+        $this->assertSame(20_000_000, $hasil['worst']['income']);
+        $this->assertSame(35.0, $hasil['worst']['dsr']);
+    }
+
+    /**
+     * Kalimat pertama menyatakan posisi terhadap batas. Dulu selalu
+     * "39% pendapatan (patokan sehat: sampai 30%)" — pembaca harus
+     * membandingkan sendiri dan mudah mengira masih aman.
+     */
+    public function test_kalimat_pertama_menyatakan_posisi_terhadap_batas(): void
+    {
+        $kalimat = fn (int $angsuran) => $this->nilai(['installment' => $angsuran, 'monthlyExpenses' => 0])['reasons'][0];
+
+        $this->assertSame('Angsuran KPR memakan 25% pendapatan — masih dalam batas sehat 30%.', $kalimat(5_000_000));
+        $this->assertSame('Angsuran KPR memakan 39% pendapatan — sudah di atas batas sehat 30% sejak tahun pertama.', $kalimat(7_800_000));
+        $this->assertSame('Angsuran KPR memakan 45% pendapatan — di atas batas 40% sejak tahun pertama.', $kalimat(9_000_000));
     }
 
     public function test_batas_dibaca_dari_config(): void

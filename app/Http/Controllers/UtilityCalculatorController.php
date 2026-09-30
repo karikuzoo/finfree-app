@@ -63,6 +63,9 @@ class UtilityCalculatorController extends Controller
             'other_installments' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'monthly_expenses' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'annual_taxes' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+            // Persen per tahun. Batas 30: kenaikan di atas itu bertahun-tahun
+            // bukan asumsi perencanaan, dan justru membuat KPR tampak sehat.
+            'income_growth' => ['nullable', 'numeric', 'min:0', 'max:30'],
         ], [
             'principal.required' => 'Pokok pinjaman wajib diisi.',
             'principal.min' => 'Pokok pinjaman harus lebih besar dari nol.',
@@ -78,6 +81,7 @@ class UtilityCalculatorController extends Controller
             'tiers.*.rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
             'floating_rate.required' => 'Isi perkiraan bunga bila naik. Bila belum tahu, pakai bunga sekarang ditambah 2–3 poin.',
             'floating_rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
+            'income_growth.max' => 'Kenaikan gaji di atas 30% per tahun terlalu optimistis untuk perencanaan cicilan 10–30 tahun.',
             'monthly_income.min' => 'Pendapatan harus lebih besar dari nol, atau kosongkan bila tidak ingin cek kesehatan cicilan.',
         ]);
 
@@ -104,6 +108,9 @@ class UtilityCalculatorController extends Controller
             'tiered' => array_map(fn ($t) => [
                 'label' => $t['from_month'] === 1 ? 'tahun pertama' : 'mulai tahun ke-'.intdiv($t['from_month'] - 1, 12) + 1,
                 'installment' => $t['installment'],
+                // Tahun mulai jenjang — untuk menaikkan pendapatan sesuai
+                // perkiraan kenaikan gaji (LoanHealthService).
+                'year' => intdiv($t['from_month'] - 1, 12) + 1,
             ], array_slice($result['tiers'], 1)),
             'floating' => [['label' => "bila bunga naik ke {$input['floating_rate']}%", 'installment' => $stress['monthly_installment']]],
             default => [],
@@ -121,6 +128,7 @@ class UtilityCalculatorController extends Controller
                     annualTaxes: (float) ($input['annual_taxes'] ?? 0),
                     installment: $result['monthly_installment'],
                     stages: $tahap,
+                    incomeGrowth: (float) ($input['income_growth'] ?? 0),
                 )
                 : null,
         ]);
