@@ -37,6 +37,25 @@ trait ValidatesCalculatorQuery
         return $validator->validated();
     }
 
+    /**
+     * Isian di BADAN permintaan (POST) — untuk data yang tidak boleh ada di
+     * alamat, seperti data keuangan pribadi di cek kesehatan cicilan. Galatnya
+     * kembali ke `$backTo`: alamat GET kalkulatornya yang isiannya sudah sah,
+     * jadi tidak bisa berputar.
+     *
+     * @return array<string, mixed>
+     */
+    protected function validateCalculatorBody(Request $request, string $backTo, array $rules, array $messages = []): array
+    {
+        $validator = validator($request->post(), $rules, $messages);
+
+        if ($validator->fails()) {
+            throw (new ValidationException($validator))->redirectTo($backTo);
+        }
+
+        return $validator->validated();
+    }
+
     /** Galat yang ditemukan sesudah validasi aturan biasa — ke alamat bersih juga. */
     protected function failCalculatorQuery(string $routeName, array $messages): never
     {

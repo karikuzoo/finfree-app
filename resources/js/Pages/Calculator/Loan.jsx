@@ -64,54 +64,77 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
             ? input.tiers.map((t) => ({ until_year: t.until_year ?? '', rate: t.rate ?? '', floating: ['1', 1, true, 'true'].includes(t.floating) }))
             : jenjangAwal(),
         floating_rate: input?.floating_rate ?? '',
-        monthly_income: input?.monthly_income ?? '',
-        income_growth: input?.income_growth ?? '',
-        other_installments: input?.other_installments ?? '',
-        monthly_expenses: input?.monthly_expenses ?? '',
-        annual_taxes: input?.annual_taxes ?? '',
+        // Data keuangan selalu mulai kosong: ia tidak pernah datang dari alamat
+        // maupun dari server (lihat submit). Sesudah POST, isiannya bertahan
+        // di layar karena preserveState.
+        monthly_income: '',
+        income_growth: '',
+        other_installments: '',
+        monthly_expenses: '',
+        annual_taxes: '',
     });
     const galat = useGalatKalkulator(form);
 
-    // Bagian cek kesehatan terbuka sendiri bila pendapatan sudah pernah diisi
-    // (tautan yang dibagikan, atau sesudah menekan Hitung).
-    const [cekKesehatan, setCekKesehatan] = useState(Boolean(input?.monthly_income));
+    // Bagian cek kesehatan terbuka sendiri bila hasilnya ada. Data keuangan
+    // tidak pernah datang dari alamat, jadi sesudah dimuat ulang ia tertutup.
+    const [cekKesehatan, setCekKesehatan] = useState(Boolean(health));
 
+    /** Isian pinjaman saja, siap jadi query alamat. */
+    function isianPinjaman(data) {
+        const kirim = { ...data };
+        DATA_KEUANGAN.forEach((k) => delete kirim[k]);
+
+        if (kirim.rate_type === 'tiered') {
+            delete kirim.annual_interest_rate;
+            // Baris terakhir berlaku sampai tenor habis — batas tahunnya
+            // tidak dikirim. `floating` sebagai 1/0: aturan `boolean`
+            // Laravel tidak menerima string "true" dari query.
+            kirim.tiers = kirim.tiers.map((t, k, semua) => {
+                const baris = { rate: t.rate, floating: t.floating ? 1 : 0 };
+                if (k < semua.length - 1) baris.until_year = t.until_year;
+                return baris;
+            });
+        } else {
+            delete kirim.tiers;
+        }
+
+        if (kirim.rate_type !== 'floating') delete kirim.floating_rate;
+
+        return tanpaIsianKosong(kirim);
+    }
+
+    /**
+     * Dua jalan, tergantung cek kesehatan:
+     *
+     * - Tanpa cek kesehatan: GET, semua isian pinjaman di alamat.
+     * - Dengan cek kesehatan: POST ke alamat YANG SAMA (isian pinjaman tetap
+     *   di query), data keuangan di BADAN permintaan. Data pribadi tidak
+     *   pernah masuk alamat — tidak tersimpan di riwayat browser, tidak ikut
+     *   tersalin saat tautan dibagikan, tidak tercatat di log akses server.
+     *   Memuat ulang halaman menampilkan hitungan pinjamannya saja.
+     *
+     * transform() terpisah, tidak dirantai — lihat Calculator/Goal.jsx.
+     */
     function submit(e) {
         e.preventDefault();
-        // transform() terpisah, tidak dirantai — lihat Calculator/Goal.jsx.
-        // Isian yang tidak berlaku untuk jenis bunganya dibuang, supaya URL
-        // hasilnya tidak membawa angka yang tidak dipakai.
-        form.transform((data) => {
-            const kirim = { ...data };
 
-            if (kirim.rate_type === 'tiered') {
-                delete kirim.annual_interest_rate;
-                // Baris terakhir berlaku sampai tenor habis — batas tahunnya
-                // tidak dikirim. `floating` sebagai 1/0: aturan `boolean`
-                // Laravel tidak menerima string "true" dari query.
-                kirim.tiers = kirim.tiers.map((t, k, semua) => {
-                    const baris = { rate: t.rate, floating: t.floating ? 1 : 0 };
-                    if (k < semua.length - 1) baris.until_year = t.until_year;
-                    return baris;
-                });
-            } else {
-                delete kirim.tiers;
-            }
-
-            if (kirim.rate_type !== 'floating') delete kirim.floating_rate;
-            if (!cekKesehatan) DATA_KEUANGAN.forEach((k) => delete kirim[k]);
-
-            return tanpaIsianKosong(kirim);
-        });
-
-        // `indices` membuat daftar jenjang terkirim sebagai tiers[0][rate]=…
-        // yang dibaca PHP sebagai larik baris. Bawaannya (`brackets`, tiers[][rate])
-        // membuat PHP memecah tiap isian menjadi baris tersendiri.
-        form.get(route('calculator.loan'), {
+        const pinjaman = isianPinjaman(form.data);
+        const opsi = {
             preserveScroll: true,
             preserveState: true,
+            // `indices` membuat daftar jenjang terkirim sebagai tiers[0][rate]=…
+            // yang dibaca PHP sebagai larik baris. Bawaannya (`brackets`,
+            // tiers[][rate]) membuat PHP memecah tiap isian jadi baris sendiri.
             queryStringArrayFormat: 'indices',
-        });
+        };
+
+        if (cekKesehatan) {
+            form.transform((data) => tanpaIsianKosong(Object.fromEntries(DATA_KEUANGAN.map((k) => [k, data[k]]))));
+            form.post(route('calculator.loan.health', pinjaman), opsi);
+        } else {
+            form.transform(isianPinjaman);
+            form.get(route('calculator.loan'), opsi);
+        }
     }
 
     const jenis = form.data.rate_type;

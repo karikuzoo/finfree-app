@@ -63,6 +63,10 @@ Route::middleware('throttle:60,1')->group(function () {
     // dengan kalkulator tujuan (CLAUDE.md §6.8).
     Route::get('/kalkulator/pinjaman', [UtilityCalculatorController::class, 'loan'])
         ->name('calculator.loan');
+    // POST ke alamat yang sama: cek kesehatan cicilan membawa data keuangan
+    // pribadi, yang tidak boleh ada di alamat (lihat UtilityCalculatorController).
+    Route::post('/kalkulator/pinjaman', [UtilityCalculatorController::class, 'loan'])
+        ->name('calculator.loan.health');
     Route::get('/kalkulator/investasi', [UtilityCalculatorController::class, 'investment'])
         ->name('calculator.investment');
 });

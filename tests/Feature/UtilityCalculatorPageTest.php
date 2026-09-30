@@ -116,12 +116,79 @@ class UtilityCalculatorPageTest extends TestCase
                 ->missing('input.annual_interest_rate'));
     }
 
+    /**
+     * Cek kesehatan cicilan: isian pinjaman di ALAMAT, data keuangan di BADAN
+     * POST — data pribadi tidak pernah masuk alamat (lihat DATA_KEUANGAN).
+     */
+    private function cekKesehatan(array $pinjaman, array $keuangan)
+    {
+        return $this->post(route('calculator.loan.health', $pinjaman), $keuangan);
+    }
+
+    // ── Data keuangan tidak pernah di alamat (30 Sep 2026) ──────────────
+
+    /**
+     * Alamat tersimpan di riwayat browser, ikut tersalin saat dibagikan, dan
+     * tercatat di log akses server. Tautan lama yang masih membawa data
+     * keuangan dialihkan ke alamat yang sama TANPA data itu — dan datanya
+     * tidak dipakai menghitung apa pun.
+     */
+    public function test_data_keuangan_di_alamat_dibuang_lewat_pengalihan(): void
+    {
+        $pinjaman = $this->berjenjang();
+        $bocor = array_merge($pinjaman, [
+            'monthly_income' => 15000000, 'income_growth' => 5,
+            'other_installments' => 1, 'monthly_expenses' => 2, 'annual_taxes' => 3,
+        ]);
+
+        $respons = $this->get(route('calculator.loan', $bocor));
+        $respons->assertRedirect(route('calculator.loan', $pinjaman));
+
+        $tujuan = $respons->headers->get('Location');
+        foreach (['monthly_income', 'income_growth', 'other_installments', 'monthly_expenses', 'annual_taxes'] as $kunci) {
+            $this->assertStringNotContainsString($kunci, $tujuan);
+        }
+
+        // Alamat bersihnya menghitung pinjaman seperti biasa, tanpa cek kesehatan.
+        $this->get($tujuan)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('health', null)
+            ->where('result.tiers.0.installment', 2964442));
+    }
+
+    /**
+     * Hasil cek kesehatan tetap di alamat pinjaman yang sama (Inertia
+     * memakai alamat permintaannya), dan data keuangan tidak dikirim balik
+     * sebagai isian — isian form di layar dipertahankan sendiri oleh React.
+     */
+    public function test_cek_kesehatan_lewat_post_tidak_mengembalikan_data_keuangan_sebagai_isian(): void
+    {
+        $pinjaman = $this->berjenjang();
+
+        $halaman = $this->cekKesehatan($pinjaman, ['monthly_income' => 15000000, 'monthly_expenses' => 6000000])
+            ->assertOk()
+            ->viewData('page');
+
+        // Isinya yang dibandingkan — Laravel menyusun ulang urutan query.
+        parse_str(parse_url($halaman['url'], PHP_URL_QUERY), $query);
+        $this->assertEquals($pinjaman, $query);
+        $this->assertArrayNotHasKey('monthly_income', $halaman['props']['input']);
+        $this->assertArrayNotHasKey('monthly_expenses', $halaman['props']['input']);
+        $this->assertNotNull($halaman['props']['health']);
+    }
+
+    public function test_cek_kesehatan_tanpa_pendapatan_ditolak(): void
+    {
+        $this->cekKesehatan($this->kpr(), ['monthly_expenses' => 1000])
+            ->assertRedirect(route('calculator.loan', $this->kpr()))
+            ->assertSessionHasErrors(['monthly_income' => 'Isi pendapatan bersih per bulan untuk cek kesehatan cicilan.']);
+    }
+
     public function test_bunga_berjenjang_dinilai_dari_jenjang_terberat(): void
     {
-        $halaman = $this->get(route('calculator.loan', $this->berjenjang([
+        $halaman = $this->cekKesehatan($this->berjenjang(), [
             'monthly_income' => 15000000,
             'monthly_expenses' => 6000000,
-        ])))->assertOk();
+        ])->assertOk();
 
         $health = $halaman->viewData('page')['props']['health'];
         $this->assertSame('mulai tahun ke-11', $health['worst']['label']);
@@ -132,11 +199,11 @@ class UtilityCalculatorPageTest extends TestCase
 
     public function test_kenaikan_gaji_ikut_menilai_bunga_berjenjang(): void
     {
-        $health = $this->get(route('calculator.loan', $this->berjenjang([
+        $health = $this->cekKesehatan($this->berjenjang(), [
             'monthly_income' => 15000000,
             'monthly_expenses' => 6000000,
             'income_growth' => 5,
-        ])))->assertOk()->viewData('page')['props']['health'];
+        ])->assertOk()->viewData('page')['props']['health'];
 
         $this->assertSame('mulai tahun ke-5', $health['worst']['label']);
         $this->assertSame(18232594, $health['worst']['income']);
@@ -145,8 +212,9 @@ class UtilityCalculatorPageTest extends TestCase
 
     public function test_kenaikan_gaji_di_atas_batas_ditolak(): void
     {
-        $this->from(route('calculator.loan'))
-            ->get(route('calculator.loan', $this->berjenjang(['monthly_income' => 15000000, 'income_growth' => 45])))
+        // Galatnya kembali ke hitungan pinjaman yang sama (GET), bukan ke halaman sebelumnya.
+        $this->cekKesehatan($this->berjenjang(), ['monthly_income' => 15000000, 'income_growth' => 45])
+            ->assertRedirect(route('calculator.loan', $this->berjenjang()))
             ->assertSessionHasErrors(['income_growth' => 'Kenaikan gaji di atas 30% per tahun terlalu optimistis untuk perencanaan cicilan 10–30 tahun.']);
     }
 
@@ -200,11 +268,9 @@ class UtilityCalculatorPageTest extends TestCase
 
     public function test_bunga_mengambang_diuji_dengan_bunga_naik(): void
     {
-        $halaman = $this->get(route('calculator.loan', $this->kpr([
-            'rate_type' => 'floating',
-            'floating_rate' => 10,
+        $halaman = $this->cekKesehatan($this->kpr(['rate_type' => 'floating', 'floating_rate' => 10]), [
             'monthly_income' => 20000000,
-        ])))->assertOk();
+        ])->assertOk();
 
         $props = $halaman->viewData('page')['props'];
         // Tabel utama tetap bunga sekarang; skenario naik terpisah.
@@ -230,14 +296,12 @@ class UtilityCalculatorPageTest extends TestCase
 
     public function test_cek_kesehatan_memakai_pajak_tahunan_dan_cicilan_lain(): void
     {
-        $this->get(route('calculator.loan', $this->kpr([
-            'annual_interest_rate' => 0,
-            'months' => 100,
+        $this->cekKesehatan($this->kpr(['annual_interest_rate' => 0, 'months' => 100]), [
             'monthly_income' => 20000000,
             'other_installments' => 1000000,
             'monthly_expenses' => 10000000,
             'annual_taxes' => 1200000,
-        ])))
+        ])
             ->assertInertia(fn (Assert $page) => $page
                 // Angsuran 5 jt + cicilan lain 1 jt = 30% → sehat; sisa 3,9 jt.
                 ->where('health.now.dsr', 30)

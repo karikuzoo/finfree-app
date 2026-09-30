@@ -157,7 +157,7 @@ describe('Kalkulator Pinjaman / KPR', () => {
         });
     });
 
-    it('cek kesehatan tertutup dulu, terbuka sendiri bila pendapatan sudah diisi', async () => {
+    it('cek kesehatan tertutup dulu, terbuka sendiri bila hasilnya ada', async () => {
         const { unmount } = render(<CalculatorLoan input={null} result={null} />);
         expect(screen.queryByLabelText('Pendapatan bersih per bulan')).toBeNull();
         await userEvent.click(screen.getByRole('button', { name: 'Isi data keuangan' }));
@@ -165,8 +165,41 @@ describe('Kalkulator Pinjaman / KPR', () => {
         expect(screen.getByLabelText('Pajak tahunan')).toBeInTheDocument();
         unmount();
 
-        render(<CalculatorLoan input={{ ...input, monthly_income: '20000000' }} result={null} />);
+        render(<CalculatorLoan input={input} result={hasil()} health={{ status: 'healthy', now: { income: 1, installments: 1, dsr: 1, residual: 1 }, worst: null, monthly_taxes: 0, income_growth: 0, reasons: [], thresholds: { dsr_healthy_max: 30, dsr_caution_max: 40, residual_min_percentage: 10 } }} />);
         expect(screen.getByLabelText('Pendapatan bersih per bulan')).toBeInTheDocument();
+    });
+
+    /**
+     * Data keuangan pribadi tidak pernah masuk alamat: dengan cek kesehatan,
+     * isian pinjaman ada di alamat POST dan data keuangan di BADANNYA saja.
+     * Alamat tersimpan di riwayat browser, tersalin saat dibagikan, dan
+     * tercatat di log server.
+     */
+    it('cek kesehatan mengirim data keuangan di badan POST, bukan di alamat', async () => {
+        const { kiriman } = sadapKiriman('post');
+        render(<CalculatorLoan input={{ ...input, rate_type: 'fixed' }} result={null} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Isi data keuangan' }));
+        await userEvent.type(screen.getByLabelText('Pendapatan bersih per bulan'), '15000000');
+        await userEvent.type(screen.getByLabelText('Estimasi kenaikan gaji per tahun (%)'), '5');
+        await userEvent.click(screen.getByRole('button', { name: 'Hitung Sekarang' }));
+
+        expect(kiriman).toHaveLength(1);
+        const alamat = new URL(kiriman[0].url, 'http://arus.test');
+        expect(alamat.pathname).toBe('/calculator.loan.health');
+        expect(Object.fromEntries(alamat.searchParams)).toEqual({
+            principal: '500000000', annual_interest_rate: '10', months: '240', rate_type: 'fixed',
+        });
+        expect(kiriman[0].data).toEqual({ monthly_income: 15000000, income_growth: '5' });
+    });
+
+    it('tanpa cek kesehatan tetap GET, dan data keuangan tidak ikut', async () => {
+        const { kiriman } = sadapKiriman('get');
+        render(<CalculatorLoan input={{ ...input, rate_type: 'fixed' }} result={null} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Hitung Sekarang' }));
+
+        expect(Object.keys(kiriman[0].data)).not.toContain('monthly_income');
     });
 
     /** Contoh pengguna (30 Sep 2026). */

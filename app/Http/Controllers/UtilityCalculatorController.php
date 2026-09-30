@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ValidatesCalculatorQuery;
 use App\Services\GoalCalculatorService;
 use App\Services\LoanHealthService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,6 +26,19 @@ class UtilityCalculatorController extends Controller
 {
     use ValidatesCalculatorQuery;
 
+
+    /**
+     * Isian cek kesehatan cicilan — data keuangan PRIBADI.
+     *
+     * Hanya diterima lewat badan permintaan POST, tidak pernah lewat alamat.
+     * Alamat tersimpan di riwayat browser, ikut tersalin saat tautannya
+     * dibagikan, dan tercatat di log akses server (termasuk di produksi,
+     * HTTPS tidak mengubah itu). Isian PINJAMAN tetap di alamat: tidak
+     * pribadi, dan justru berguna untuk dimuat ulang dan dibagikan.
+     * Dipisah 30 Sep 2026 atas permintaan pengguna.
+     */
+    private const DATA_KEUANGAN = ['monthly_income', 'income_growth', 'other_installments', 'monthly_expenses', 'annual_taxes'];
+
     /**
      * Jenis bunga (`rate_type`):
      *  - `fixed`    — satu bunga sepanjang tenor (`annual_interest_rate`).
@@ -35,15 +50,27 @@ class UtilityCalculatorController extends Controller
      *                 sekarang, lalu DIUJI dengan `floating_rate` sebagai
      *                 "bunga bila naik" (`stress`).
      *
-     * Cek kesehatan (`health`) hanya dihitung bila `monthly_income` diisi —
-     * bagian itu opsional, kalkulatornya tetap berguna tanpanya.
+     * GET  /kalkulator/pinjaman?<isian pinjaman>  → hitungan pinjaman.
+     * POST /kalkulator/pinjaman?<isian pinjaman>  → sama, ditambah cek
+     *      kesehatan dari DATA_KEUANGAN di badan permintaan. Alamatnya tetap
+     *      alamat GET yang sama, jadi memuat ulang menampilkan hitungan
+     *      pinjamannya kembali — tanpa data keuangan, dan itu disengaja.
      */
     public function loan(
         Request $request,
         GoalCalculatorService $calculator,
         LoanHealthService $health,
-    ): Response {
-        if (! $request->has('principal')) {
+    ): Response|RedirectResponse {
+        // Tautan lama (atau yang diketik tangan) masih membawa data keuangan
+        // di alamatnya: dialihkan ke alamat yang sama TANPA data itu. Pengalihan
+        // mengganti entri riwayatnya, jadi datanya hilang dari bilah alamat.
+        $query = $request->query->all();
+
+        if (array_intersect(self::DATA_KEUANGAN, array_keys($query)) !== []) {
+            return redirect()->route('calculator.loan', Arr::except($query, self::DATA_KEUANGAN));
+        }
+
+        if (! $request->query->has('principal')) {
             return Inertia::render('Calculator/Loan', ['input' => null, 'result' => null, 'stress' => null, 'health' => null]);
         }
 
@@ -59,13 +86,6 @@ class UtilityCalculatorController extends Controller
             'tiers.*.until_year' => ['nullable', 'integer', 'min:1', 'max:30'],
             'tiers.*.floating' => ['nullable', 'boolean'],
             'floating_rate' => ['exclude_unless:rate_type,floating', 'required', 'numeric', 'min:0', 'max:50'],
-            'monthly_income' => ['nullable', 'numeric', 'min:1', 'max:999999999999'],
-            'other_installments' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            'monthly_expenses' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            'annual_taxes' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            // Persen per tahun. Batas 30: kenaikan di atas itu bertahun-tahun
-            // bukan asumsi perencanaan, dan justru membuat KPR tampak sehat.
-            'income_growth' => ['nullable', 'numeric', 'min:0', 'max:30'],
         ], [
             'principal.required' => 'Pokok pinjaman wajib diisi.',
             'principal.min' => 'Pokok pinjaman harus lebih besar dari nol.',
@@ -75,15 +95,32 @@ class UtilityCalculatorController extends Controller
             'months.min' => 'Tenor minimal 1 bulan.',
             'months.max' => 'Tenor maksimal 360 bulan (30 tahun).',
             'rate_type.in' => 'Jenis bunga di tautan ini tidak dikenal — mungkin tautan dari versi lama. Pilih jenis bunganya lagi.',
-            'tiers.min' =>'Bunga berjenjang butuh minimal dua jenjang. Bila bunganya sama sepanjang tenor, pilih "Tetap".',
+            'tiers.min' => 'Bunga berjenjang butuh minimal dua jenjang. Bila bunganya sama sepanjang tenor, pilih "Tetap".',
             'tiers.max' => 'Paling banyak 10 jenjang.',
             'tiers.*.rate.required' => 'Isi bunga untuk setiap jenjang.',
             'tiers.*.rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
             'floating_rate.required' => 'Isi perkiraan bunga bila naik. Bila belum tahu, pakai bunga sekarang ditambah 2–3 poin.',
             'floating_rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
-            'income_growth.max' => 'Kenaikan gaji di atas 30% per tahun terlalu optimistis untuk perencanaan cicilan 10–30 tahun.',
-            'monthly_income.min' => 'Pendapatan harus lebih besar dari nol, atau kosongkan bila tidak ingin cek kesehatan cicilan.',
         ]);
+
+        // Data keuangan hanya dari badan POST. Galatnya kembali ke hitungan
+        // pinjaman yang sama (GET, isiannya sudah sah) — bukan ke "halaman
+        // sebelumnya", dan tanpa kemungkinan berputar.
+        $keuangan = $request->isMethod('POST')
+            ? $this->validateCalculatorBody($request, route('calculator.loan', $query), [
+                'monthly_income' => ['required', 'numeric', 'min:1', 'max:999999999999'],
+                // Persen per tahun. Batas 30: kenaikan di atas itu bertahun-tahun
+                // bukan asumsi perencanaan, dan justru membuat KPR tampak sehat.
+                'income_growth' => ['nullable', 'numeric', 'min:0', 'max:30'],
+                'other_installments' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+                'monthly_expenses' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+                'annual_taxes' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+            ], [
+                'monthly_income.required' => 'Isi pendapatan bersih per bulan untuk cek kesehatan cicilan.',
+                'monthly_income.min' => 'Pendapatan harus lebih besar dari nol.',
+                'income_growth.max' => 'Kenaikan gaji di atas 30% per tahun terlalu optimistis untuk perencanaan cicilan 10–30 tahun.',
+            ])
+            : null;
 
         $jenis = $input['rate_type'] ?? 'fixed';
         $pokok = (float) $input['principal'];
@@ -117,22 +154,26 @@ class UtilityCalculatorController extends Controller
         };
 
         return Inertia::render('Calculator/Loan', [
+            // Hanya isian pinjaman. Data keuangan TIDAK dikirim balik: isian
+            // form di layar tetap ada (preserveState), dan tanpa itu data
+            // pribadi tidak tertanam di HTML maupun di riwayat halaman tamu.
             'input' => $input,
             'result' => $result,
             'stress' => $stress ? ['monthly_installment' => $stress['monthly_installment'], 'total_interest' => $stress['total_interest']] : null,
-            'health' => isset($input['monthly_income'])
+            'health' => $keuangan
                 ? $health->evaluate(
-                    monthlyIncome: (float) $input['monthly_income'],
-                    otherInstallments: (float) ($input['other_installments'] ?? 0),
-                    monthlyExpenses: (float) ($input['monthly_expenses'] ?? 0),
-                    annualTaxes: (float) ($input['annual_taxes'] ?? 0),
+                    monthlyIncome: (float) $keuangan['monthly_income'],
+                    otherInstallments: (float) ($keuangan['other_installments'] ?? 0),
+                    monthlyExpenses: (float) ($keuangan['monthly_expenses'] ?? 0),
+                    annualTaxes: (float) ($keuangan['annual_taxes'] ?? 0),
                     installment: $result['monthly_installment'],
                     stages: $tahap,
-                    incomeGrowth: (float) ($input['income_growth'] ?? 0),
+                    incomeGrowth: (float) ($keuangan['income_growth'] ?? 0),
                 )
                 : null,
         ]);
     }
+
 
     /**
      * Baris jenjang dari form ("sampai tahun ke-N") → bulan mulai tiap
