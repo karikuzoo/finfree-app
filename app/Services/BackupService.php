@@ -336,7 +336,10 @@ class BackupService
     }
 
     /**
-     * Isi berkas divalidasi SELENGKAP masukan formulir.
+     * Isi berkas divalidasi SELENGKAP masukan formulir: batas panjang dan
+     * nominal yang sama, plus aturan per jenis transaksi
+     * (periksaBentukTransaksi). Sampai 30 Sep 2026 klaim ini belum benar —
+     * aturan per jenis dan beberapa batas tertinggal dari formnya.
      *
      * Berkas ini datang dari luar aplikasi — bisa disunting tangan, berasal
      * dari versi lain, atau rusak separuh. Memperlakukannya sebagai data
@@ -353,7 +356,9 @@ class BackupService
             'arus_backup_version' => ['required', 'integer', 'in:'.self::VERSION],
 
             'accounts' => ['present', 'array', 'max:200'],
-            'accounts.*.ref' => ['required', 'integer', 'min:1'],
+            // distinct: ref ganda diam-diam menimpa peta ref — transaksi
+            // milik rekening pertama berpindah ke rekening kedua.
+            'accounts.*.ref' => ['required', 'integer', 'min:1', 'distinct'],
             'accounts.*.name' => ['required', 'string', 'max:100'],
             'accounts.*.kind' => ['required', Rule::in(AccountKind::values())],
             'accounts.*.institution' => ['nullable', 'string', 'max:100'],
@@ -361,7 +366,7 @@ class BackupService
             'accounts.*.units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],
 
             'debts' => ['present', 'array', 'max:200'],
-            'debts.*.ref' => ['required', 'integer', 'min:1'],
+            'debts.*.ref' => ['required', 'integer', 'min:1', 'distinct'],
             'debts.*.name' => ['required', 'string', 'max:100'],
             'debts.*.principal' => ['required', 'numeric', 'min:0.01', 'max:999999999999999.99'],
             'debts.*.monthly_principal' => $uang,
@@ -382,12 +387,15 @@ class BackupService
             'goals.*.type' => ['required', Rule::in(GoalType::values())],
             'goals.*.name' => ['required', 'string', 'max:100'],
             'goals.*.target_amount' => ['required', 'numeric', 'min:0.01', 'max:999999999999999.99'],
-            'goals.*.initial_amount' => ['nullable', 'numeric', 'min:0'],
-            'goals.*.allocated_amount' => ['nullable', 'numeric', 'min:0'],
+            // Semua nominal dibatasi sebesar kolom decimal(18,2) — tanpa batas
+            // atas, angka raksasa lolos validasi lalu berakhir 500 (numeric
+            // overflow) di tengah pemulihan.
+            'goals.*.initial_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999999.99'],
+            'goals.*.allocated_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999999.99'],
             'goals.*.target_date' => ['nullable', 'date'],
             'goals.*.estimated_return_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'goals.*.estimated_inflation_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'goals.*.daily_savings_target' => ['nullable', 'numeric', 'min:0'],
+            'goals.*.daily_savings_target' => ['nullable', 'numeric', 'min:0', 'max:999999999999999.99'],
             'goals.*.asset_allocation' => ['nullable', 'array'],
             'goals.*.status' => ['required', Rule::in(GoalStatus::values())],
             'goals.*.priority' => ['nullable', Rule::in(GoalPriority::values())],
@@ -400,22 +408,31 @@ class BackupService
             // versi yang lebih lama tidak diam-diam lolos dengan catatan
             // hilang, tetapi isinya boleh kosong.
             'calendar_notes' => ['present', 'array', 'max:5000'],
-            'calendar_notes.*.note_date' => ['required', 'date'],
+            // Satu catatan per tanggal (unique user_id + note_date di basis
+            // data). Tanpa distinct, tanggal ganda lolos validasi lalu berakhir
+            // 500. date_format supaya "2026-09-01" dan "2026-09-01T00:00" tidak
+            // lolos distinct sebagai dua tanggal berbeda.
+            'calendar_notes.*.note_date' => ['required', 'date_format:Y-m-d', 'distinct'],
             'calendar_notes.*.body' => ['required', 'string', 'max:500'],
 
             'reminders' => ['present', 'array', 'max:5000'],
             'reminders.*.remind_at' => ['required', 'date'],
             'reminders.*.completed_at' => ['nullable', 'date'],
-            'reminders.*.title' => ['required', 'string', 'max:100'],
+            // Sama dengan ReminderController (200). Dulu 100 — pengingat
+            // berjudul panjang yang sah dibuat lewat form membuat cadangannya
+            // sendiri tidak bisa dipulihkan.
+            'reminders.*.title' => ['required', 'string', 'max:200'],
 
             'budget' => ['nullable', 'array'],
-            'budget.planned_income' => ['required_with:budget', 'numeric', 'min:0'],
-            'budget.planned_expenses' => ['required_with:budget', 'numeric', 'min:0'],
-            'budget.monthly_reserve' => ['required_with:budget', 'numeric', 'min:0'],
+            'budget.planned_income' => ['required_with:budget', 'numeric', 'min:0', 'max:999999999999999.99'],
+            'budget.planned_expenses' => ['required_with:budget', 'numeric', 'min:0', 'max:999999999999999.99'],
+            'budget.monthly_reserve' => ['required_with:budget', 'numeric', 'min:0', 'max:999999999999999.99'],
         ], [
             'arus_backup_version.required' => 'Berkas ini bukan cadangan Arus.',
             'arus_backup_version.in' => 'Versi cadangan tidak dikenali oleh versi aplikasi ini.',
         ]);
+
+        $validator->after(fn ($v) => $this->periksaBentukTransaksi($v, $isi['transactions'] ?? []));
 
         if ($validator->fails()) {
             throw ValidationException::withMessages([
@@ -424,5 +441,54 @@ class BackupService
         }
 
         return $validator->validated();
+    }
+
+    /**
+     * Aturan per jenis transaksi yang ditegakkan StoreTransactionRequest untuk
+     * form — di sini untuk baris berkas. Tanpa ini, berkas yang disunting
+     * bisa memasukkan pengeluaran bernominal minus (menaikkan saldo), transfer
+     * ke rekening yang sama atau tanpa tujuan, dan pengeluaran yang terhubung
+     * ke utang — semuanya lolos LedgerGuard karena tidak melanggar saldo.
+     *
+     * Aturannya ditulis dua kali (form memakai required/prohibited per
+     * kolom, di sini satu pesan per baris), jadi kesamaannya dijaga test:
+     * BackupTest memberi kasus buruk yang sama ke form dan ke berkas, dan
+     * keduanya harus menolak.
+     */
+    private function periksaBentukTransaksi(\Illuminate\Validation\Validator $validator, mixed $baris): void
+    {
+        if (! is_array($baris)) {
+            return;
+        }
+
+        foreach (array_values($baris) as $k => $t) {
+            $jenis = TransactionType::tryFrom((string) ($t['type'] ?? ''));
+
+            if ($jenis === null || ! is_numeric($t['amount'] ?? null)) {
+                continue; // Sudah ditolak aturan bentuk di atas.
+            }
+
+            $ke = 'Transaksi ke-'.($k + 1);
+            $nominal = (float) $t['amount'];
+            $tujuan = $t['to_account_ref'] ?? null;
+            $utang = $t['debt_ref'] ?? null;
+
+            $galat = match (true) {
+                $nominal == 0.0 => "{$ke}: nominal tidak boleh nol.",
+                $nominal < 0 && ! $jenis->bolehNegatif() => "{$ke}: nominal minus hanya untuk penyesuaian nilai aset.",
+                $jenis === TransactionType::Transfer && $tujuan === null => "{$ke}: transfer harus punya rekening tujuan.",
+                $jenis === TransactionType::Transfer && $tujuan == ($t['account_ref'] ?? null) => "{$ke}: rekening tujuan transfer harus berbeda dari rekening asal.",
+                $jenis !== TransactionType::Transfer && $tujuan !== null => "{$ke}: rekening tujuan hanya untuk transfer.",
+                $jenis === TransactionType::Payment && $utang === null => "{$ke}: pembayaran pokok harus menyebut utangnya.",
+                $jenis !== TransactionType::Payment && $utang !== null => "{$ke}: utang hanya diisi untuk pembayaran pokok.",
+                default => null,
+            };
+
+            if ($galat !== null) {
+                $validator->errors()->add('transactions', $galat);
+
+                return; // Satu pesan cukup — yang ditampilkan hanya yang pertama.
+            }
+        }
     }
 }

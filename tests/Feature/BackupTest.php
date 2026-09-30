@@ -576,4 +576,120 @@ class BackupTest extends TestCase
             ->post(route('data.restore'), ['berkas' => $this->berkas($rusak)])
             ->assertSessionHasErrors('berkas');
     }
+
+    // ── Temuan tinjauan 30 Sep 2026 ─────────────────────────────────────
+
+    /**
+     * Baris transaksi yang TIDAK mungkin dibuat lewat form, dalam dua
+     * bentuk: sebagai baris berkas (ref) dan sebagai kiriman form (id).
+     *
+     * @return array<string, array{0: array, 1: callable}>
+     */
+    public static function transaksiMustahil(): array
+    {
+        return [
+            'pengeluaran minus' => [['type' => 'expense', 'amount' => -5000], fn ($r) => []],
+            'pemasukan nol' => [['type' => 'income', 'amount' => 0], fn ($r) => []],
+            'transfer ke rekening yang sama' => [['type' => 'transfer', 'amount' => 1000, 'to_account_ref' => 'asal'], fn ($r) => ['to_account_id' => $r['bank']->id]],
+            'transfer tanpa tujuan' => [['type' => 'transfer', 'amount' => 1000], fn ($r) => []],
+            'pengeluaran terhubung utang' => [['type' => 'expense', 'amount' => 1000, 'debt_ref' => 'utang'], fn ($r) => ['debt_id' => $r['utang']->id]],
+            'pemasukan dengan rekening tujuan' => [['type' => 'income', 'amount' => 1000, 'to_account_ref' => 'emas'], fn ($r) => ['to_account_id' => $r['emas']->id]],
+            'pembayaran tanpa utang' => [['type' => 'payment', 'amount' => 1000], fn ($r) => []],
+        ];
+    }
+
+    /**
+     * Aturan per jenis transaksi ditulis dua kali — StoreTransactionRequest
+     * untuk form, BackupService untuk berkas. Test ini menjaga keduanya
+     * tetap sepadan: setiap kasus harus ditolak DI KEDUA TEMPAT. Dulu berkas
+     * menerima semuanya, dan pengeluaran minus diam-diam menaikkan saldo.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('transaksiMustahil')]
+    public function test_transaksi_mustahil_ditolak_di_form_maupun_di_berkas(array $ubah, callable $formTambahan): void
+    {
+        $user = User::factory()->create();
+        $r = $this->akunTerisi($user);
+        $cadangan = app(BackupService::class)->export($user);
+
+        // Ref di berkas: 'asal' = rekening asal baris itu, lainnya dicari
+        // dari urutan ekspor (bank lalu emas, satu utang).
+        $refBank = $cadangan['transactions'][0]['account_ref'];
+        $peta = ['asal' => $refBank, 'emas' => $cadangan['accounts'][1]['ref'], 'utang' => $cadangan['debts'][0]['ref']];
+        $baris = ['account_ref' => $refBank, 'name' => 'Uji', 'occurred_on' => now()->toDateString(), 'category' => null];
+        foreach ($ubah as $k => $v) {
+            $baris[$k] = in_array($k, ['to_account_ref', 'debt_ref'], true) ? $peta[$v] : $v;
+        }
+        $cadangan['transactions'][] = $baris;
+
+        $this->actingAs($user)
+            ->post(route('data.restore'), ['berkas' => $this->berkas($cadangan)])
+            ->assertSessionHasErrors('berkas');
+        $this->assertSame(3, $user->transactions()->count(), 'Berkas seharusnya ditolak utuh.');
+
+        $form = array_merge([
+            'account_id' => $r['bank']->id,
+            'type' => $ubah['type'],
+            'name' => 'Uji',
+            'amount' => $ubah['amount'],
+            'occurred_on' => now()->toDateString(),
+        ], $formTambahan($r));
+
+        $this->actingAs($user)->post(route('transactions.store'), $form)->assertSessionHasErrors();
+        $this->assertSame(3, $user->transactions()->count(), 'Form seharusnya menolak juga.');
+    }
+
+    /**
+     * Form mengizinkan judul pengingat sampai 200 karakter, tetapi berkas
+     * dulu dibatasi 100 — cadangan resmi pengguna sendiri tidak bisa
+     * dipulihkan, dan itu baru ketahuan saat pemulihan dibutuhkan.
+     */
+    public function test_pengingat_berjudul_panjang_tetap_bisa_dipulihkan(): void
+    {
+        $user = User::factory()->create();
+        $this->akunTerisi($user);
+        $judul = str_repeat('Bayar cicilan rumah ', 10); // 200 karakter
+        $user->reminders()->create(['title' => $judul, 'remind_at' => '2026-10-01 08:00:00']);
+
+        $this->actingAs($user)
+            ->post(route('data.restore'), ['berkas' => $this->berkas(app(BackupService::class)->export($user))])
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($user->reminders()->where('title', $judul)->exists());
+    }
+
+    /**
+     * Tiga cara berkas yang BENTUKNYA sah dulu berakhir 500 atau diam-diam
+     * salah, kini ditolak dengan pesan: tanggal catatan ganda (unique di
+     * basis data), ref rekening ganda (menimpa peta ref), dan nominal di atas
+     * kapasitas kolom (numeric overflow).
+     */
+    public function test_berkas_dengan_duplikat_atau_nominal_raksasa_ditolak_bukan_500(): void
+    {
+        $user = User::factory()->create();
+        $this->akunTerisi($user);
+        $asli = app(BackupService::class)->export($user);
+
+        $kasus = [
+            'tanggal catatan ganda' => fn ($c) => [...$c, 'calendar_notes' => [...$c['calendar_notes'], $c['calendar_notes'][0]]],
+            'ref rekening ganda' => function ($c) {
+                $c['accounts'][1]['ref'] = $c['accounts'][0]['ref'];
+
+                return $c;
+            },
+            'nominal raksasa' => function ($c) {
+                $c['goals'][0]['initial_amount'] = 1e20;
+
+                return $c;
+            },
+        ];
+
+        foreach ($kasus as $nama => $ubah) {
+            $this->actingAs($user)
+                ->post(route('data.restore'), ['berkas' => $this->berkas($ubah($asli))])
+                ->assertRedirect()
+                ->assertSessionHasErrors('berkas');
+
+            $this->assertSame(2, $user->accounts()->count(), "Data lama harus utuh ({$nama}).");
+        }
+    }
 }

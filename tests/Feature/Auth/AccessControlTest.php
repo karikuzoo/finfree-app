@@ -57,6 +57,39 @@ class AccessControlTest extends TestCase
         $this->actingAs($user)->get(route('news.index'))->assertOk();
     }
 
+    /**
+     * Temuan tinjauan 30 Sep 2026: dulu hanya /dashboard yang menuntut email
+     * terverifikasi. Orang yang mendaftar dengan email orang lain tetap bisa
+     * membuka rekening, transaksi, dan memulihkan cadangan.
+     */
+    public function test_pengguna_belum_terverifikasi_tertahan_dari_seluruh_aplikasi(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        foreach (['accounts.index', 'transactions.index', 'goals.index', 'data.index', 'savings-plan.index', 'debts.index', 'history.index', 'wallet.index'] as $nama) {
+            $this->actingAs($user)->get(route($nama))->assertRedirect(route('verification.notice'));
+        }
+
+        // Yang MENGUBAH data juga, bukan hanya halamannya.
+        $this->actingAs($user)
+            ->post(route('accounts.store'), ['name' => 'BCA', 'kind' => 'bank', 'opening_balance' => 1000])
+            ->assertRedirect(route('verification.notice'));
+        $this->assertSame(0, $user->accounts()->count());
+    }
+
+    /**
+     * Profil tetap terbuka: pengguna yang salah mengetik email saat mendaftar
+     * harus bisa membetulkannya, atau menghapus akunnya.
+     */
+    public function test_pengguna_belum_terverifikasi_tetap_bisa_membuka_profil_dan_keluar(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)->get(route('profile.edit'))->assertOk();
+        $this->actingAs($user)->get(route('verification.notice'))->assertOk();
+        $this->actingAs($user)->post(route('logout'))->assertRedirect('/');
+    }
+
     public function test_beranda_mengalihkan_pengguna_yang_sudah_login_ke_dashboard(): void
     {
         $this->actingAs(User::factory()->create())

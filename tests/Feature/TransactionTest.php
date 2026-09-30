@@ -374,4 +374,26 @@ class TransactionTest extends TestCase
             ->get(route('transactions.index', ['bulan' => $bulanLalu->format('Y-m')]))
             ->assertInertia(fn ($page) => $page->has('transactions.data', 1));
     }
+
+    /**
+     * Temuan tinjauan 30 Sep 2026: `?bulan=abc` diteruskan mentah ke kueri,
+     * PostgreSQL menolak "abc-01", dan halamannya 500 — dengan pesan SQL bila
+     * APP_DEBUG menyala. Nilai yang tidak sah kini jatuh ke bulan berjalan.
+     */
+    public function test_bulan_yang_tidak_sah_jatuh_ke_bulan_berjalan(): void
+    {
+        $bulanIni = now(config('app.timezone'))->format('Y-m');
+
+        foreach (['abc', '2026-13', '2026-1', "2026-01' OR 1=1", ''] as $nilai) {
+            $this->actingAs(User::factory()->create())
+                ->get(route('transactions.index', ['bulan' => $nilai]))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page->where('bulan', $bulanIni));
+        }
+
+        // Larik lewat `?bulan[]=x` juga bukan 500.
+        $this->actingAs(User::factory()->create())
+            ->get(route('transactions.index').'?bulan[]=2026-01')
+            ->assertOk();
+    }
 }

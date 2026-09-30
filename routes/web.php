@@ -85,7 +85,11 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+// Seluruh aplikasi menuntut email TERVERIFIKASI (`verified`). Sebelum 30 Sep
+// 2026 hanya /dashboard yang memakainya — orang yang mendaftar dengan email
+// orang lain tetap bisa mencatat rekening, transaksi, dan memulihkan
+// cadangan. Pengecualiannya grup Profil di bawah.
+Route::middleware(['auth', 'verified'])->group(function () {
     // Catatan pengguna pada tanggal tertentu di kalender aktivitas dashboard.
     Route::post('/kalender/catatan', [CalendarNoteController::class, 'store'])
         ->name('calendar-notes.store');
@@ -218,6 +222,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/riwayat', [HistoryController::class, 'index'])
         ->name('history.index');
 
+    Route::patch('/tujuan/{financialGoal}/target-harian', [GoalDailySavingsTargetController::class, 'update'])
+        ->name('goals.daily-savings-target.update');
+
+    Route::patch('/tujuan/{financialGoal}/alokasi-aset', [\App\Http\Controllers\GoalAssetAllocationController::class, 'update'])
+        ->name('goals.asset-allocation.update');
+
+    Route::delete('/tujuan/{financialGoal}', [GoalController::class, 'destroy'])
+        ->name('goals.destroy');
+});
+
+
+// Profil TIDAK menuntut email terverifikasi: pengguna yang salah mengetik
+// email saat mendaftar harus bisa membetulkannya (lalu menerima tautan
+// verifikasi di alamat yang benar), atau menghapus akunnya. Verifikasi,
+// logout, dan ganti kata sandi ada di routes/auth.php, juga tanpa `verified`.
+Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -230,15 +250,6 @@ Route::middleware('auth')->group(function () {
         ->name('profile.avatar.update');
     Route::delete('/profile/foto', [ProfileAvatarController::class, 'destroy'])
         ->name('profile.avatar.destroy');
-
-    Route::patch('/tujuan/{financialGoal}/target-harian', [GoalDailySavingsTargetController::class, 'update'])
-        ->name('goals.daily-savings-target.update');
-
-    Route::patch('/tujuan/{financialGoal}/alokasi-aset', [\App\Http\Controllers\GoalAssetAllocationController::class, 'update'])
-        ->name('goals.asset-allocation.update');
-
-    Route::delete('/tujuan/{financialGoal}', [GoalController::class, 'destroy'])
-        ->name('goals.destroy');
 });
 
 require __DIR__.'/auth.php';

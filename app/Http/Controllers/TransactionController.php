@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\TransactionType;
 use App\Http\Requests\StoreTransactionRequest;
 use App\Models\Transaction;
+use App\Support\MonthQuery;
 use App\Services\AccountBalanceService;
 use App\Services\LedgerGuard;
 use Illuminate\Http\RedirectResponse;
@@ -33,8 +34,9 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
-        $bulan = $request->string('bulan')->toString()
-            ?: now(config('app.timezone'))->format('Y-m');
+        // Nilai yang tidak sah jatuh ke bulan berjalan — dulu `?bulan=abc`
+        // langsung diteruskan ke kueri dan berakhir 500 (lihat MonthQuery).
+        $bulan = MonthQuery::from($request)->format('Y-m');
 
         // Disaring di basis data, bukan di PHP: riwayat transaksi tumbuh
         // tanpa batas atas dan memuat seluruhnya demi menampilkan satu bulan
