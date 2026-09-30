@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Foundation\Console\ServeCommand;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -25,7 +26,29 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         $this->definePasswordRules();
+        $this->restrictRouteIdsToNumbers();
         $this->allowWindowsEnvironmentVariablesThroughServeCommand();
+    }
+
+    /**
+     * Parameter ID di alamat hanya menerima angka.
+     *
+     * Tanpa ini, `/rekening/1 OR 1=1` sampai ke basis data. Itu BUKAN SQL
+     * injection — nilainya dikirim lewat binding — tetapi PostgreSQL menolak
+     * teks sebagai ID bigint dan permintaannya berakhir 500, lengkap dengan
+     * kueri SQL-nya bila APP_DEBUG menyala. Dengan pola ini, alamat seperti
+     * itu langsung 404 sebelum menyentuh basis data. Ditemukan
+     * RequestSecurityTest, 30 Sep 2026.
+     *
+     * Parameter baru yang berupa ID model wajib ditambahkan di sini —
+     * RequestSecurityTest gagal bila ada parameter route yang belum dikenalnya.
+     */
+    private function restrictRouteIdsToNumbers(): void
+    {
+        Route::patterns(array_fill_keys(
+            ['account', 'debt', 'transaction', 'financialGoal', 'reminder', 'calendarNote'],
+            '[0-9]+',
+        ));
     }
 
     /**
