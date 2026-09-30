@@ -4,7 +4,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatDuration } from '@/utils/format';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 
 /**
  * Kerangka bersama kalkulator utilitas publik (FR-41, FR-42): judul, kolom
@@ -155,6 +155,21 @@ export function EmptyResult({ children }) {
             <p className="max-w-xs text-sm leading-relaxed text-text-muted">{children}</p>
         </div>
     );
+}
+
+/**
+ * Galat validasi untuk ditampilkan di bawah isian.
+ *
+ * `form.errors` dari useForm hanya terisi sesudah form DIKIRIM. Kalau yang
+ * ditolak adalah tautan yang dibuka langsung — dimuat ulang, dibagikan, atau
+ * dari versi lama — server mengarahkan ke alamat bersih dengan galat di
+ * `usePage().props.errors`, dan tanpa ini halamannya tampil kosong tanpa
+ * penjelasan (lihat ValidatesCalculatorQuery).
+ */
+export function useGalatKalkulator(form) {
+    const galatHalaman = usePage().props.errors ?? {};
+
+    return Object.keys(form.errors).length ? form.errors : galatHalaman;
 }
 
 /** Buang isian kosong sebelum dikirim, supaya kolom opsional tidak ditolak `numeric`. */

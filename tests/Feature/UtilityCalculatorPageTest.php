@@ -85,24 +85,97 @@ class UtilityCalculatorPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('health', null)
                 ->where('stress', null)
-                ->where('result.installment_after_float', null));
+                ->has('result.tiers', 1));
     }
 
-    public function test_bunga_tetap_lalu_mengambang_dinilai_dari_angsuran_tahap_kedua(): void
+    /** Contoh pengguna (30 Sep 2026): empat jenjang, 20 tahun. */
+    private function berjenjang(array $ubah = []): array
     {
-        $halaman = $this->get(route('calculator.loan', $this->kpr([
-            'rate_type' => 'fix_float',
-            'fixed_years' => 3,
-            'floating_rate' => 11,
-            'monthly_income' => 25000000,
-            'monthly_expenses' => 8000000,
+        return $this->kpr(array_merge([
+            'rate_type' => 'tiered',
+            'tiers' => [
+                ['until_year' => 1, 'rate' => 3.75],
+                ['until_year' => 4, 'rate' => 6.75],
+                ['until_year' => 10, 'rate' => 9.75],
+                ['rate' => 10.75, 'floating' => 1],
+            ],
+        ], $ubah));
+    }
+
+    public function test_bunga_berjenjang_dihitung_per_jenjang(): void
+    {
+        $this->get(route('calculator.loan', $this->berjenjang()))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('result.tiers', 4)
+                ->where('result.tiers.0.installment', 2964442)
+                ->where('result.tiers.3.installment', 4739763)
+                ->where('result.tiers.3.from_month', 121)
+                ->where('result.total_interest', 567168740)
+                // Bunga baris pertama menjadi bunga awal; annual_interest_rate tidak dipakai.
+                ->missing('input.annual_interest_rate'));
+    }
+
+    public function test_bunga_berjenjang_dinilai_dari_jenjang_terberat(): void
+    {
+        $halaman = $this->get(route('calculator.loan', $this->berjenjang([
+            'monthly_income' => 15000000,
+            'monthly_expenses' => 6000000,
         ])))->assertOk();
 
-        $props = $halaman->viewData('page')['props'];
-        $this->assertSame(36, $props['result']['fixed_months']);
-        $this->assertGreaterThan($props['result']['monthly_installment'], $props['result']['installment_after_float']);
-        $this->assertSame($props['result']['installment_after_float'] + 0, $props['health']['worst']['installments']);
-        $this->assertSame('setelah 3 tahun bunga tetap', $props['health']['worst']['label']);
+        $health = $halaman->viewData('page')['props']['health'];
+        $this->assertSame('mulai tahun ke-11', $health['worst']['label']);
+        $this->assertSame(4739763, $health['worst']['installments']);
+        // 3,76 jt / 15 jt = 25,1% masih sehat; 4,55 jt = 30,3% mulai melewati.
+        $this->assertSame('Mulai tahun ke-5, rasionya sudah 30,3% — melewati batas sehat 30%.', $health['reasons'][1]);
+    }
+
+    /**
+     * "Tetap lalu mengambang" kini dua jenjang — tanpa pilihan tersendiri.
+     */
+    public function test_tetap_lalu_mengambang_sebagai_dua_jenjang(): void
+    {
+        $this->get(route('calculator.loan', $this->kpr([
+            'rate_type' => 'tiered',
+            'tiers' => [['until_year' => 3, 'rate' => 7], ['rate' => 11, 'floating' => 1]],
+        ])))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('result.tiers', 2)
+                ->where('result.tiers.1.from_month', 37)
+                ->where('result.tiers.1.rate', 11));
+    }
+
+    public function test_bunga_berjenjang_satu_baris_ditolak(): void
+    {
+        $this->from(route('calculator.loan'))
+            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'tiered', 'tiers' => [['rate' => 7]]])))
+            ->assertSessionHasErrors(['tiers' => 'Bunga berjenjang butuh minimal dua jenjang. Bila bunganya sama sepanjang tenor, pilih "Tetap".']);
+    }
+
+    public function test_jenjang_tanpa_batas_tahun_ditolak(): void
+    {
+        $this->from(route('calculator.loan'))
+            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'tiered', 'tiers' => [['rate' => 5], ['rate' => 9]]])))
+            ->assertSessionHasErrors(['tiers.0.until_year' => 'Isi sampai tahun ke berapa bunga ini berlaku.']);
+    }
+
+    public function test_jenjang_yang_mundur_ditolak(): void
+    {
+        $this->from(route('calculator.loan'))
+            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'tiered', 'tiers' => [
+                ['until_year' => 5, 'rate' => 5],
+                ['until_year' => 3, 'rate' => 7],
+                ['rate' => 9],
+            ]])))
+            ->assertSessionHasErrors(['tiers.1.until_year' => 'Jenjang ini mulai tahun ke-6, jadi batasnya paling cepat tahun ke-6.']);
+    }
+
+    public function test_jenjang_melewati_tenor_ditolak(): void
+    {
+        $this->from(route('calculator.loan'))
+            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'tiered', 'tiers' => [['until_year' => 20, 'rate' => 5], ['rate' => 9]]])))
+            ->assertSessionHasErrors(['tiers.0.until_year' => 'Jenjang ini sudah mencapai akhir tenor — jadikan jenjang terakhir, atau perpanjang tenornya.']);
     }
 
     public function test_bunga_mengambang_diuji_dengan_bunga_naik(): void
@@ -120,26 +193,19 @@ class UtilityCalculatorPageTest extends TestCase
         $this->assertSame('bila bunga naik ke 10%', $props['health']['worst']['label']);
     }
 
-    public function test_bunga_tetap_mengabaikan_isian_mengambang(): void
+    public function test_bunga_tetap_mengabaikan_isian_jenjang_dan_mengambang(): void
     {
-        $this->get(route('calculator.loan', $this->kpr(['rate_type' => 'fixed', 'floating_rate' => 99, 'fixed_years' => 99])))
+        $this->get(route('calculator.loan', $this->kpr(['rate_type' => 'fixed', 'floating_rate' => 99, 'tiers' => [['rate' => 99]]])))
             ->assertOk()
             ->assertSessionHasNoErrors()
-            ->assertInertia(fn (Assert $page) => $page->where('result.installment_after_float', null));
+            ->assertInertia(fn (Assert $page) => $page->has('result.tiers', 1)->where('stress', null));
     }
 
-    public function test_fix_float_tanpa_bunga_mengambang_ditolak(): void
+    public function test_bunga_mengambang_tanpa_bunga_naik_ditolak(): void
     {
         $this->from(route('calculator.loan'))
-            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'fix_float', 'fixed_years' => 3])))
+            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'floating'])))
             ->assertSessionHasErrors('floating_rate');
-    }
-
-    public function test_masa_tetap_tidak_boleh_sepanjang_tenor(): void
-    {
-        $this->from(route('calculator.loan'))
-            ->get(route('calculator.loan', $this->kpr(['rate_type' => 'fix_float', 'fixed_years' => 20, 'floating_rate' => 11])))
-            ->assertSessionHasErrors(['fixed_years' => 'Masa bunga tetap harus lebih pendek dari tenor. Bila bunganya tetap sepanjang tenor, pilih "Tetap".']);
     }
 
     public function test_cek_kesehatan_memakai_pajak_tahunan_dan_cicilan_lain(): void
@@ -194,6 +260,41 @@ class UtilityCalculatorPageTest extends TestCase
             ->get(route('calculator.investment', ['monthly_contribution' => 0, 'months' => 12, 'annual_return_rate' => 8]))
             ->assertRedirect(route('calculator.investment'))
             ->assertSessionHasErrors(['monthly_contribution' => 'Isi dana awal, setoran bulanan, atau keduanya.']);
+    }
+
+    /**
+     * Bug 30 Sep 2026: memuat ulang tautan yang isiannya tidak sah membuat
+     * Laravel menyimpannya sebagai "halaman sebelumnya", lalu pemuatan
+     * berikutnya diarahkan ke alamat itu lagi — berputar sampai batas 60
+     * permintaan/menit habis dan pengguna melihat 429. Galat validasi di
+     * kalkulator GET harus selalu mendarat di alamat bersih.
+     */
+    public function test_isian_tidak_sah_tidak_membuat_redirect_berputar(): void
+    {
+        $kasus = [
+            'calculator.loan' => ['principal' => 500000000, 'annual_interest_rate' => 5, 'months' => 240, 'rate_type' => 'fix_float'],
+            'calculator.investment' => ['monthly_contribution' => 1000000, 'months' => 0, 'annual_return_rate' => 8],
+            'calculator.goal' => ['target_amount' => 1000000, 'months' => 999, 'annual_return_rate' => 8],
+        ];
+
+        foreach ($kasus as $nama => $query) {
+            $buruk = route($nama, $query);
+
+            // Tiga kali berturut-turut dalam sesi yang sama — pada kali kedua
+            // perilaku lama sudah mengarah ke dirinya sendiri.
+            foreach ([1, 2, 3] as $kali) {
+                $this->get($buruk)
+                    ->assertRedirect(route($nama))
+                    ->assertSessionHasErrors();
+            }
+
+            // Alamat bersihnya sendiri selalu bisa dibuka.
+            $this->get(route($nama))->assertOk();
+        }
+
+        // Tautan lama `fix_float` diberi tahu dengan bahasa manusia.
+        $this->get(route('calculator.loan', $kasus['calculator.loan']))
+            ->assertSessionHasErrors(['rate_type' => 'Jenis bunga di tautan ini tidak dikenal — mungkin tautan dari versi lama. Pilih jenis bunganya lagi.']);
     }
 
     public function test_daftar_kalkulator_menautkan_ketiganya(): void

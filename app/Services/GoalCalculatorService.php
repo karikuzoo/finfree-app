@@ -166,17 +166,21 @@ class GoalCalculatorService
      * menyesuaikan supaya sisa pokok berakhir tepat nol — kasus uji wajib
      * (CLAUDE.md §6.8).
      *
-     * BUNGA TETAP LALU MENGAMBANG (fix-lalu-float, umum di KPR Indonesia):
-     * bila `$floatingRate` diisi dan `$fixedMonths` berada di dalam tenor,
-     * `$fixedMonths` angsuran pertama memakai `$annualInterestRate`, lalu
-     * angsuran DIHITUNG ULANG dari sisa pokok, sisa tenor, dan bunga
-     * mengambang — cara bank menyesuaikan angsuran saat masa bunga tetap
-     * habis. `installment_after_float` berisi angsuran tahap kedua itu; NULL
-     * bila tidak ada tahap kedua.
+     * BUNGA BERJENJANG (PRD FR-86): `$laterTiers` berisi jenjang SESUDAH
+     * jenjang pertama, masing-masing `['from_month' => int, 'rate' => float]`,
+     * urut naik. Jenjang pertama mulai bulan 1 dengan `$annualInterestRate`.
+     * Di awal setiap jenjang, angsuran DIHITUNG ULANG sebagai anuitas dari sisa
+     * pokok, sisa tenor, dan bunga jenjang itu — cara bank menghitung KPR
+     * bunga berjenjang maupun "tetap lalu mengambang" (yang hanyalah dua
+     * jenjang). Tanpa `$laterTiers`, satu bunga sepanjang tenor.
      *
+     * `tiers` selalu berisi seluruh jenjang beserta angsurannya — satu baris
+     * untuk bunga tetap — supaya pemanggil tidak perlu membedakan keduanya.
+     *
+     * @param  array<int, array{from_month: int, rate: float}>  $laterTiers
      * @return array{
      *     monthly_installment: int, last_installment: int,
-     *     installment_after_float: int|null, fixed_months: int|null,
+     *     tiers: array<int, array{from_month: int, to_month: int, rate: float, installment: int}>,
      *     total_payment: int, total_interest: int, principal: int,
      *     monthly_rate: float, months: int,
      *     yearly: array<int, array{year: int, principal_paid: int, interest_paid: int, balance: int}>,
@@ -187,8 +191,7 @@ class GoalCalculatorService
         float $principal,
         float $annualInterestRate,
         int $months,
-        ?float $floatingRate = null,
-        int $fixedMonths = 0,
+        array $laterTiers = [],
     ): array {
         if ($months < 1) {
             throw new InvalidArgumentException('Tenor minimal 1 bulan.');
@@ -198,32 +201,40 @@ class GoalCalculatorService
             throw new InvalidArgumentException('Pokok pinjaman harus lebih besar dari nol.');
         }
 
-        if ($annualInterestRate < 0 || ($floatingRate !== null && $floatingRate < 0)) {
-            throw new InvalidArgumentException('Suku bunga tidak boleh negatif.');
+        $jenjang = [['from_month' => 1, 'rate' => $annualInterestRate]];
+        foreach ($laterTiers as $t) {
+            $sebelumnya = end($jenjang)['from_month'];
+            if ($t['from_month'] <= $sebelumnya || $t['from_month'] > $months) {
+                throw new InvalidArgumentException('Jenjang bunga harus urut naik dan berada di dalam tenor.');
+            }
+            $jenjang[] = ['from_month' => (int) $t['from_month'], 'rate' => (float) $t['rate']];
         }
 
+        foreach ($jenjang as $t) {
+            if ($t['rate'] < 0) {
+                throw new InvalidArgumentException('Suku bunga tidak boleh negatif.');
+            }
+        }
+
+        // Bulan mulai → indeks jenjang, untuk dicek di dalam perulangan.
+        $mulaiJenjang = array_flip(array_column($jenjang, 'from_month'));
+
         $pokok = (int) round($principal);
-        $i = $annualInterestRate / 100 / 12;
-
-        $angsuran = $this->annuityInstallment($pokok, $i, $months);
-        $angsuranAwal = $angsuran;
-
-        // Tahap kedua hanya ada bila masa bunga tetap berakhir SEBELUM tenor
-        // habis. Masa tetap sepanjang tenor sama saja dengan bunga tetap.
-        $adaTahapKedua = $floatingRate !== null && $fixedMonths > 0 && $fixedMonths < $months;
-        $angsuranMengambang = null;
-
+        $i = 0.0;
+        $angsuran = 0;
         $sisa = $pokok;
         $totalBunga = 0;
         $totalBayar = 0;
-        $angsuranTerakhir = $angsuran;
+        $angsuranTerakhir = 0;
         $tahunan = [];
         $deret = [['month' => 0, 'balance' => $pokok, 'cumulative_interest' => 0]];
 
         for ($bulan = 1; $bulan <= $months && $sisa > 0; $bulan++) {
-            if ($adaTahapKedua && $bulan === $fixedMonths + 1) {
-                $i = $floatingRate / 100 / 12;
-                $angsuran = $angsuranMengambang = $this->annuityInstallment($sisa, $i, $months - $fixedMonths);
+            if (isset($mulaiJenjang[$bulan])) {
+                $k = $mulaiJenjang[$bulan];
+                $i = $jenjang[$k]['rate'] / 100 / 12;
+                $angsuran = $this->annuityInstallment($sisa, $i, $months - $bulan + 1);
+                $jenjang[$k]['installment'] = $angsuran;
             }
 
             $bunga = (int) round($sisa * $i);
@@ -246,11 +257,20 @@ class GoalCalculatorService
             }
         }
 
+        foreach ($jenjang as $k => &$t) {
+            $t['to_month'] = isset($jenjang[$k + 1]) ? $jenjang[$k + 1]['from_month'] - 1 : $months;
+        }
+        unset($t);
+
         return [
-            'monthly_installment' => $angsuranAwal,
+            'monthly_installment' => $jenjang[0]['installment'],
             'last_installment' => $angsuranTerakhir,
-            'installment_after_float' => $angsuranMengambang,
-            'fixed_months' => $adaTahapKedua ? $fixedMonths : null,
+            'tiers' => array_map(fn ($t) => [
+                'from_month' => $t['from_month'],
+                'to_month' => $t['to_month'],
+                'rate' => $t['rate'],
+                'installment' => $t['installment'] ?? 0,
+            ], $jenjang),
             'principal' => $pokok,
             'total_payment' => $totalBayar,
             'total_interest' => $totalBunga,
@@ -260,6 +280,7 @@ class GoalCalculatorService
             'series' => $deret,
         ];
     }
+
 
     /** Angsuran anuitas dalam rupiah penuh, dibulatkan ke atas. */
     private function annuityInstallment(int $pokok, float $i, int $bulan): int

@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ValidatesCalculatorQuery;
 use App\Services\GoalCalculatorService;
 use App\Services\LoanHealthService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,14 +22,18 @@ use Inertia\Response;
  */
 class UtilityCalculatorController extends Controller
 {
+    use ValidatesCalculatorQuery;
+
     /**
      * Jenis bunga (`rate_type`):
-     *  - `fixed`      — satu bunga sepanjang tenor.
-     *  - `fix_float`  — bunga tetap `fixed_years` tahun, lalu `floating_rate`;
-     *                   angsuran dihitung ulang saat berganti (dua tahap).
-     *  - `floating`   — mengambang sejak awal: angsuran dihitung dengan bunga
-     *                   sekarang, lalu DIUJI dengan `floating_rate` sebagai
-     *                   "bunga bila naik" (`stress`).
+     *  - `fixed`    — satu bunga sepanjang tenor (`annual_interest_rate`).
+     *  - `tiered`   — bunga berjenjang (`tiers`): tiap baris `rate` dan
+     *                 `until_year`; baris terakhir berlaku sampai tenor habis.
+     *                 `floating` menandai bunga yang masih perkiraan. "Tetap
+     *                 lalu mengambang" adalah dua jenjang.
+     *  - `floating` — mengambang sejak awal: angsuran dihitung dengan bunga
+     *                 sekarang, lalu DIUJI dengan `floating_rate` sebagai
+     *                 "bunga bila naik" (`stress`).
      *
      * Cek kesehatan (`health`) hanya dihitung bila `monthly_income` diisi —
      * bagian itu opsional, kalkulatornya tetap berguna tanpanya.
@@ -43,14 +47,18 @@ class UtilityCalculatorController extends Controller
             return Inertia::render('Calculator/Loan', ['input' => null, 'result' => null, 'stress' => null, 'health' => null]);
         }
 
-        $input = $request->validate([
+        $input = $this->validateCalculatorQuery($request, 'calculator.loan', [
             'principal' => ['required', 'numeric', 'min:1', 'max:999999999999'],
-            'annual_interest_rate' => ['required', 'numeric', 'min:0', 'max:50'],
+            'rate_type' => ['nullable', Rule::in(['fixed', 'tiered', 'floating'])],
+            // Bunga berjenjang membawa bunganya sendiri per baris.
+            'annual_interest_rate' => ['exclude_if:rate_type,tiered', 'required', 'numeric', 'min:0', 'max:50'],
             // 30 tahun — tenor KPR terpanjang yang umum ditawarkan bank.
             'months' => ['required', 'integer', 'min:1', 'max:360'],
-            'rate_type' => ['nullable', Rule::in(['fixed', 'fix_float', 'floating'])],
-            'fixed_years' => ['exclude_unless:rate_type,fix_float', 'required', 'integer', 'min:1', 'max:30'],
-            'floating_rate' => ['exclude_if:rate_type,fixed', 'exclude_without:rate_type', 'required', 'numeric', 'min:0', 'max:50'],
+            'tiers' => ['exclude_unless:rate_type,tiered', 'required', 'array', 'min:2', 'max:10'],
+            'tiers.*.rate' => ['required', 'numeric', 'min:0', 'max:50'],
+            'tiers.*.until_year' => ['nullable', 'integer', 'min:1', 'max:30'],
+            'tiers.*.floating' => ['nullable', 'boolean'],
+            'floating_rate' => ['exclude_unless:rate_type,floating', 'required', 'numeric', 'min:0', 'max:50'],
             'monthly_income' => ['nullable', 'numeric', 'min:1', 'max:999999999999'],
             'other_installments' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'monthly_expenses' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
@@ -63,28 +71,26 @@ class UtilityCalculatorController extends Controller
             'months.required' => 'Tenor wajib diisi.',
             'months.min' => 'Tenor minimal 1 bulan.',
             'months.max' => 'Tenor maksimal 360 bulan (30 tahun).',
-            'fixed_years.required' => 'Isi berapa tahun bunganya tetap.',
-            'fixed_years.min' => 'Masa bunga tetap minimal 1 tahun.',
-            'floating_rate.required' => 'Isi perkiraan bunga mengambangnya. Bila belum tahu, pakai bunga tetap ditambah 2–3 poin.',
+            'rate_type.in' => 'Jenis bunga di tautan ini tidak dikenal — mungkin tautan dari versi lama. Pilih jenis bunganya lagi.',
+            'tiers.min' =>'Bunga berjenjang butuh minimal dua jenjang. Bila bunganya sama sepanjang tenor, pilih "Tetap".',
+            'tiers.max' => 'Paling banyak 10 jenjang.',
+            'tiers.*.rate.required' => 'Isi bunga untuk setiap jenjang.',
+            'tiers.*.rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
+            'floating_rate.required' => 'Isi perkiraan bunga bila naik. Bila belum tahu, pakai bunga sekarang ditambah 2–3 poin.',
             'floating_rate.max' => 'Bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
             'monthly_income.min' => 'Pendapatan harus lebih besar dari nol, atau kosongkan bila tidak ingin cek kesehatan cicilan.',
         ]);
 
         $jenis = $input['rate_type'] ?? 'fixed';
-
-        if ($jenis === 'fix_float' && $input['fixed_years'] * 12 >= $input['months']) {
-            throw ValidationException::withMessages([
-                'fixed_years' => 'Masa bunga tetap harus lebih pendek dari tenor. Bila bunganya tetap sepanjang tenor, pilih "Tetap".',
-            ]);
-        }
-
         $pokok = (float) $input['principal'];
-        $bunga = (float) $input['annual_interest_rate'];
         $bulan = (int) $input['months'];
 
-        $result = $jenis === 'fix_float'
-            ? $calculator->calculateLoan($pokok, $bunga, $bulan, (float) $input['floating_rate'], (int) $input['fixed_years'] * 12)
-            : $calculator->calculateLoan($pokok, $bunga, $bulan);
+        if ($jenis === 'tiered') {
+            $jenjang = $this->tiersToMonths(array_values($input['tiers']), $bulan);
+            $result = $calculator->calculateLoan($pokok, (float) $input['tiers'][0]['rate'], $bulan, array_slice($jenjang, 1));
+        } else {
+            $result = $calculator->calculateLoan($pokok, (float) $input['annual_interest_rate'], $bulan);
+        }
 
         // Mengambang sejak awal: tabel utama memakai bunga sekarang, dan
         // skenario bunga naik dihitung terpisah dengan tenor penuh.
@@ -92,10 +98,15 @@ class UtilityCalculatorController extends Controller
             ? $calculator->calculateLoan($pokok, (float) $input['floating_rate'], $bulan)
             : null;
 
-        [$terberat, $labelTerberat] = match ($jenis) {
-            'fix_float' => [$result['installment_after_float'], "setelah {$input['fixed_years']} tahun bunga tetap"],
-            'floating' => [$stress['monthly_installment'], "bila bunga naik ke {$input['floating_rate']}%"],
-            default => [null, null],
+        // Jenjang yang dinilai cek kesehatan: tiap jenjang berjenjang, atau
+        // satu keadaan "bila bunga naik" untuk bunga mengambang.
+        $tahap = match ($jenis) {
+            'tiered' => array_map(fn ($t) => [
+                'label' => $t['from_month'] === 1 ? 'tahun pertama' : 'mulai tahun ke-'.intdiv($t['from_month'] - 1, 12) + 1,
+                'installment' => $t['installment'],
+            ], array_slice($result['tiers'], 1)),
+            'floating' => [['label' => "bila bunga naik ke {$input['floating_rate']}%", 'installment' => $stress['monthly_installment']]],
+            default => [],
         };
 
         return Inertia::render('Calculator/Loan', [
@@ -109,12 +120,62 @@ class UtilityCalculatorController extends Controller
                     monthlyExpenses: (float) ($input['monthly_expenses'] ?? 0),
                     annualTaxes: (float) ($input['annual_taxes'] ?? 0),
                     installment: $result['monthly_installment'],
-                    worstInstallment: $terberat,
-                    worstLabel: $labelTerberat,
+                    stages: $tahap,
                 )
                 : null,
         ]);
     }
+
+    /**
+     * Baris jenjang dari form ("sampai tahun ke-N") → bulan mulai tiap
+     * jenjang untuk calculateLoan(). Baris terakhir berlaku sampai tenor
+     * habis, jadi `until_year`-nya diabaikan.
+     *
+     * Diperiksa di sini, bukan dengan aturan validasi biasa: sah-tidaknya satu
+     * baris bergantung pada baris sebelumnya dan pada tenor.
+     *
+     * @return array<int, array{from_month: int, rate: float}>
+     */
+    private function tiersToMonths(array $baris, int $tenor): array
+    {
+        $hasil = [];
+        $mulai = 1;
+        $terakhir = count($baris) - 1;
+
+        foreach ($baris as $k => $b) {
+            $hasil[] = ['from_month' => $mulai, 'rate' => (float) $b['rate']];
+
+            if ($k === $terakhir) {
+                break;
+            }
+
+            $sampai = $b['until_year'] ?? null;
+            $dariTahun = intdiv($mulai - 1, 12) + 1;
+
+            if ($sampai === null) {
+                $this->failCalculatorQuery('calculator.loan', [
+                    "tiers.{$k}.until_year" => 'Isi sampai tahun ke berapa bunga ini berlaku.',
+                ]);
+            }
+
+            if ((int) $sampai < $dariTahun) {
+                $this->failCalculatorQuery('calculator.loan', [
+                    "tiers.{$k}.until_year" => "Jenjang ini mulai tahun ke-{$dariTahun}, jadi batasnya paling cepat tahun ke-{$dariTahun}.",
+                ]);
+            }
+
+            if ((int) $sampai * 12 >= $tenor) {
+                $this->failCalculatorQuery('calculator.loan', [
+                    "tiers.{$k}.until_year" => 'Jenjang ini sudah mencapai akhir tenor — jadikan jenjang terakhir, atau perpanjang tenornya.',
+                ]);
+            }
+
+            $mulai = (int) $sampai * 12 + 1;
+        }
+
+        return $hasil;
+    }
+
 
     public function investment(Request $request, GoalCalculatorService $calculator): Response
     {
@@ -122,7 +183,7 @@ class UtilityCalculatorController extends Controller
             return Inertia::render('Calculator/Investment', ['input' => null, 'result' => null]);
         }
 
-        $input = $request->validate([
+        $input = $this->validateCalculatorQuery($request, 'calculator.investment', [
             'initial_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'monthly_contribution' => ['required', 'numeric', 'min:0', 'max:999999999999'],
             'months' => ['required', 'integer', 'min:1', 'max:720'],
@@ -139,7 +200,7 @@ class UtilityCalculatorController extends Controller
         // Dana awal dan setoran sama-sama nol tidak menghasilkan apa pun untuk
         // ditampilkan; dikatakan terus terang daripada menampilkan Rp 0.
         if ((float) ($input['initial_amount'] ?? 0) <= 0 && (float) $input['monthly_contribution'] <= 0) {
-            throw ValidationException::withMessages([
+            $this->failCalculatorQuery('calculator.investment', [
                 'monthly_contribution' => 'Isi dana awal, setoran bulanan, atau keduanya.',
             ]);
         }

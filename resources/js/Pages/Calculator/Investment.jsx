@@ -4,6 +4,7 @@ import CalculatorFrame, {
     ResultRows,
     TenorField,
     tanpaIsianKosong,
+    useGalatKalkulator,
 } from '@/Components/CalculatorFrame';
 import CurrencyInput from '@/Components/CurrencyInput';
 import InputError from '@/Components/InputError';
@@ -30,6 +31,7 @@ export default function CalculatorInvestment({ input, result }) {
         months: input?.months ?? '',
         annual_return_rate: input?.annual_return_rate ?? '',
     });
+    const galat = useGalatKalkulator(form);
 
     function submit(e) {
         e.preventDefault();
@@ -57,7 +59,7 @@ export default function CalculatorInvestment({ input, result }) {
                             onChange={(v) => form.setData('initial_amount', v)}
                         />
                         <p className="mt-1.5 text-xs text-text-muted">Opsional. Ikut berkembang sejak bulan pertama.</p>
-                        <InputError className="mt-1.5" message={form.errors.initial_amount} />
+                        <InputError className="mt-1.5" message={galat.initial_amount} />
                     </div>
 
                     <div>
@@ -69,14 +71,14 @@ export default function CalculatorInvestment({ input, result }) {
                             value={form.data.monthly_contribution}
                             onChange={(v) => form.setData('monthly_contribution', v)}
                         />
-                        <InputError className="mt-1.5" message={form.errors.monthly_contribution} />
+                        <InputError className="mt-1.5" message={galat.monthly_contribution} />
                     </div>
 
                     <TenorField
                         label="Jangka waktu (bulan)"
                         value={form.data.months}
                         onChange={(v) => form.setData('months', v)}
-                        error={form.errors.months}
+                        error={galat.months}
                         max="720"
                         presets={[1, 3, 5, 10, 20]}
                     />
@@ -100,7 +102,7 @@ export default function CalculatorInvestment({ input, result }) {
                             mengisikan angka untuk Anda karena angka inilah yang paling
                             menentukan hasilnya.
                         </p>
-                        <InputError className="mt-1.5" message={form.errors.annual_return_rate} />
+                        <InputError className="mt-1.5" message={galat.annual_return_rate} />
                     </div>
                 </>
             }

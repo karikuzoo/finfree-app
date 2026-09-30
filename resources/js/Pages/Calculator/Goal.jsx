@@ -1,6 +1,7 @@
 import CurrencyInput from '@/Components/CurrencyInput';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
+import { useGalatKalkulator } from '@/Components/CalculatorFrame';
 import JadikanTujuan from '@/Components/JadikanTujuan';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
@@ -27,6 +28,7 @@ export default function CalculatorGoal({ input, result }) {
         annual_return_rate: input?.annual_return_rate ?? '',
         annual_inflation_rate: input?.annual_inflation_rate ?? '',
     });
+    const galat = useGalatKalkulator(form);
 
     function submit(e) {
         e.preventDefault();
@@ -99,7 +101,7 @@ export default function CalculatorGoal({ input, result }) {
                                 </p>
                                 <InputError
                                     className="mt-1.5"
-                                    message={form.errors.target_amount}
+                                    message={galat.target_amount}
                                 />
                             </div>
 
@@ -123,7 +125,7 @@ export default function CalculatorGoal({ input, result }) {
                                 </p>
                                 <InputError
                                     className="mt-1.5"
-                                    message={form.errors.current_amount}
+                                    message={galat.current_amount}
                                 />
                             </div>
 
@@ -174,7 +176,7 @@ export default function CalculatorGoal({ input, result }) {
 
                                 <InputError
                                     className="mt-1.5"
-                                    message={form.errors.months}
+                                    message={galat.months}
                                 />
                             </div>
 
@@ -202,7 +204,7 @@ export default function CalculatorGoal({ input, result }) {
                                     />
                                     <InputError
                                         className="mt-1.5"
-                                        message={form.errors.annual_return_rate}
+                                        message={galat.annual_return_rate}
                                     />
                                 </div>
 
@@ -230,7 +232,7 @@ export default function CalculatorGoal({ input, result }) {
                                     <InputError
                                         className="mt-1.5"
                                         message={
-                                            form.errors.annual_inflation_rate
+                                            galat.annual_inflation_rate
                                         }
                                     />
                                 </div>

@@ -34,8 +34,10 @@ class LoanHealthService
     private const URUTAN = [self::HEALTHY => 0, self::CAUTION => 1, self::RISKY => 2];
 
     /**
-     * @param  int|null  $worstInstallment  angsuran terberat; NULL bila sama dengan sekarang (bunga tetap)
-     * @param  string|null  $worstLabel  keterangan keadaan terberat, mis. "setelah bunga mengambang"
+     * @param  array<int, array{label: string, installment: int}>  $stages
+     *     keadaan SESUDAH angsuran sekarang, urut waktu — tiap jenjang bunga
+     *     berjenjang ("mulai tahun ke-5"), atau "bila bunga naik ke 11%" untuk
+     *     bunga mengambang. Kosong untuk bunga tetap.
      * @return array{
      *     status: string,
      *     now: array{installments: int, dsr: float, residual: int},
@@ -50,18 +52,39 @@ class LoanHealthService
         float $monthlyExpenses,
         float $annualTaxes,
         int $installment,
-        ?int $worstInstallment = null,
-        ?string $worstLabel = null,
+        array $stages = [],
     ): array {
         $pajakBulanan = (int) round($annualTaxes / 12);
+        $nilai = fn (int $angsuran) => $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pajakBulanan, $angsuran);
 
-        $sekarang = $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pajakBulanan, $installment);
-        $terberat = ($worstInstallment !== null && $worstInstallment > $installment)
-            ? $this->keadaan($monthlyIncome, $otherInstallments, $monthlyExpenses, $pajakBulanan, $worstInstallment) + ['label' => $worstLabel ?? 'bila bunga naik']
-            : null;
+        $sekarang = $nilai($installment);
+
+        // Terberat = jenjang dengan angsuran terbesar, dan hanya bila memang
+        // lebih berat dari sekarang (bunga yang TURUN tidak perlu dinilai).
+        $tahapTerberat = null;
+        foreach ($stages as $s) {
+            if ($s['installment'] > ($tahapTerberat['installment'] ?? $installment)) {
+                $tahapTerberat = $s;
+            }
+        }
+        $terberat = $tahapTerberat ? $nilai($tahapTerberat['installment']) + ['label' => $tahapTerberat['label']] : null;
+
+        // Jenjang PERTAMA yang melewati batas sehat — pada bunga berjenjang,
+        // kapan masalahnya mulai sering lebih berguna daripada seberapa berat
+        // puncaknya. Hanya disebut bila bukan jenjang terberat itu sendiri.
+        $mulaiMelewati = null;
+        if ($sekarang['dsr'] <= config('loan_health.dsr_healthy_max')) {
+            foreach ($stages as $s) {
+                $dsr = $nilai($s['installment'])['dsr'];
+                if ($dsr > config('loan_health.dsr_healthy_max')) {
+                    $mulaiMelewati = $s['label'] !== ($tahapTerberat['label'] ?? null) ? ['label' => $s['label'], 'dsr' => $dsr] : null;
+                    break;
+                }
+            }
+        }
 
         $dinilai = $terberat ?? $sekarang;
-        $alasan = $this->alasan($monthlyIncome, $sekarang, $terberat, $otherInstallments > 0);
+        $alasan = $this->alasan($monthlyIncome, $sekarang, $terberat, $otherInstallments > 0, $mulaiMelewati);
 
         return [
             'status' => $this->terburuk($this->statusDsr($dinilai['dsr']), $this->statusSisa($dinilai['residual'], $monthlyIncome)),
@@ -122,7 +145,7 @@ class LoanHealthService
      *
      * @return array<int, string>
      */
-    private function alasan(float $pendapatan, array $sekarang, ?array $terberat, bool $adaCicilanLain): array
+    private function alasan(float $pendapatan, array $sekarang, ?array $terberat, bool $adaCicilanLain, ?array $mulaiMelewati = null): array
     {
         $sehat = config('loan_health.dsr_healthy_max');
         $waspada = config('loan_health.dsr_caution_max');
@@ -132,6 +155,10 @@ class LoanHealthService
 
         $cicilan = $adaCicilanLain ? 'KPR ditambah cicilan lain' : 'Angsuran KPR';
         $kalimat = ["{$cicilan} memakan {$persen($sekarang['dsr'])} pendapatan (patokan sehat: sampai {$sehat}%)."];
+
+        if ($mulaiMelewati) {
+            $kalimat[] = ucfirst($mulaiMelewati['label']).", rasionya sudah {$persen($mulaiMelewati['dsr'])} — melewati batas sehat {$sehat}%.";
+        }
 
         if ($terberat) {
             $kalimat[] = ucfirst($terberat['label']).", rasionya menjadi {$persen($terberat['dsr'])}"

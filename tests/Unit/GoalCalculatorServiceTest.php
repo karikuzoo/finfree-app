@@ -275,38 +275,61 @@ class GoalCalculatorServiceTest extends TestCase
     }
 
     /**
-     * Fix-lalu-float: tahun-tahun pertama angsurannya sama persis dengan
-     * pinjaman bunga tetap, lalu dihitung ulang dari sisa pokok — dan tetap
-     * lunas tepat nol.
+     * Bunga berjenjang dari contoh pengguna (30 Sep 2026): Rp 500 jt, 20 th,
+     * tahun 1 3,75%, tahun 2–4 6,75%, tahun 5–10 9,75%, tahun 11–20 10,75%.
+     * Angkanya dihitung terpisah dengan skrip simulasi yang sama caranya
+     * (anuitas sisa pokok × sisa tenor di awal tiap jenjang).
      */
-    public function test_pinjaman_bunga_tetap_lalu_mengambang(): void
+    public function test_pinjaman_bunga_berjenjang_contoh_pengguna(): void
     {
-        $tetap = $this->calculator->calculateLoan(500_000_000, 7, 240);
-        $campur = $this->calculator->calculateLoan(500_000_000, 7, 240, floatingRate: 11, fixedMonths: 36);
+        $hasil = $this->calculator->calculateLoan(500_000_000, 3.75, 240, [
+            ['from_month' => 13, 'rate' => 6.75],
+            ['from_month' => 49, 'rate' => 9.75],
+            ['from_month' => 121, 'rate' => 10.75],
+        ]);
 
-        $this->assertSame($tetap['monthly_installment'], $campur['monthly_installment']);
-        $this->assertSame(36, $campur['fixed_months']);
-        $this->assertSame(0, end($campur['yearly'])['balance']);
-        $this->assertSame(500_000_000, array_sum(array_column($campur['yearly'], 'principal_paid')));
-
-        // Tiga tahun pertama identik — sisa pokok di akhir tahun ke-3 sama.
-        $this->assertSame($tetap['yearly'][2]['balance'], $campur['yearly'][2]['balance']);
-
-        // Tahap kedua = anuitas sisa pokok, sisa tenor, bunga baru.
-        $sisa = $campur['yearly'][2]['balance'];
-        $i = 0.11 / 12;
-        $this->assertSame((int) ceil($sisa * $i / (1 - (1 + $i) ** -204)), $campur['installment_after_float']);
-        $this->assertGreaterThan($campur['monthly_installment'], $campur['installment_after_float']);
-        $this->assertGreaterThan($tetap['total_interest'], $campur['total_interest']);
+        $this->assertSame([2_964_442, 3_763_866, 4_546_179, 4_739_763], array_column($hasil['tiers'], 'installment'));
+        $this->assertSame([[1, 12], [13, 48], [49, 120], [121, 240]], array_map(fn ($t) => [$t['from_month'], $t['to_month']], $hasil['tiers']));
+        $this->assertSame(567_168_740, $hasil['total_interest']);
+        $this->assertSame(0, end($hasil['yearly'])['balance']);
+        $this->assertSame(500_000_000, array_sum(array_column($hasil['yearly'], 'principal_paid')));
+        $this->assertSame(2_964_442, $hasil['monthly_installment']);
     }
 
-    public function test_pinjaman_masa_tetap_sepanjang_tenor_sama_dengan_bunga_tetap(): void
+    /**
+     * "Tetap lalu mengambang" hanyalah dua jenjang: tahun-tahun pertamanya
+     * sama persis dengan bunga tetap, lalu angsurannya dihitung ulang dari
+     * sisa pokok, sisa tenor, dan bunga baru.
+     */
+    public function test_pinjaman_dua_jenjang_sama_dengan_tetap_lalu_mengambang(): void
     {
-        $hasil = $this->calculator->calculateLoan(100_000_000, 8, 60, floatingRate: 12, fixedMonths: 60);
+        $tetap = $this->calculator->calculateLoan(500_000_000, 7, 240);
+        $campur = $this->calculator->calculateLoan(500_000_000, 7, 240, [['from_month' => 37, 'rate' => 11]]);
 
-        $this->assertNull($hasil['installment_after_float']);
-        $this->assertNull($hasil['fixed_months']);
-        $this->assertSame($this->calculator->calculateLoan(100_000_000, 8, 60)['total_interest'], $hasil['total_interest']);
+        $this->assertSame($tetap['monthly_installment'], $campur['monthly_installment']);
+        $this->assertSame($tetap['yearly'][2]['balance'], $campur['yearly'][2]['balance']);
+
+        $sisa = $campur['yearly'][2]['balance'];
+        $i = 0.11 / 12;
+        $this->assertSame((int) ceil($sisa * $i / (1 - (1 + $i) ** -204)), $campur['tiers'][1]['installment']);
+        $this->assertSame(0, end($campur['yearly'])['balance']);
+    }
+
+    public function test_pinjaman_bunga_tetap_punya_satu_jenjang(): void
+    {
+        $hasil = $this->calculator->calculateLoan(100_000_000, 8, 60);
+
+        $this->assertCount(1, $hasil['tiers']);
+        $this->assertSame(['from_month' => 1, 'to_month' => 60, 'rate' => 8.0, 'installment' => $hasil['monthly_installment']], $hasil['tiers'][0]);
+    }
+
+    public function test_pinjaman_menolak_jenjang_yang_tidak_urut(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->calculator->calculateLoan(100_000_000, 5, 120, [
+            ['from_month' => 49, 'rate' => 9],
+            ['from_month' => 13, 'rate' => 7],
+        ]);
     }
 
     public function test_pinjaman_menolak_pokok_nol(): void

@@ -4,12 +4,14 @@ import CalculatorFrame, {
     ResultRows,
     TenorField,
     tanpaIsianKosong,
+    useGalatKalkulator,
 } from '@/Components/CalculatorFrame';
 import CurrencyInput from '@/Components/CurrencyInput';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import LoanChart from '@/Components/LoanChart';
 import LoanHealthCard from '@/Components/LoanHealthCard';
+import TierInput, { jenjangAwal } from '@/Components/TierInput';
 import TextInput from '@/Components/TextInput';
 import { formatRupiah } from '@/utils/format';
 import { useForm } from '@inertiajs/react';
@@ -17,22 +19,38 @@ import { useState } from 'react';
 
 const JENIS_BUNGA = [
     { value: 'fixed', label: 'Tetap', hint: 'Satu bunga sepanjang tenor.' },
-    { value: 'fix_float', label: 'Tetap lalu mengambang', hint: 'Bunga promo beberapa tahun, lalu mengikuti bunga pasar — paling umum di KPR.' },
+    {
+        value: 'tiered',
+        label: 'Berjenjang',
+        hint: 'Bunga berubah di tahun-tahun tertentu — termasuk bunga promo lalu mengambang, bentuk paling umum di KPR.',
+    },
     { value: 'floating', label: 'Mengambang', hint: 'Bisa berubah kapan saja. Diuji dengan bunga bila naik.' },
 ];
 
+const DATA_KEUANGAN = ['monthly_income', 'other_installments', 'monthly_expenses', 'annual_taxes'];
+
+const tahunKe = (bulan) => Math.floor((bulan - 1) / 12) + 1;
+
+/** "Tahun 1", "Tahun 2–4", "Tahun 11–20" dari rentang bulan sebuah jenjang. */
+export function labelRentang({ from_month, to_month }) {
+    const dari = tahunKe(from_month);
+    const sampai = tahunKe(to_month);
+
+    return dari === sampai ? `Tahun ${dari}` : `Tahun ${dari}–${sampai}`;
+}
+
 /**
- * Kalkulator Pinjaman / KPR (FR-41). Publik (FR-44).
+ * Kalkulator Pinjaman / KPR (FR-41, FR-86). Publik (FR-44).
  *
  * Bunga dihitung r/12 seperti bank, BUKAN konversi efektif seperti kalkulator
  * tujuan — lihat docblock GoalCalculatorService::calculateLoan(). Halaman ini
  * menyebutkannya terbuka di bawah hasil, karena itulah yang menjelaskan
  * kenapa angkanya cocok dengan brosur bank.
  *
- * Jenis bunga (tetap / tetap lalu mengambang / mengambang) dan cek kesehatan
- * cicilan dijelaskan di UtilityCalculatorController::loan(). Semua angka,
- * termasuk label sehat/waspada/berisiko, datang dari server; halaman ini
- * hanya menampilkan.
+ * Jenis bunga (tetap / berjenjang / mengambang) dan cek kesehatan cicilan
+ * dijelaskan di UtilityCalculatorController::loan(). Semua angka, termasuk
+ * angsuran tiap jenjang dan label sehat/waspada/berisiko, datang dari server;
+ * halaman ini hanya menampilkan.
  *
  * Tidak ada tombol "Jadikan Tujuan": pinjaman bukan tabungan yang dikejar.
  */
@@ -42,13 +60,16 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
         annual_interest_rate: input?.annual_interest_rate ?? '',
         months: input?.months ?? '',
         rate_type: input?.rate_type ?? 'fixed',
-        fixed_years: input?.fixed_years ?? '',
+        tiers: input?.tiers?.length
+            ? input.tiers.map((t) => ({ until_year: t.until_year ?? '', rate: t.rate ?? '', floating: ['1', 1, true, 'true'].includes(t.floating) }))
+            : jenjangAwal(),
         floating_rate: input?.floating_rate ?? '',
         monthly_income: input?.monthly_income ?? '',
         other_installments: input?.other_installments ?? '',
         monthly_expenses: input?.monthly_expenses ?? '',
         annual_taxes: input?.annual_taxes ?? '',
     });
+    const galat = useGalatKalkulator(form);
 
     // Bagian cek kesehatan terbuka sendiri bila pendapatan sudah pernah diisi
     // (tautan yang dibagikan, atau sesudah menekan Hitung).
@@ -61,17 +82,35 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
         // hasilnya tidak membawa angka yang tidak dipakai.
         form.transform((data) => {
             const kirim = { ...data };
-            if (kirim.rate_type === 'fixed') {
-                delete kirim.fixed_years;
-                delete kirim.floating_rate;
+
+            if (kirim.rate_type === 'tiered') {
+                delete kirim.annual_interest_rate;
+                // Baris terakhir berlaku sampai tenor habis — batas tahunnya
+                // tidak dikirim. `floating` sebagai 1/0: aturan `boolean`
+                // Laravel tidak menerima string "true" dari query.
+                kirim.tiers = kirim.tiers.map((t, k, semua) => {
+                    const baris = { rate: t.rate, floating: t.floating ? 1 : 0 };
+                    if (k < semua.length - 1) baris.until_year = t.until_year;
+                    return baris;
+                });
+            } else {
+                delete kirim.tiers;
             }
-            if (kirim.rate_type === 'floating') delete kirim.fixed_years;
-            if (!cekKesehatan) {
-                for (const k of ['monthly_income', 'other_installments', 'monthly_expenses', 'annual_taxes']) delete kirim[k];
-            }
+
+            if (kirim.rate_type !== 'floating') delete kirim.floating_rate;
+            if (!cekKesehatan) DATA_KEUANGAN.forEach((k) => delete kirim[k]);
+
             return tanpaIsianKosong(kirim);
         });
-        form.get(route('calculator.loan'), { preserveScroll: true, preserveState: true });
+
+        // `indices` membuat daftar jenjang terkirim sebagai tiers[0][rate]=…
+        // yang dibaca PHP sebagai larik baris. Bawaannya (`brackets`, tiers[][rate])
+        // membuat PHP memecah tiap isian menjadi baris tersendiri.
+        form.get(route('calculator.loan'), {
+            preserveScroll: true,
+            preserveState: true,
+            queryStringArrayFormat: 'indices',
+        });
     }
 
     const jenis = form.data.rate_type;
@@ -97,8 +136,17 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                         <p className="mt-1.5 text-xs text-text-muted">
                             Harga dikurangi uang muka — jumlah yang benar-benar dipinjam.
                         </p>
-                        <InputError className="mt-1.5" message={form.errors.principal} />
+                        <InputError className="mt-1.5" message={galat.principal} />
                     </div>
+
+                    <TenorField
+                        label="Tenor (bulan)"
+                        value={form.data.months}
+                        onChange={(v) => form.setData('months', v)}
+                        error={galat.months}
+                        max="360"
+                        presets={[1, 5, 10, 15, 20, 30]}
+                    />
 
                     <fieldset>
                         <legend className="block text-sm font-medium text-text-secondary">Jenis bunga</legend>
@@ -123,62 +171,45 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                         <p className="mt-1.5 text-xs text-text-muted">
                             {JENIS_BUNGA.find((j) => j.value === jenis)?.hint}
                         </p>
+                        <InputError className="mt-1.5" message={galat.rate_type} />
                     </fieldset>
 
-                    <div className={jenis === 'fixed' ? '' : 'grid gap-5 sm:grid-cols-2'}>
-                        <IsianPersen
-                            id="annual_interest_rate"
-                            label={jenis === 'fixed' ? 'Suku bunga (% / tahun)' : jenis === 'fix_float' ? 'Bunga tetap (% / tahun)' : 'Bunga sekarang (% / tahun)'}
-                            placeholder={jenis === 'fix_float' ? '5' : '10'}
-                            value={form.data.annual_interest_rate}
-                            onChange={(v) => form.setData('annual_interest_rate', v)}
-                            error={form.errors.annual_interest_rate}
+                    {jenis === 'tiered' ? (
+                        <TierInput
+                            tiers={form.data.tiers}
+                            onChange={(t) => form.setData('tiers', t)}
+                            months={form.data.months}
+                            errors={galat}
                         />
-
-                        {jenis !== 'fixed' && (
+                    ) : (
+                        <div className={jenis === 'floating' ? 'grid gap-5 sm:grid-cols-2' : ''}>
                             <IsianPersen
-                                id="floating_rate"
-                                label={jenis === 'fix_float' ? 'Bunga mengambang (% / tahun)' : 'Bunga bila naik (% / tahun)'}
-                                placeholder="11"
-                                value={form.data.floating_rate}
-                                onChange={(v) => form.setData('floating_rate', v)}
-                                error={form.errors.floating_rate}
+                                id="annual_interest_rate"
+                                label={jenis === 'fixed' ? 'Suku bunga (% / tahun)' : 'Bunga sekarang (% / tahun)'}
+                                placeholder="10"
+                                value={form.data.annual_interest_rate}
+                                onChange={(v) => form.setData('annual_interest_rate', v)}
+                                error={galat.annual_interest_rate}
                             />
-                        )}
-                    </div>
-
-                    {jenis === 'fix_float' && (
-                        <div>
-                            <InputLabel htmlFor="fixed_years" value="Lama bunga tetap (tahun)" />
-                            <TextInput
-                                id="fixed_years"
-                                type="number"
-                                min="1"
-                                max="30"
-                                className="num-tabular mt-1.5 block w-full"
-                                placeholder="3"
-                                value={form.data.fixed_years}
-                                onChange={(e) => form.setData('fixed_years', e.target.value)}
-                            />
-                            <InputError className="mt-1.5" message={form.errors.fixed_years} />
+                            {jenis === 'floating' && (
+                                <IsianPersen
+                                    id="floating_rate"
+                                    label="Bunga bila naik (% / tahun)"
+                                    placeholder="12"
+                                    value={form.data.floating_rate}
+                                    onChange={(v) => form.setData('floating_rate', v)}
+                                    error={galat.floating_rate}
+                                />
+                            )}
                         </div>
                     )}
 
-                    {jenis !== 'fixed' && (
+                    {jenis === 'floating' && (
                         <p className="-mt-2 text-xs leading-relaxed text-text-muted">
-                            Bunga mengambang tidak bisa diketahui sekarang. Bila brosurnya tidak
-                            menyebut, perkiraan yang wajar adalah bunga tetap ditambah 2–3 poin.
+                            Bunga mengambang tidak bisa diketahui sekarang. Perkiraan yang wajar
+                            untuk uji: bunga sekarang ditambah 2–3 poin.
                         </p>
                     )}
-
-                    <TenorField
-                        label="Tenor (bulan)"
-                        value={form.data.months}
-                        onChange={(v) => form.setData('months', v)}
-                        error={form.errors.months}
-                        max="360"
-                        presets={[1, 5, 10, 15, 20, 30]}
-                    />
 
                     <div className="rounded-lg border border-border p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -204,7 +235,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     hint="Gaji dan penghasilan tetap lain yang diterima, setelah potongan. Bila berdua, gabungkan."
                                     value={form.data.monthly_income}
                                     onChange={(v) => form.setData('monthly_income', v)}
-                                    error={form.errors.monthly_income}
+                                    error={galat.monthly_income}
                                 />
                                 <IsianRupiah
                                     id="other_installments"
@@ -212,7 +243,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     hint="Kendaraan, kartu kredit, paylater, pinjaman lain. Kosongkan bila tidak ada."
                                     value={form.data.other_installments}
                                     onChange={(v) => form.setData('other_installments', v)}
-                                    error={form.errors.other_installments}
+                                    error={galat.other_installments}
                                 />
                                 <IsianRupiah
                                     id="monthly_expenses"
@@ -220,7 +251,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     hint="Makan, transportasi, listrik, sekolah, dan lain-lain — di luar cicilan."
                                     value={form.data.monthly_expenses}
                                     onChange={(v) => form.setData('monthly_expenses', v)}
-                                    error={form.errors.monthly_expenses}
+                                    error={galat.monthly_expenses}
                                 />
                                 <IsianRupiah
                                     id="annual_taxes"
@@ -228,7 +259,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                                     hint="Total pajak yang dibayar setahun sekali: PBB rumah, pajak kendaraan (STNK), dan lainnya. Dihitung per bulan di hasil."
                                     value={form.data.annual_taxes}
                                     onChange={(v) => form.setData('annual_taxes', v)}
-                                    error={form.errors.annual_taxes}
+                                    error={galat.annual_taxes}
                                 />
                             </div>
                         )}
@@ -240,7 +271,7 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
                     <HasilPinjaman result={result} stress={stress} input={input} />
                 ) : (
                     <EmptyResult>
-                        Isi pokok pinjaman, suku bunga, dan tenor, lalu tekan Hitung Sekarang.
+                        Isi pokok pinjaman, tenor, dan suku bunga, lalu tekan Hitung Sekarang.
                     </EmptyResult>
                 )
             }
@@ -288,30 +319,25 @@ function IsianRupiah({ id, label, hint, value, onChange, error }) {
 }
 
 function HasilPinjaman({ result, stress, input }) {
+    const berjenjang = result.tiers.length > 1;
     const bedaTerakhir = result.last_installment !== result.monthly_installment;
-    const tahapKedua = result.installment_after_float !== null && result.installment_after_float !== undefined;
 
     return (
         <>
             <HeadlineResult
-                label={tahapKedua ? `Angsuran ${result.fixed_months / 12} tahun pertama` : 'Angsuran bulanan'}
+                label={berjenjang ? `Angsuran ${labelRentang(result.tiers[0]).toLowerCase()}` : 'Angsuran bulanan'}
                 value={formatRupiah(result.monthly_installment)}
                 note={
-                    bedaTerakhir && !tahapKedua
+                    bedaTerakhir && !berjenjang
                         ? `Angsuran terakhir ${formatRupiah(result.last_installment)} — menyerap selisih pembulatan supaya pinjaman lunas tepat nol.`
                         : null
                 }
             />
 
+            {berjenjang && <TabelJenjang result={result} input={input} />}
+
             <ResultRows
                 rows={[
-                    ...(tahapKedua
-                        ? [{
-                              label: `Angsuran setelah bunga mengambang (${input.floating_rate}%)`,
-                              value: formatRupiah(result.installment_after_float),
-                              hint: `Mulai bulan ke-${result.fixed_months + 1}, dihitung ulang dari sisa pokok. Naik ${formatRupiah(result.installment_after_float - result.monthly_installment)} per bulan.`,
-                          }]
-                        : []),
                     ...(stress
                         ? [{
                               label: `Bila bunga naik ke ${input.floating_rate}%`,
@@ -338,7 +364,7 @@ function HasilPinjaman({ result, stress, input }) {
                     simulasi KPR bank, supaya angkanya bisa dicocokkan. Bunga tiap
                     bulan dihitung dari sisa pokok, jadi porsi bunga besar di awal dan
                     mengecil menjelang lunas.
-                    {tahapKedua && ' Saat bunga tetap berakhir, angsuran dihitung ulang dari sisa pokok dan sisa tenor.'}
+                    {berjenjang && ' Di awal setiap jenjang, angsuran dihitung ulang dari sisa pokok, sisa tenor, dan bunga jenjang itu.'}
                 </p>
                 <p className="mt-3 text-xs leading-relaxed text-text-muted">
                     Angka di atas adalah simulasi, bukan penawaran pinjaman. Angsuran
@@ -349,6 +375,63 @@ function HasilPinjaman({ result, stress, input }) {
     );
 }
 
+/**
+ * Angsuran per jenjang beserta kenaikannya dari jenjang sebelumnya. Kenaikan
+ * itulah yang paling sering luput dari brosur: angsuran tahun pertama yang
+ * ditonjolkan, padahal yang harus sanggup dibayar paling lama adalah angsuran
+ * jenjang terakhir.
+ */
+function TabelJenjang({ result, input }) {
+    const perkiraan = (k) => ['1', 1, true, 'true'].includes(input?.tiers?.[k]?.floating);
+    const pertama = result.tiers[0].installment;
+    const terakhir = result.tiers.at(-1).installment;
+
+    return (
+        <div className="mt-5">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b border-border text-left text-xs text-text-muted">
+                        <th className="py-2 pr-2 font-medium">Jenjang</th>
+                        <th className="py-2 pr-2 text-right font-medium">Bunga</th>
+                        <th className="py-2 text-right font-medium">Angsuran</th>
+                    </tr>
+                </thead>
+                <tbody className="num-tabular">
+                    {result.tiers.map((t, k) => {
+                        const naik = k > 0 && result.tiers[k - 1].installment > 0
+                            ? Math.round((t.installment / result.tiers[k - 1].installment - 1) * 100)
+                            : null;
+
+                        return (
+                            <tr key={t.from_month} className="border-b border-border/60 last:border-0">
+                                <td className="py-2 pr-2 text-text-secondary">{labelRentang(t)}</td>
+                                <td className="py-2 pr-2 text-right text-text-primary">
+                                    {String(t.rate).replace('.', ',')}%
+                                    {perkiraan(k) && <span className="ml-1 text-xs text-text-muted">(perkiraan)</span>}
+                                </td>
+                                <td className="py-2 text-right text-text-primary">
+                                    {formatRupiah(t.installment)}
+                                    {naik !== null && naik !== 0 && (
+                                        <span className={`ml-1.5 text-xs ${naik > 0 ? 'text-state-warning' : 'text-state-success'}`}>
+                                            {naik > 0 ? '+' : ''}{naik}%
+                                        </span>
+                                    )}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+
+            {terakhir > pertama && (
+                <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                    Angsuran jenjang terakhir {Math.round((terakhir / pertama - 1) * 100)}% lebih besar dari
+                    tahun pertama — pastikan angka inilah yang sanggup dibayar, bukan angsuran awalnya.
+                </p>
+            )}
+        </div>
+    );
+}
 
 /**
  * Rincian per tahun. Tertutup secara bawaan: untuk tenor 30 tahun tabelnya

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ValidatesCalculatorQuery;
 use App\Services\GoalCalculatorService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,6 +22,8 @@ use Inertia\Response;
  */
 class GoalCalculatorController extends Controller
 {
+    use ValidatesCalculatorQuery;
+
     public function show(Request $request, GoalCalculatorService $calculator): Response
     {
         // Halaman dibuka pertama kali, belum ada yang dihitung.
@@ -31,7 +34,7 @@ class GoalCalculatorController extends Controller
             ]);
         }
 
-        $input = $request->validate([
+        $input = $this->validateCalculatorQuery($request, 'calculator.goal', [
             'target_amount' => ['required', 'numeric', 'min:1', 'max:999999999999'],
             'current_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'months' => ['required', 'integer', 'min:1', 'max:720'],
