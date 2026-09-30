@@ -71,8 +71,61 @@ class ProfileIdentityTest extends TestCase
         $this->actingAs($user)
             ->get(route('profile.edit'))
             ->assertInertia(
-                fn ($page) => $page->where('auth.user.birth_date', '1995-08-17')
+                fn ($page) => $page->where('profile.birth_date', '1995-08-17')
             );
+    }
+
+    /**
+     * Minimasi data (UU 27/2022 PDP): prop bersama `auth.user` tertanam di
+     * HTML dan riwayat browser SETIAP halaman. Dulu seluruh model User ikut —
+     * email, telepon, tanggal lahir, kewarganegaraan, pekerjaan — dan terlihat
+     * di Inspect di halaman mana pun. Data identitas kini hanya ada di
+     * halaman Profil.
+     */
+    public function test_data_identitas_tidak_ikut_ke_halaman_lain(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Uji Coba',
+            'phone' => '0812 3456 7890',
+            'birth_date' => '1995-08-17',
+            'nationality' => 'Indonesia',
+            'occupation' => 'Karyawan swasta',
+        ]);
+
+        foreach (['dashboard', 'goals.index', 'calculator.loan'] as $halaman) {
+            $respons = $this->actingAs($user)->get(route($halaman))->assertOk();
+
+            $respons->assertInertia(fn ($page) => $page->where('auth.user', [
+                'name' => 'Uji Coba',
+                'avatar_url' => null,
+                'initials' => 'UC',
+            ]));
+
+            // Diperiksa juga di HTML mentahnya — yang benar-benar terlihat di Inspect.
+            foreach ([$user->email, '0812 3456 7890', '1995-08-17', 'Karyawan swasta'] as $rahasia) {
+                $respons->assertDontSee($rahasia, false);
+            }
+        }
+    }
+
+    /**
+     * Selama login, riwayat browser dienkripsi; saat logout kuncinya dibuang,
+     * sehingga halaman keuangan tidak bisa dibuka lagi lewat tombol Back.
+     */
+    public function test_riwayat_dienkripsi_selama_login_dan_dibersihkan_saat_logout(): void
+    {
+        $user = User::factory()->create();
+
+        $halaman = fn ($respons) => $respons->viewData('page');
+
+        $this->assertTrue($halaman($this->actingAs($user)->get(route('dashboard')))['encryptHistory']);
+
+        $this->post(route('logout'))->assertRedirect('/');
+
+        $sesudah = $halaman($this->get('/'));
+        $this->assertTrue($sesudah['clearHistory']);
+        $this->assertFalse($sesudah['encryptHistory']);
+        $this->assertNull($sesudah['props']['auth']['user']);
     }
 
     public static function tanggalLahirDitolak(): array

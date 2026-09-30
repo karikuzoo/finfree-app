@@ -17,6 +17,7 @@ class ProfileAvatarTest extends TestCase
         parent::setUp();
 
         // Disk palsu — test tidak boleh menulis ke storage sungguhan.
+        Storage::fake('local');
         Storage::fake('public');
     }
 
@@ -50,12 +51,12 @@ class ProfileAvatarTest extends TestCase
         $user->refresh();
 
         $this->assertNotNull($user->avatar_path);
-        Storage::disk('public')->assertExists($user->avatar_path);
+        Storage::disk('local')->assertExists($user->avatar_path);
 
         // Gambar 1200×800 harus keluar sebagai persegi 256×256, bukan tersimpan
         // apa adanya — inilah yang membedakan menyimpan berkas dari mengolahnya.
         [$width, $height] = getimagesizefromstring(
-            Storage::disk('public')->get($user->avatar_path),
+            Storage::disk('local')->get($user->avatar_path),
         );
 
         $this->assertSame(256, $width);
@@ -77,8 +78,8 @@ class ProfileAvatarTest extends TestCase
         $kedua = $user->refresh()->avatar_path;
 
         $this->assertNotSame($pertama, $kedua);
-        Storage::disk('public')->assertMissing($pertama);
-        Storage::disk('public')->assertExists($kedua);
+        Storage::disk('local')->assertMissing($pertama);
+        Storage::disk('local')->assertExists($kedua);
     }
 
     public function test_foto_dapat_dihapus(): void
@@ -95,7 +96,7 @@ class ProfileAvatarTest extends TestCase
             ->assertRedirect();
 
         $this->assertNull($user->refresh()->avatar_path);
-        Storage::disk('public')->assertMissing($path);
+        Storage::disk('local')->assertMissing($path);
     }
 
     public function test_menghapus_akun_ikut_menghapus_berkas_fotonya(): void
@@ -114,7 +115,7 @@ class ProfileAvatarTest extends TestCase
             'password' => 'password',
         ]);
 
-        Storage::disk('public')->assertMissing($path);
+        Storage::disk('local')->assertMissing($path);
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
     }
 
@@ -146,6 +147,59 @@ class ProfileAvatarTest extends TestCase
             ->assertSessionHasErrors('avatar');
 
         $this->assertNull($user->refresh()->avatar_path);
+    }
+
+    // ── Siapa yang boleh MELIHAT fotonya (30 Sep 2026) ──────────────────
+
+    private function unggah(User $user): string
+    {
+        $this->actingAs($user)->post(route('profile.avatar.update'), [
+            'avatar' => UploadedFile::fake()->image('foto.jpg', 400, 400),
+        ]);
+
+        return $user->refresh()->avatar_url;
+    }
+
+    public function test_pemilik_dapat_membuka_fotonya(): void
+    {
+        $user = User::factory()->create();
+        $url = $this->unggah($user);
+
+        $this->actingAs($user)->get($url)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')
+            // `private`: hanya browser pemiliknya yang menyimpan salinan.
+            ->assertHeader('Cache-Control', 'immutable, max-age=31536000, private');
+    }
+
+    /**
+     * Route ini dulu publik dan hanya mengandalkan nama acak yang sulit
+     * ditebak. Tautannya mudah tersebar — sesudah itu foto wajah bisa dibuka
+     * siapa saja, bahkan sesudah logout.
+     */
+    public function test_tamu_dan_pengguna_lain_tidak_dapat_membuka_foto(): void
+    {
+        $pemilik = User::factory()->create();
+        $url = $this->unggah($pemilik);
+
+        auth()->logout();
+        $this->get($url)->assertNotFound();
+
+        $this->actingAs(User::factory()->create())->get($url)->assertNotFound();
+    }
+
+    /**
+     * Disk 'public' punya tautan public/storage — foto di sana bisa dibuka
+     * lewat /storage/avatars/<nama> tanpa melewati pemeriksaan pemilik.
+     */
+    public function test_foto_tidak_disimpan_di_disk_publik(): void
+    {
+        $user = User::factory()->create();
+        $this->unggah($user);
+
+        Storage::disk('local')->assertExists($user->avatar_path);
+        Storage::disk('public')->assertMissing($user->avatar_path);
+        $this->assertSame([], Storage::disk('public')->allFiles());
     }
 
     public function test_tamu_tidak_dapat_mengunggah_foto(): void

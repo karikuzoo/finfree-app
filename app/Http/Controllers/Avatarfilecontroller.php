@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AvatarService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -27,11 +29,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AvatarFileController extends Controller
 {
-    private const DISK = 'public';
+    // Satu sumber dengan AvatarService — disk yang dibaca harus sama dengan
+    // yang ditulisi, dan keduanya pernah sama-sama 'public'.
+    private const DISK = AvatarService::DISK;
 
-    private const DIRECTORY = 'avatars';
+    private const DIRECTORY = AvatarService::DIRECTORY;
 
-    public function show(string $filename): StreamedResponse|Response
+    public function show(Request $request, string $filename): StreamedResponse|Response
     {
         // Nama file avatar SELALU dibuat lewat Str::random(40).'.webp' di
         // AvatarService — pola ini menolak apa pun di luar itu, termasuk
@@ -42,6 +46,17 @@ class AvatarFileController extends Controller
 
         $path = self::DIRECTORY.'/'.$filename;
 
+        // Hanya PEMILIKNYA yang boleh membuka fotonya. Route ini dulu publik
+        // dan hanya mengandalkan nama acak yang sulit ditebak — tetapi
+        // tautannya mudah tersebar (tersalin, riwayat browser, Inspect), dan
+        // sesudah itu foto wajah bisa dibuka siapa saja, bahkan sesudah
+        // logout. Arus tidak pernah menampilkan foto pengguna lain, jadi
+        // pemeriksaan kepemilikan tidak mengorbankan apa pun. 404, bukan 403:
+        // tidak membocorkan bahwa berkas itu ada.
+        if ($request->user()?->avatar_path !== $path) {
+            abort(404);
+        }
+
         if (! Storage::disk(self::DISK)->exists($path)) {
             abort(404);
         }
@@ -51,8 +66,9 @@ class AvatarFileController extends Controller
             // Nama filenya acak dan dibuat ulang tiap upload (lihat
             // AvatarService::store — file lama dihapus, path baru
             // dipakai), jadi aman di-cache lama tanpa risiko avatar
-            // basi tersangkut di browser pengguna.
-            'Cache-Control' => 'public, max-age=31536000, immutable',
+            // basi tersangkut di browser pengguna. `private`: hanya browser
+            // pemiliknya yang boleh menyimpan, bukan proxy di tengah jalan.
+            'Cache-Control' => 'private, max-age=31536000, immutable',
         ]);
     }
 }

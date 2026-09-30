@@ -20,8 +20,26 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            // Data identitas HANYA di halaman ini — lihat komentar
+            // HandleInertiaRequests::share() soal kenapa tidak dibagikan
+            // ke semua halaman.
+            'profile' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified' => $user->email_verified_at !== null,
+                'birth_date' => $user->birth_date?->toDateString(),
+                'nationality' => $user->nationality,
+                'phone' => $user->phone,
+                'occupation' => $user->occupation,
+                'risk_profile' => $user->risk_profile?->value,
+                'prefers_syariah' => (bool) $user->prefers_syariah,
+                'avatar_url' => $user->avatar_url,
+                'initials' => $user->initials,
+            ],
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
             // Daftar pilihan dikirim dari backend, bukan ditulis ulang di
             // React — supaya menambah profil risiko baru cukup di App\Enums.
@@ -68,6 +86,10 @@ class ProfileController extends Controller
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        // Sama dengan logout: riwayat halaman akun yang baru dihapus tidak
+        // boleh bisa dibuka lagi lewat tombol Back.
+        Inertia::clearHistory();
 
         return Redirect::to('/');
     }

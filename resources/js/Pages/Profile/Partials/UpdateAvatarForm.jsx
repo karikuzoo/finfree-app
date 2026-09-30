@@ -8,7 +8,7 @@ import { router, useForm, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 
 export default function UpdateAvatarForm({ className = '' }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.profile;
     const fileInput = useRef(null);
 
     // Pratinjau lokal supaya pengguna melihat pilihannya sebelum menyimpan.

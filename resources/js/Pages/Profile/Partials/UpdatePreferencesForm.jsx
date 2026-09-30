@@ -13,7 +13,7 @@ import { useForm, usePage } from '@inertiajs/react';
  * berinvestasi.
  */
 export default function UpdatePreferencesForm({ className = '' }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.profile;
     const riskProfiles = usePage().props.riskProfiles;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =

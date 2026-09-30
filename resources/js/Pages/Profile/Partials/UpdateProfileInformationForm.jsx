@@ -23,7 +23,7 @@ export default function UpdateProfileInformation({
     status,
     className = '',
 }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.profile;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
@@ -196,7 +196,7 @@ export default function UpdateProfileInformation({
                     </div>
                 </div>
 
-                {mustVerifyEmail && user.email_verified_at === null && (
+                {mustVerifyEmail && !user.email_verified && (
                     <div>
                         <p className="mt-2 text-sm text-text-primary">
                             Alamat email Anda belum terverifikasi.

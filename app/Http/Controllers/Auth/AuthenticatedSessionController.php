@@ -47,6 +47,12 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
+        // Membuang kunci riwayat terenkripsi (lihat HandleInertiaRequests):
+        // halaman yang dibuka selama login tidak bisa dibaca lagi lewat tombol
+        // Back. Dipanggil SESUDAH invalidate — penandanya disimpan di sesi,
+        // dan sesi lama baru saja dikosongkan.
+        Inertia::clearHistory();
+
         return redirect('/');
     }
 }

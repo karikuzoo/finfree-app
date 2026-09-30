@@ -31,9 +31,16 @@ class AvatarService
 
     private const QUALITY = 82;
 
-    private const DISK = 'public';
+    /**
+     * Disk PRIVAT (storage/app/private), bukan 'public'. Disk 'public' punya
+     * tautan public/storage, sehingga foto di sana bisa dibuka siapa saja
+     * lewat /storage/avatars/<nama> tanpa login — melewati pemeriksaan
+     * pemilik di AvatarFileController. Dipindah 30 Sep 2026; berkas lama
+     * dipindahkan migrasi move_avatars_to_private_disk.
+     */
+    public const DISK = 'local';
 
-    private const DIRECTORY = 'avatars';
+    public const DIRECTORY = 'avatars';
 
     /**
      * Simpan foto baru dan hapus yang lama. Mengembalikan jalur relatifnya.
