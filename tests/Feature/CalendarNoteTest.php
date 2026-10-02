@@ -175,11 +175,36 @@ class CalendarNoteTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('calendar.month', '2026-05'));
     }
 
-    public function test_dashboard_menolak_format_bulan_yang_salah(): void
+    /**
+     * Nilai yang tidak sah jatuh ke bulan berjalan, BUKAN ditolak. Sampai
+     * 2 Okt 2026 test ini memeriksa penolakan (`assertSessionHasErrors`) —
+     * tetapi penolakan di halaman GET mengembalikan ke "halaman sebelumnya",
+     * yang bisa alamat yang sama, lalu berputar. Pola yang sama dengan
+     * halaman Transaksi (MonthQuery).
+     */
+    public function test_dashboard_format_bulan_yang_salah_jatuh_ke_bulan_berjalan(): void
     {
-        $this->actingAs(User::factory()->create())
-            ->get(route('dashboard', ['bulan' => 'agustus']))
-            ->assertSessionHasErrors('bulan');
+        $user = User::factory()->create();
+        $bulanIni = now(config('app.timezone'))->format('Y-m');
+
+        foreach (['agustus', '2026-13', '2026-1', "2026-01' OR 1=1"] as $nilai) {
+            $this->actingAs($user)
+                ->get(route('dashboard', ['bulan' => $nilai]))
+                ->assertOk()
+                ->assertSessionHasNoErrors()
+                ->assertInertia(fn ($page) => $page->where('calendar.month', $bulanIni));
+        }
+    }
+
+    /** Dibuka berulang dari alamat yang sama tetap 200, tidak pernah mengalihkan. */
+    public function test_dashboard_dengan_bulan_rusak_tidak_berputar(): void
+    {
+        $user = User::factory()->create();
+        $buruk = route('dashboard', ['bulan' => 'agustus']);
+
+        foreach ([1, 2, 3] as $kali) {
+            $this->actingAs($user)->from($buruk)->get($buruk)->assertOk();
+        }
     }
 
     /**
