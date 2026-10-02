@@ -104,6 +104,13 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 > Arah yang paling menjanjikan: jadikan ketiganya **alat bantu opsional** yang dipanggil pengguna dari dalam form — sebuah tautan bernada "Belum tahu nominal targetnya? Hitung dulu" yang membuka penentu yang sesuai, lalu mengisikan hasilnya ke kolom nominal target. Dengan begitu penentu target menjadi pilihan pengguna, bukan konsekuensi kategori yang terlanjur dipilih di awal.
 >
 > Konsekuensi teknis lamanya tetap berlaku: ketiga penentu itu tidak bisa memakai satu form generik yang sama. Rencanakan sebagai shell + strategi sejak awal, bukan `if/else` yang ditempel belakangan. Putuskan jalan masuknya sebelum FR-20..22 mulai dikerjakan.
+>
+> **Status (2 Okt 2026): FR-20, FR-21, FR-22 dibangun** lewat jalan masuk di atas: tautan "Belum tahu nominalnya? Hitung dulu" di form Buat Tujuan membuka panel penentu (`Components/TargetPlanner.jsx`, shell) dengan satu strategi per jenis (`utils/targetPlanners.js`, diuji `targetPlanners.test.mjs`). Hasilnya hanya **mengisi** form; setoran tetap dihitung server. Keputusan:
+> - **Nominal yang diisikan selalu nilai hari ini**, dan inflasinya diisikan ke kolom inflasi form — supaya inflasi tidak terhitung dua kali (D-1). Pensiun memakai imbal hasil riil selama pensiun, penarikan di awal bulan.
+> - **Tanpa angka bawaan** (D-7): usia harapan hidup, inflasi pendidikan, dan imbal hasil masa pensiun diisi pengguna. Sampai ada angka bersumber, "asumsi harapan hidup default" di FR-20 belum diisi.
+> - **Dana darurat** memindahkan form ke "Tanpa tenggat"; perkiraan waktu tercapai dari setoran yang sanggup disisihkan, tanpa imbal hasil, memperhitungkan dana awal.
+> - **Dana pendidikan: satu jenjang per tujuan** (MVP yang diizinkan); beberapa jenjang = beberapa tujuan. Model rangkaian pencairan belum dibangun.
+> - Hanya di form Buat Tujuan, belum di form Ubah.
 
 ### 6.3 Rekomendasi Instrumen Investasi
 - FR-10: Berdasarkan jangka waktu tujuan & profil risiko pengguna, sistem menampilkan saran alokasi antar instrumen (contoh: jangka <2 tahun → dominan deposito/obligasi jangka pendek; 2–5 tahun → campuran obligasi & reksa dana campuran; >5 tahun → dominan saham/reksa dana saham).

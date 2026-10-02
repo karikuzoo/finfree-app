@@ -39,7 +39,7 @@ Kolom **Rilis** mengacu pada roadmap di [PRD.md](PRD.md) §12. Kode FR merujuk k
 | Simpan hasil sebagai tujuan yang dipantau | 1 | FR-9 |
 | **Penentu target dana pensiun** dari pengeluaran bulanan yang diinginkan | 2 | FR-20 |
 | **Penentu target dana darurat** dari pengeluaran bulanan × 3/6/12 | 2 | FR-21 |
-| **Dana pendidikan berjenjang** (SD/SMP/SMA/kuliah) dengan inflasi pendidikan | 2 | FR-22 |
+| **Dana pendidikan per jenjang** (SD/SMP/SMA/kuliah, satu jenjang per tujuan) dengan inflasi pendidikan | 2 | FR-22 |
 
 Kalkulator **beli rumah** dan **beli kendaraan** dikerjakan lebih dulu karena matematikanya paling lurus — satu target nominal, satu tanggal. Tiga kategori lain butuh langkah penentu target tersendiri.
 
