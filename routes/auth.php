@@ -67,9 +67,17 @@ Route::middleware('auth')->group(function () {
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    // Route yang menerima kata sandi dari orang yang sudah masuk. Tanpa batas,
+    // siapa pun yang mendapati laptop terbuka bisa menebak kata sandi
+    // sepuasnya lewat sini — batas laju login tidak berlaku karena ia sudah
+    // masuk. DELETE profile (juga menuntut kata sandi) dibatasi di web.php.
+    // Penghitungnya per pengguna, bukan per IP, karena route ini di balik auth.
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:6,1');
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

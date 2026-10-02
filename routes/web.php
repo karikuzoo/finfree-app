@@ -178,7 +178,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('data.index');
     Route::get('/data/cadangan', [DataController::class, 'download'])
         ->name('data.download');
+    // Dibatasi: pemulihan mengurai berkas unggahan lalu menulis ulang
+    // seluruh data pengguna — mahal bila diulang-ulang.
     Route::post('/data/pulihkan', [DataController::class, 'restore'])
+        ->middleware('throttle:5,1')
         ->name('data.restore');
 
     // Rencana menabung (FR-74..FR-78). Tiga route, satu halaman: melihat
@@ -244,7 +247,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Menuntut kata sandi, jadi dibatasi seperti confirm-password.
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->middleware('throttle:6,1')
+        ->name('profile.destroy');
     Route::patch('/profile/preferensi', [ProfilePreferenceController::class, 'update'])
         ->name('profile.preferences.update');
 

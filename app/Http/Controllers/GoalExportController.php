@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\FinancialGoal;
 use App\Models\User;
 use Illuminate\Http\Request;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Writer\XLSX\Writer;
@@ -73,17 +75,17 @@ class GoalExportController extends Controller
         $target = $goals->sum(fn (FinancialGoal $g) => (float) $g->target_amount);
 
         $writer->addRow(Row::fromValuesWithStyle(['Ringkasan Tujuan Finansial'], $this->tebal()));
-        $writer->addRow(Row::fromValues([]));
-        $writer->addRow(Row::fromValues(['Diekspor pada', now()->translatedFormat('j F Y, H:i')]));
-        $writer->addRow(Row::fromValues(['Jumlah tujuan', $goals->count()]));
-        $writer->addRow(Row::fromValues(['Total target', $target]));
-        $writer->addRow(Row::fromValues(['Total terkumpul', $terkumpul]));
-        $writer->addRow(Row::fromValues([
+        $writer->addRow($this->baris([]));
+        $writer->addRow($this->baris(['Diekspor pada', now()->translatedFormat('j F Y, H:i')]));
+        $writer->addRow($this->baris(['Jumlah tujuan', $goals->count()]));
+        $writer->addRow($this->baris(['Total target', $target]));
+        $writer->addRow($this->baris(['Total terkumpul', $terkumpul]));
+        $writer->addRow($this->baris([
             'Progres keseluruhan',
             $target > 0 ? round($terkumpul / $target * 100, 1).'%' : '—',
         ]));
-        $writer->addRow(Row::fromValues([]));
-        $writer->addRow(Row::fromValues([
+        $writer->addRow($this->baris([]));
+        $writer->addRow($this->baris([
             'Data profil tidak disertakan dalam berkas ini.',
         ]));
     }
@@ -101,7 +103,7 @@ class GoalExportController extends Controller
             $terkumpul = (float) $goal->allocated_amount;
             $target = (float) $goal->target_amount;
 
-            $writer->addRow(Row::fromValues([
+            $writer->addRow($this->baris([
                 $goal->name,
                 $target,
                 $terkumpul,
@@ -146,7 +148,7 @@ class GoalExportController extends Controller
             ->orderBy('id')
             ->chunk(500, function ($transaksi) use ($writer) {
                 foreach ($transaksi as $t) {
-                    $writer->addRow(Row::fromValues([
+                    $writer->addRow($this->baris([
                         $t->occurred_on->toDateString(),
                         $t->name,
                         $t->type->label(),
@@ -158,6 +160,25 @@ class GoalExportController extends Controller
                     ]));
                 }
             });
+    }
+
+    /**
+     * Satu baris data, dengan setiap teks dipaksa menjadi sel teks.
+     *
+     * Row::fromValues() milik OpenSpout menjadikan teks berawalan `=` sebuah
+     * RUMUS. Nama tujuan, transaksi, rekening, dan kategori diketik pengguna —
+     * transaksi bernama `=HYPERLINK("http://...","Klik")` akan menjadi tautan
+     * aktif begitu berkasnya dibuka di Excel (formula injection). Sel teks
+     * ditampilkan apa adanya dan tidak pernah dievaluasi.
+     *
+     * @param  array<int, string|int|float|null>  $nilai
+     */
+    private function baris(array $nilai): Row
+    {
+        return new Row(array_map(
+            fn ($v) => is_string($v) && $v !== '' ? new StringCell($v) : Cell::fromValue($v),
+            array_values($nilai),
+        ));
     }
 
     private function tebal(): Style

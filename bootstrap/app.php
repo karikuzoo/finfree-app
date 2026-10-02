@@ -11,12 +11,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->web(append: [
+            // Sesi lain langsung keluar begitu kata sandi berganti: middleware
+            // ini menyimpan sidik kata sandi di sesi dan mengeluarkan sesi
+            // yang sidiknya tidak lagi cocok. Lihat PasswordController.
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
-
-        //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

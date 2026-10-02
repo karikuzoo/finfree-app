@@ -138,12 +138,21 @@ class RegistrationValidationTest extends TestCase
         $this->assertSame(0, User::count());
     }
 
-    public function test_menerima_kata_sandi_enam_karakter_yang_lengkap(): void
+    public function test_menolak_kata_sandi_tujuh_karakter_meski_lengkap(): void
     {
-        // Tepat di batas: 6 karakter, memuat keempat jenis.
+        // Satu di bawah batas: keempat jenis ada, tetapi hanya 7 karakter.
         $this->post(route('register'), $this->payload([
-            'password' => 'Ab1!cd',
-            'password_confirmation' => 'Ab1!cd',
+            'password' => 'Ab1!cde',
+            'password_confirmation' => 'Ab1!cde',
+        ]))->assertSessionHasErrors('password');
+    }
+
+    public function test_menerima_kata_sandi_delapan_karakter_yang_lengkap(): void
+    {
+        // Tepat di batas: 8 karakter, memuat keempat jenis.
+        $this->post(route('register'), $this->payload([
+            'password' => 'Ab1!cdef',
+            'password_confirmation' => 'Ab1!cdef',
         ]))->assertSessionHasNoErrors();
     }
 

@@ -11,7 +11,7 @@
  * sama isinya bila aturannya diubah.
  */
 const syarat = [
-    { label: 'Minimal 6 karakter', uji: (v) => v.length >= 6 },
+    { label: 'Minimal 8 karakter', uji: (v) => v.length >= 8 },
     { label: 'Ada huruf besar', uji: (v) => /[A-Z]/.test(v) },
     { label: 'Ada huruf kecil', uji: (v) => /[a-z]/.test(v) },
     { label: 'Ada angka', uji: (v) => /\d/.test(v) },
@@ -24,7 +24,7 @@ export default function PasswordRequirements({ value = '', className = '' }) {
     if (!value) {
         return (
             <p className={'text-xs text-text-muted ' + className}>
-                Minimal 6 karakter, memuat huruf besar, huruf kecil, angka, dan
+                Minimal 8 karakter, memuat huruf besar, huruf kecil, angka, dan
                 simbol.
             </p>
         );

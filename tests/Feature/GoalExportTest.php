@@ -187,6 +187,21 @@ class GoalExportTest extends TestCase
         }
     }
 
+    /**
+     * Nama berawalan `=` harus tiba sebagai teks, bukan rumus. Rumus di
+     * berkas xlsx ditulis sebagai elemen <f>; teks biasa tidak pernah.
+     */
+    public function test_nama_berawalan_sama_dengan_tidak_menjadi_rumus(): void
+    {
+        $user = User::factory()->create();
+        $this->buatTujuan($user, '=1+1');
+
+        $isi = $this->isiBerkas($this->unduh($user));
+
+        $this->assertStringContainsString('=1+1', $isi);
+        $this->assertStringNotContainsString('<f>', $isi, 'Teks pengguna tertulis sebagai rumus Excel.');
+    }
+
     public function test_pengguna_tanpa_tujuan_tetap_mendapat_berkas_utuh(): void
     {
         $user = User::factory()->create();
