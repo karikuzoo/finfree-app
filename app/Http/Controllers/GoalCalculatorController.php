@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ValidatesCalculatorQuery;
+use App\Services\CalculationHistoryService;
 use App\Services\GoalCalculatorService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,7 +25,7 @@ class GoalCalculatorController extends Controller
 {
     use ValidatesCalculatorQuery;
 
-    public function show(Request $request, GoalCalculatorService $calculator): Response
+    public function show(Request $request, GoalCalculatorService $calculator, CalculationHistoryService $history): Response
     {
         // Halaman dibuka pertama kali, belum ada yang dihitung.
         if (! $request->has('target_amount')) {
@@ -58,6 +59,10 @@ class GoalCalculatorController extends Controller
             annualReturnRate: (float) $input['annual_return_rate'],
             annualInflationRate: (float) ($input['annual_inflation_rate'] ?? 0),
         );
+
+        $history->record($request->user(), 'goal', $input, [
+            'monthly_contribution' => $result['monthly_contribution_required'],
+        ]);
 
         return Inertia::render('Calculator/Goal', [
             'input' => $input,

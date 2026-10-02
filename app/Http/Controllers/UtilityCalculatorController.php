@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ValidatesCalculatorQuery;
+use App\Services\CalculationHistoryService;
 use App\Services\GoalCalculatorService;
 use App\Services\LoanHealthService;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +61,7 @@ class UtilityCalculatorController extends Controller
         Request $request,
         GoalCalculatorService $calculator,
         LoanHealthService $health,
+        CalculationHistoryService $history,
     ): Response|RedirectResponse {
         // Tautan lama (atau yang diketik tangan) masih membawa data keuangan
         // di alamatnya: dialihkan ke alamat yang sama TANPA data itu. Pengalihan
@@ -153,6 +155,13 @@ class UtilityCalculatorController extends Controller
             default => [],
         };
 
+        // Hanya isian pinjaman yang dicatat — data keuangan datang lewat badan
+        // POST dan tidak pernah disimpan di riwayat.
+        $history->record($request->user(), 'loan', $input, [
+            'monthly_installment' => $result['monthly_installment'],
+            'total_interest' => $result['total_interest'],
+        ]);
+
         return Inertia::render('Calculator/Loan', [
             // Hanya isian pinjaman. Data keuangan TIDAK dikirim balik: isian
             // form di layar tetap ada (preserveState), dan tanpa itu data
@@ -226,7 +235,7 @@ class UtilityCalculatorController extends Controller
     }
 
 
-    public function investment(Request $request, GoalCalculatorService $calculator): Response
+    public function investment(Request $request, GoalCalculatorService $calculator, CalculationHistoryService $history): Response
     {
         if (! $request->has('monthly_contribution')) {
             return Inertia::render('Calculator/Investment', ['input' => null, 'result' => null]);
@@ -254,14 +263,20 @@ class UtilityCalculatorController extends Controller
             ]);
         }
 
+        $result = $calculator->projectInvestment(
+            initialAmount: (float) ($input['initial_amount'] ?? 0),
+            monthlyContribution: (float) $input['monthly_contribution'],
+            months: (int) $input['months'],
+            annualReturnRate: (float) $input['annual_return_rate'],
+        );
+
+        $history->record($request->user(), 'investment', $input, [
+            'final_value' => $result['final_value'],
+        ]);
+
         return Inertia::render('Calculator/Investment', [
             'input' => $input,
-            'result' => $calculator->projectInvestment(
-                initialAmount: (float) ($input['initial_amount'] ?? 0),
-                monthlyContribution: (float) $input['monthly_contribution'],
-                months: (int) $input['months'],
-                annualReturnRate: (float) $input['annual_return_rate'],
-            ),
+            'result' => $result,
         ]);
     }
 }

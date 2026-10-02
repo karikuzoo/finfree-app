@@ -76,6 +76,12 @@ class RequestSecurityTest extends TestCase
         ]);
         $pengingat = $u->reminders()->create(['title' => "Pengingat {$tanda}", 'remind_at' => now()->addDay()]);
         $catatan = $u->calendarNotes()->create(['note_date' => now()->toDateString(), 'body' => "Catatan {$tanda}"]);
+        $riwayat = $u->calculationHistories()->create([
+            'calculator' => 'investment',
+            'input' => ['monthly_contribution' => '1000000', 'months' => '12', 'annual_return_rate' => '5', 'tanda' => $tanda],
+            'input_hash' => hash('sha256', $tanda),
+            'summary' => ['final_value' => 12_000_000],
+        ]);
 
         return [
             'account' => $bank->id,
@@ -84,13 +90,14 @@ class RequestSecurityTest extends TestCase
             'financialGoal' => $tujuan->id,
             'reminder' => $pengingat->id,
             'calendarNote' => $catatan->id,
+            'calculationHistory' => $riwayat->id,
         ];
     }
 
     /** Seluruh baris milik A di tabel-tabel keuangannya — untuk dibandingkan sebelum/sesudah. */
     private function potretA(): string
     {
-        $tabel = ['accounts', 'transactions', 'debts', 'financial_goals', 'reminders', 'calendar_notes', 'goal_calculations', 'budgets'];
+        $tabel = ['accounts', 'transactions', 'debts', 'financial_goals', 'reminders', 'calendar_notes', 'goal_calculations', 'budgets', 'calculation_histories'];
         $potret = [];
 
         foreach ($tabel as $t) {

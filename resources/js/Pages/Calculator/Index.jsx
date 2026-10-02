@@ -1,3 +1,4 @@
+import { TautanRiwayat } from '@/Components/CalculatorFrame';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Head, Link } from '@inertiajs/react';
 
@@ -33,9 +34,12 @@ export default function CalculatorIndex() {
             <Head title="Kalkulator" />
 
             <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-                <span className="inline-block rounded-full bg-lime-softBg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-lime-500">
-                    Gratis, tanpa daftar
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="inline-block rounded-full bg-lime-softBg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-lime-500">
+                        Gratis, tanpa daftar
+                    </span>
+                    <TautanRiwayat />
+                </div>
 
                 <h1 className="mt-5 text-3xl font-bold tracking-tight text-text-primary">
                     Kalkulator

@@ -46,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
     private function restrictRouteIdsToNumbers(): void
     {
         Route::patterns(array_fill_keys(
-            ['account', 'debt', 'transaction', 'financialGoal', 'reminder', 'calendarNote'],
+            ['account', 'debt', 'transaction', 'financialGoal', 'reminder', 'calendarNote', 'calculationHistory'],
             '[0-9]+',
         ));
     }

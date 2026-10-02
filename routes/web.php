@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountValuationController;
 use App\Http\Controllers\AvatarFileController;
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\CalculationHistoryController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
@@ -94,6 +95,15 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 // orang lain tetap bisa mencatat rekening, transaksi, dan memulihkan
 // cadangan. Pengecualiannya grup Profil di bawah.
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Riwayat kalkulasi cepat (FR-45). Kalkulatornya publik, riwayatnya
+    // tidak — dicatat otomatis hanya untuk pengguna yang login.
+    Route::get('/kalkulator/riwayat', [CalculationHistoryController::class, 'index'])
+        ->name('calculator.history');
+    Route::delete('/kalkulator/riwayat', [CalculationHistoryController::class, 'clear'])
+        ->name('calculator.history.clear');
+    Route::delete('/kalkulator/riwayat/{calculationHistory}', [CalculationHistoryController::class, 'destroy'])
+        ->name('calculator.history.destroy');
+
     // Catatan pengguna pada tanggal tertentu di kalender aktivitas dashboard.
     Route::post('/kalender/catatan', [CalendarNoteController::class, 'store'])
         ->name('calendar-notes.store');

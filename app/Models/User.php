@@ -136,6 +136,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Reminder::class);
     }
 
+    /** Riwayat kalkulasi cepat (FR-45), dicatat otomatis. */
+    public function calculationHistories(): HasMany
+    {
+        return $this->hasMany(CalculationHistory::class);
+    }
+
     /**
      * Tujuan utama yang DIPILIH pengguna. NULL berarti belum memilih —
      * DashboardSummaryService lalu jatuh ke tujuan tertua.

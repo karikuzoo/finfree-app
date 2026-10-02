@@ -29,12 +29,15 @@ export default function CalculatorFrame({
             <Head title={title} />
 
             <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-                <Link
-                    href={route('calculator.index')}
-                    className="text-xs font-medium text-text-muted transition hover:text-text-primary"
-                >
-                    ← Semua kalkulator
-                </Link>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Link
+                        href={route('calculator.index')}
+                        className="text-xs font-medium text-text-muted transition hover:text-text-primary"
+                    >
+                        ← Semua kalkulator
+                    </Link>
+                    <TautanRiwayat />
+                </div>
 
                 <div className="mt-4">
                     <span className="inline-block rounded-full bg-lime-softBg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-lime-500">
@@ -80,6 +83,23 @@ export default function CalculatorFrame({
 }
 
 /** Isian jangka waktu dalam bulan + tombol tenor tahunan. */
+/**
+ * Tautan ke riwayat kalkulasi (FR-45) — hanya bagi yang sudah masuk, karena
+ * hanya merekalah yang hitungannya dicatat.
+ */
+export function TautanRiwayat() {
+    if (!usePage().props.auth?.user) return null;
+
+    return (
+        <Link
+            href={route('calculator.history')}
+            className="text-xs font-medium text-text-muted transition hover:text-text-primary"
+        >
+            Riwayat kalkulasi →
+        </Link>
+    );
+}
+
 export function TenorField({ id = 'months', label, value, onChange, error, max, presets }) {
     return (
         <div>
