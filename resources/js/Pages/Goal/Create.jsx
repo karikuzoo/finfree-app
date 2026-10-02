@@ -4,6 +4,7 @@ import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
+import TargetPlanner from "@/Components/TargetPlanner";
 import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
@@ -111,6 +112,32 @@ export default function GoalCreate({ isFirstGoal, prefill = null }) {
     const [mode, setMode] = useState("waktu");
     const [months, setMonths] = useState(prefill ? String(prefill.months) : "");
     const [dailyAmount, setDailyAmount] = useState("");
+    const [penentuTerbuka, setPenentuTerbuka] = useState(false);
+    const [terisiDari, setTerisiDari] = useState(null);
+
+    // Hasil penentu target mengisi form, tidak menyimpan apa pun. Inflasi
+    // hanya ditimpa bila penentunya menanyakan inflasi (pensiun, pendidikan);
+    // nominalnya nilai hari ini, jadi inflasi tetap dihitung sekali oleh
+    // form (D-1). Nama hanya diusulkan bila kolomnya masih kosong.
+    const pakaiPenentu = ({ isian, nama }, label) => {
+        form.setData((data) => ({
+            ...data,
+            name: data.name.trim() ? data.name : nama,
+            target_amount: isian.target_amount,
+            ...(isian.estimated_inflation_rate !== undefined && {
+                estimated_inflation_rate: String(isian.estimated_inflation_rate),
+            }),
+        }));
+
+        setMode(isian.mode);
+        if (isian.months) setMonths(String(isian.months));
+
+        setTerisiDari({
+            label,
+            inflasi: isian.estimated_inflation_rate !== undefined,
+        });
+        setPenentuTerbuka(false);
+    };
 
     // Tujuan tanpa tenggat kini jadi MODE tersendiri, bukan turunan dari
     // jenis tujuan. Sebelumnya hanya "dana darurat" yang boleh tanpa tanggal;
@@ -262,6 +289,38 @@ export default function GoalCreate({ isFirstGoal, prefill = null }) {
                                 message={form.errors.target_amount}
                                 className="mt-2"
                             />
+
+                            {/*
+                                Penentu target (FR-20..22) adalah alat bantu
+                                yang DIPANGGIL pengguna, bukan langkah wajib
+                                yang dipicu jenis tujuan — jenis tujuan sudah
+                                tidak dipilih lagi (PRD §6.2.1).
+                            */}
+                            {penentuTerbuka ? (
+                                <TargetPlanner
+                                    konteks={{
+                                        initial_amount: form.data.initial_amount,
+                                    }}
+                                    onPakai={pakaiPenentu}
+                                    onTutup={() => setPenentuTerbuka(false)}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setPenentuTerbuka(true)}
+                                    className="mt-2 text-xs font-semibold text-lime-500 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                >
+                                    Belum tahu nominalnya? Hitung dulu
+                                </button>
+                            )}
+
+                            {terisiDari && !penentuTerbuka && (
+                                <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+                                    Nominal{terisiDari.inflasi ? ", jangka waktu, dan inflasi" : ""}{" "}
+                                    terisi dari penghitung {terisiDari.label.toLowerCase()}.
+                                    Anda tetap bisa mengubahnya.
+                                </p>
+                            )}
                         </div>
 
                         <div>
