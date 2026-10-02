@@ -10,12 +10,12 @@ import { Link, usePage } from '@inertiajs/react';
  * sebelum pengguna memberi nama dan menekan simpan di form itu.
  *
  * `params` wajib berbentuk yang diterima prefillFromCalculator:
- * target_amount, initial_amount, months, estimated_return_rate,
- * estimated_inflation_rate. Pemanggil mengisinya dari `input` hasil validasi
+ * target_amount wajib; name, initial_amount, months, estimated_return_rate,
+ * estimated_inflation_rate opsional. Pemanggil mengisinya dari `input` hasil validasi
  * server — nilai yang benar-benar menghasilkan angka di panel hasil — bukan
  * dari isian form yang mungkin sudah diubah tanpa dihitung ulang.
  */
-export default function JadikanTujuan({ params }) {
+export default function JadikanTujuan({ params, label = 'Jadikan Tujuan', note = null }) {
     const masuk = Boolean(usePage().props.auth?.user);
 
     return (
@@ -24,9 +24,10 @@ export default function JadikanTujuan({ params }) {
                 href={route('goals.create', params)}
                 className="inline-flex w-full items-center justify-center rounded-lg border border-border-strong px-4 py-2 text-xs font-semibold uppercase tracking-widest text-text-primary transition hover:border-lime-500 hover:text-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 focus:ring-offset-bg-card"
             >
-                Jadikan Tujuan
+                {label}
             </Link>
             <p className="mt-2 text-center text-xs text-text-muted">
+                {note && <>{note} </>}
                 {masuk
                     ? 'Angka di atas ikut terisi — tinggal beri nama tujuannya.'
                     : 'Masuk dulu untuk memantau progresnya — angka di atas ikut terbawa.'}

@@ -72,12 +72,24 @@ class UtilityCalculatorController extends Controller
             return redirect()->route('calculator.loan', Arr::except($query, self::DATA_KEUANGAN));
         }
 
-        if (! $request->query->has('principal')) {
-            return Inertia::render('Calculator/Loan', ['input' => null, 'result' => null, 'stress' => null, 'health' => null]);
+        // `principal_mode` ikut dihitung: mode harga yang dikirim tanpa harga
+        // harus menampilkan galatnya, bukan halaman kosong.
+        if (array_intersect(['principal', 'property_price', 'principal_mode'], array_keys($query)) === []) {
+            return Inertia::render('Calculator/Loan', ['input' => null, 'result' => null, 'stress' => null, 'health' => null, 'purchase' => null]);
         }
 
         $input = $this->validateCalculatorQuery($request, 'calculator.loan', [
-            'principal' => ['required', 'numeric', 'min:1', 'max:999999999999'],
+            // Dua cara mengisi pokok (`principal_mode`): langsung (`direct`,
+            // bawaan — tautan lama tetap berlaku), atau dari harga rumah
+            // dikurangi uang muka (`price`). Lihat purchase().
+            'principal_mode' => ['nullable', Rule::in(['direct', 'price'])],
+            'principal' => ['exclude_if:principal_mode,price', 'required', 'numeric', 'min:1', 'max:999999999999'],
+            'property_price' => ['exclude_unless:principal_mode,price', 'required', 'numeric', 'min:1', 'max:999999999999'],
+            'down_payment' => ['exclude_unless:principal_mode,price', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
+            'down_payment_unit' => ['exclude_unless:principal_mode,price', 'nullable', Rule::in(['amount', 'percent'])],
+            // Opsional: provisi, appraisal, notaris, BPHTB, asuransi. Banyak
+            // developer menanggungnya, jadi tidak ada angka bawaan.
+            'closing_costs' => ['exclude_unless:principal_mode,price', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
             'rate_type' => ['nullable', Rule::in(['fixed', 'tiered', 'floating'])],
             // Bunga berjenjang membawa bunganya sendiri per baris.
             'annual_interest_rate' => ['exclude_if:rate_type,tiered', 'required', 'numeric', 'min:0', 'max:50'],
@@ -91,6 +103,8 @@ class UtilityCalculatorController extends Controller
         ], [
             'principal.required' => 'Pokok pinjaman wajib diisi.',
             'principal.min' => 'Pokok pinjaman harus lebih besar dari nol.',
+            'property_price.required' => 'Harga rumah wajib diisi.',
+            'property_price.min' => 'Harga rumah harus lebih besar dari nol.',
             'annual_interest_rate.required' => 'Suku bunga wajib diisi. Isi 0 bila pinjamannya tanpa bunga.',
             'annual_interest_rate.max' => 'Suku bunga di atas 50% per tahun tidak lazim untuk pinjaman resmi. Periksa kembali angkanya.',
             'months.required' => 'Tenor wajib diisi.',
@@ -125,7 +139,8 @@ class UtilityCalculatorController extends Controller
             : null;
 
         $jenis = $input['rate_type'] ?? 'fixed';
-        $pokok = (float) $input['principal'];
+        $pembelian = $this->purchase($input);
+        $pokok = $pembelian ? $pembelian['principal'] : (float) $input['principal'];
         $bulan = (int) $input['months'];
 
         if ($jenis === 'tiered') {
@@ -168,6 +183,7 @@ class UtilityCalculatorController extends Controller
             // pribadi tidak tertanam di HTML maupun di riwayat halaman tamu.
             'input' => $input,
             'result' => $result,
+            'purchase' => $pembelian,
             'stress' => $stress ? ['monthly_installment' => $stress['monthly_installment'], 'total_interest' => $stress['total_interest']] : null,
             'health' => $keuangan
                 ? $health->evaluate(
@@ -183,6 +199,49 @@ class UtilityCalculatorController extends Controller
         ]);
     }
 
+
+    /**
+     * Pokok dari harga rumah dan uang muka (`principal_mode=price`), atau
+     * null bila pokok diisi langsung. Penerjemahan isian, bukan rumus
+     * finansial — sama seperti tiersToMonths().
+     *
+     * Uang muka boleh nominal atau persen dari harga, dibulatkan ke rupiah.
+     * DP 0 sah (ada KPR tanpa DP), DP setara harga atau lebih tidak: tidak
+     * ada yang dipinjam. Biaya akad TIDAK menambah pokok — dibayar tunai,
+     * jadi ia masuk "uang tunai saat akad" bersama DP.
+     *
+     * @return array{property_price: float, down_payment: float, down_payment_percent: float, closing_costs: float, cash_needed: float, principal: float}|null
+     */
+    private function purchase(array $input): ?array
+    {
+        if (($input['principal_mode'] ?? 'direct') !== 'price') {
+            return null;
+        }
+
+        $harga = (float) $input['property_price'];
+        $dp = (float) ($input['down_payment'] ?? 0);
+
+        if (($input['down_payment_unit'] ?? 'amount') === 'percent') {
+            $dp = round($harga * $dp / 100);
+        }
+
+        if ($harga - $dp < 1) {
+            $this->failCalculatorQuery('calculator.loan', [
+                'down_payment' => 'Uang muka harus lebih kecil dari harga rumah — sisanya itulah yang dipinjam.',
+            ]);
+        }
+
+        $biaya = (float) ($input['closing_costs'] ?? 0);
+
+        return [
+            'property_price' => $harga,
+            'down_payment' => $dp,
+            'down_payment_percent' => round($dp / $harga * 100, 2),
+            'closing_costs' => $biaya,
+            'cash_needed' => $dp + $biaya,
+            'principal' => $harga - $dp,
+        ];
+    }
 
     /**
      * Baris jenjang dari form ("sampai tahun ke-N") → bulan mulai tiap

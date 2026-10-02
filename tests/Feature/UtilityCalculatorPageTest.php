@@ -68,6 +68,97 @@ class UtilityCalculatorPageTest extends TestCase
                 ->where('result.total_interest', 0));
     }
 
+    // ── Dari harga rumah & uang muka ────────────────────────────────────
+
+    private function dariHarga(array $ubah = []): array
+    {
+        return array_merge([
+            'principal_mode' => 'price',
+            'property_price' => 600000000,
+            'down_payment' => 100000000,
+            'annual_interest_rate' => 10,
+            'months' => 240,
+        ], $ubah);
+    }
+
+    /** Harga 600 jt − DP 100 jt = pokok 500 jt: angsurannya sama dengan pokok langsung 500 jt. */
+    public function test_pokok_dari_harga_dikurangi_uang_muka(): void
+    {
+        $this->get(route('calculator.loan', $this->dariHarga()))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('result.principal', 500000000)
+                ->where('result.monthly_installment', 4825109)
+                ->where('purchase.down_payment', 100000000)
+                ->where('purchase.down_payment_percent', 16.67)
+                ->where('purchase.cash_needed', 100000000));
+    }
+
+    public function test_uang_muka_dalam_persen_dibulatkan_ke_rupiah(): void
+    {
+        $this->get(route('calculator.loan', $this->dariHarga([
+            'property_price' => 333333333,
+            'down_payment' => 10,
+            'down_payment_unit' => 'percent',
+        ])))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('purchase.down_payment', 33333333)
+                ->where('result.principal', 300000000));
+    }
+
+    /** Biaya akad dibayar tunai — tidak menambah pinjaman, menambah uang tunai saat akad. */
+    public function test_biaya_akad_tidak_menambah_pokok(): void
+    {
+        $this->get(route('calculator.loan', $this->dariHarga(['closing_costs' => 15000000])))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('result.principal', 500000000)
+                ->where('purchase.closing_costs', 15000000)
+                ->where('purchase.cash_needed', 115000000));
+    }
+
+    public function test_tanpa_uang_muka_seluruh_harga_dipinjam(): void
+    {
+        $this->get(route('calculator.loan', $this->dariHarga(['down_payment' => null])))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('result.principal', 600000000)
+                ->where('purchase.cash_needed', 0));
+    }
+
+    public function test_uang_muka_setara_harga_ditolak(): void
+    {
+        foreach ([['down_payment' => 600000000], ['down_payment' => 100, 'down_payment_unit' => 'percent']] as $ubah) {
+            $this->get(route('calculator.loan', $this->dariHarga($ubah)))
+                ->assertRedirect(route('calculator.loan'))
+                ->assertSessionHasErrors(['down_payment' => 'Uang muka harus lebih kecil dari harga rumah — sisanya itulah yang dipinjam.']);
+        }
+    }
+
+    public function test_mode_harga_tidak_menuntut_pokok_dan_pokok_langsung_tidak_berubah(): void
+    {
+        $this->get(route('calculator.loan', $this->dariHarga()))
+            ->assertSessionHasNoErrors();
+
+        // Tautan lama tanpa principal_mode tetap pokok langsung, tanpa `purchase`.
+        $this->get(route('calculator.loan', ['principal' => 500000000, 'annual_interest_rate' => 10, 'months' => 240]))
+            ->assertInertia(fn (Assert $page) => $page->where('purchase', null));
+
+        // Mode harga tanpa harga ditolak dengan pesan berbahasa Indonesia.
+        $this->get(route('calculator.loan', $this->dariHarga(['property_price' => null])))
+            ->assertSessionHasErrors(['property_price' => 'Harga rumah wajib diisi.']);
+    }
+
+    /** "Jadikan tujuan: DP rumah" hanya membawa nama dan nominal — jangka waktunya dipilih di form. */
+    public function test_tujuan_dp_rumah_terisi_tanpa_jangka_waktu(): void
+    {
+        $this->actingAs(\App\Models\User::factory()->create())
+            ->get(route('goals.create', ['name' => 'DP rumah', 'target_amount' => 115000000]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('prefill.name', 'DP rumah')
+                ->where('prefill.target_amount', 115000000)
+                ->where('prefill.months', null)
+                ->where('prefill.estimated_return_rate', 0));
+    }
+
     // ── Jenis bunga & cek kesehatan cicilan ─────────────────────────────
 
     private function kpr(array $ubah = []): array

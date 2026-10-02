@@ -95,7 +95,7 @@ export default function GoalCreate({ isFirstGoal, prefill = null }) {
     // TIDAK bertentangan dengan aturan "mulai dari nol" di bawah: angkanya
     // dipilih sendiri oleh pengguna di kalkulator, bukan disodorkan Arus.
     const form = useForm({
-        name: "",
+        name: prefill?.name ?? "",
         target_amount: prefill?.target_amount ?? "",
         initial_amount: prefill?.initial_amount || "",
         target_date: "",
@@ -110,7 +110,7 @@ export default function GoalCreate({ isFirstGoal, prefill = null }) {
     });
 
     const [mode, setMode] = useState("waktu");
-    const [months, setMonths] = useState(prefill ? String(prefill.months) : "");
+    const [months, setMonths] = useState(prefill?.months ? String(prefill.months) : "");
     const [dailyAmount, setDailyAmount] = useState("");
     const [penentuTerbuka, setPenentuTerbuka] = useState(false);
     const [terisiDari, setTerisiDari] = useState(null);
@@ -239,8 +239,9 @@ export default function GoalCreate({ isFirstGoal, prefill = null }) {
 
                     {prefill && (
                         <p className="mt-4 rounded-lg border border-border bg-lime-softBg px-4 py-3 text-sm leading-relaxed text-text-secondary">
-                            Angka di bawah terisi dari kalkulator. Periksa
-                            sekali lagi, lalu beri nama tujuannya.
+                            {prefill.months
+                                ? "Angka di bawah terisi dari kalkulator. Periksa sekali lagi, lalu beri nama tujuannya."
+                                : "Nominal di bawah terisi dari kalkulator. Tentukan kapan ingin terkumpul, lalu simpan."}
                         </p>
                     )}
                 </div>

@@ -7,6 +7,7 @@ import CalculatorFrame, {
     useGalatKalkulator,
 } from '@/Components/CalculatorFrame';
 import CurrencyInput from '@/Components/CurrencyInput';
+import JadikanTujuan from '@/Components/JadikanTujuan';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import LoanChart from '@/Components/LoanChart';
@@ -28,6 +29,29 @@ const JENIS_BUNGA = [
 ];
 
 const DATA_KEUANGAN = ['monthly_income', 'income_growth', 'other_installments', 'monthly_expenses', 'annual_taxes'];
+
+/** Isian mode "dari harga rumah" — tidak dikirim saat pokok diisi langsung. */
+const ISIAN_HARGA = ['property_price', 'down_payment', 'down_payment_unit', 'closing_costs'];
+
+const CARA_POKOK = [
+    { value: 'price', label: 'Dari harga rumah' },
+    { value: 'direct', label: 'Pokok langsung' },
+];
+
+/**
+ * Pratinjau pokok dari harga dan DP, untuk dibaca sambil mengetik. Hanya
+ * tampilan — pokok yang dihitung tetap dari server
+ * (UtilityCalculatorController::purchase), dengan pembulatan yang sama.
+ */
+export function pratinjauPokok({ property_price, down_payment, down_payment_unit }) {
+    const harga = Number(property_price) || 0;
+    if (!(harga > 0)) return null;
+
+    const isi = Number(down_payment) || 0;
+    const dp = down_payment_unit === 'percent' ? Math.round((harga * isi) / 100) : isi;
+
+    return { dp, persen: (dp / harga) * 100, pokok: harga - dp };
+}
 
 const tahunKe = (bulan) => Math.floor((bulan - 1) / 12) + 1;
 
@@ -52,11 +76,22 @@ export function labelRentang({ from_month, to_month }) {
  * angsuran tiap jenjang dan label sehat/waspada/berisiko, datang dari server;
  * halaman ini hanya menampilkan.
  *
- * Tidak ada tombol "Jadikan Tujuan": pinjaman bukan tabungan yang dikejar.
+ * Pokok bisa diisi langsung, atau dari harga rumah dikurangi uang muka
+ * (`principal_mode`). Formulir baru mulai dari harga rumah — itulah yang
+ * diketahui orang yang membuka kalkulator KPR — sedangkan tautan lama tanpa
+ * `principal_mode` tetap dibuka sebagai pokok langsung.
+ *
+ * "Jadikan Tujuan" hanya untuk UANG TUNAI saat akad (DP + biaya akad), bukan
+ * pinjamannya: pinjaman bukan tabungan yang dikejar, tetapi DP-nya iya.
  */
-export default function CalculatorLoan({ input, result, stress = null, health = null }) {
+export default function CalculatorLoan({ input, result, stress = null, health = null, purchase = null }) {
     const form = useForm({
+        principal_mode: input ? (input.principal_mode ?? 'direct') : 'price',
         principal: input?.principal ?? '',
+        property_price: input?.property_price ?? '',
+        down_payment: input?.down_payment ?? '',
+        down_payment_unit: input?.down_payment_unit ?? 'amount',
+        closing_costs: input?.closing_costs ?? '',
         annual_interest_rate: input?.annual_interest_rate ?? '',
         months: input?.months ?? '',
         rate_type: input?.rate_type ?? 'fixed',
@@ -83,6 +118,15 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
     function isianPinjaman(data) {
         const kirim = { ...data };
         DATA_KEUANGAN.forEach((k) => delete kirim[k]);
+
+        // Mode bawaan (`direct`) tidak ditulis ke alamat, supaya alamatnya
+        // sama dengan tautan dari sebelum mode harga rumah ada.
+        if (kirim.principal_mode === 'price') {
+            delete kirim.principal;
+        } else {
+            ISIAN_HARGA.forEach((k) => delete kirim[k]);
+            delete kirim.principal_mode;
+        }
 
         if (kirim.rate_type === 'tiered') {
             delete kirim.annual_interest_rate;
@@ -138,6 +182,8 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
     }
 
     const jenis = form.data.rate_type;
+    const dariHarga = form.data.principal_mode === 'price';
+    const pratinjau = dariHarga ? pratinjauPokok(form.data) : null;
 
     return (
         <CalculatorFrame
@@ -148,20 +194,119 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
             resetHref={result ? route('calculator.loan') : null}
             fields={
                 <>
-                    <div>
-                        <InputLabel htmlFor="principal" value="Pokok pinjaman" />
-                        <CurrencyInput
-                            id="principal"
-                            className="mt-1.5"
-                            placeholder="500.000.000"
-                            value={form.data.principal}
-                            onChange={(v) => form.setData('principal', v)}
-                        />
-                        <p className="mt-1.5 text-xs text-text-muted">
-                            Harga dikurangi uang muka — jumlah yang benar-benar dipinjam.
-                        </p>
-                        <InputError className="mt-1.5" message={galat.principal} />
-                    </div>
+                    <fieldset>
+                        <legend className="block text-sm font-medium text-text-secondary">Isi pinjaman lewat</legend>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {CARA_POKOK.map((c) => (
+                                <Pil
+                                    key={c.value}
+                                    aktif={form.data.principal_mode === c.value}
+                                    onClick={() => form.setData('principal_mode', c.value)}
+                                >
+                                    {c.label}
+                                </Pil>
+                            ))}
+                        </div>
+                    </fieldset>
+
+                    {dariHarga ? (
+                        <>
+                            <IsianRupiah
+                                id="property_price"
+                                label="Harga rumah"
+                                placeholder="600.000.000"
+                                value={form.data.property_price}
+                                onChange={(v) => form.setData('property_price', v)}
+                                error={galat.property_price}
+                            />
+
+                            <div>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <InputLabel htmlFor="down_payment" value="Uang muka (DP)" />
+                                    <div className="flex gap-1" role="group" aria-label="Satuan uang muka">
+                                        <Pil
+                                            kecil
+                                            aktif={form.data.down_payment_unit === 'amount'}
+                                            onClick={() => form.setData((d) => ({ ...d, down_payment_unit: 'amount', down_payment: '' }))}
+                                        >
+                                            Rp
+                                        </Pil>
+                                        <Pil
+                                            kecil
+                                            aktif={form.data.down_payment_unit === 'percent'}
+                                            onClick={() => form.setData((d) => ({ ...d, down_payment_unit: 'percent', down_payment: '' }))}
+                                        >
+                                            %
+                                        </Pil>
+                                    </div>
+                                </div>
+                                {form.data.down_payment_unit === 'percent' ? (
+                                    <TextInput
+                                        id="down_payment"
+                                        type="number"
+                                        step="0.1"
+                                        min="0"
+                                        max="100"
+                                        className="num-tabular mt-1.5 block w-full"
+                                        placeholder="20"
+                                        value={form.data.down_payment}
+                                        onChange={(e) => form.setData('down_payment', e.target.value)}
+                                    />
+                                ) : (
+                                    <CurrencyInput
+                                        id="down_payment"
+                                        className="mt-1.5"
+                                        placeholder="120.000.000"
+                                        value={form.data.down_payment}
+                                        onChange={(v) => form.setData('down_payment', v)}
+                                    />
+                                )}
+                                <p className="mt-1.5 text-xs text-text-muted">
+                                    Sudah dibayar atau akan dibayar saat akad. Kosongkan bila tanpa DP.
+                                </p>
+                                <InputError className="mt-1.5" message={galat.down_payment} />
+                            </div>
+
+                            <IsianRupiah
+                                id="closing_costs"
+                                label="Biaya akad & lainnya (opsional)"
+                                hint="Provisi, appraisal, notaris, BPHTB, asuransi. Kosongkan bila ditanggung developer. Tidak menambah pinjaman — dibayar tunai bersama DP."
+                                value={form.data.closing_costs}
+                                onChange={(v) => form.setData('closing_costs', v)}
+                                error={galat.closing_costs}
+                            />
+
+                            {pratinjau && (
+                                <p className="rounded-lg border-l-2 border-lime-500 bg-bg-cardAlt px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                                    Pokok pinjaman{' '}
+                                    <span className="num-tabular font-semibold text-text-primary">
+                                        {formatRupiah(Math.max(0, pratinjau.pokok))}
+                                    </span>
+                                    {pratinjau.dp > 0 && (
+                                        <>
+                                            {' '}— DP {formatRupiah(pratinjau.dp)} ({formatPersen(pratinjau.persen)} dari harga)
+                                        </>
+                                    )}
+                                    .
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <div>
+                            <InputLabel htmlFor="principal" value="Pokok pinjaman" />
+                            <CurrencyInput
+                                id="principal"
+                                className="mt-1.5"
+                                placeholder="500.000.000"
+                                value={form.data.principal}
+                                onChange={(v) => form.setData('principal', v)}
+                            />
+                            <p className="mt-1.5 text-xs text-text-muted">
+                                Harga dikurangi uang muka — jumlah yang benar-benar dipinjam.
+                            </p>
+                            <InputError className="mt-1.5" message={galat.principal} />
+                        </div>
+                    )}
 
                     <TenorField
                         label="Tenor (bulan)"
@@ -310,10 +455,10 @@ export default function CalculatorLoan({ input, result, stress = null, health = 
             }
             result={
                 result ? (
-                    <HasilPinjaman result={result} stress={stress} input={input} />
+                    <HasilPinjaman result={result} stress={stress} input={input} purchase={purchase} />
                 ) : (
                     <EmptyResult>
-                        Isi pokok pinjaman, tenor, dan suku bunga, lalu tekan Hitung Sekarang.
+                        Isi harga rumah dan uang muka (atau pokok pinjaman), tenor, dan suku bunga, lalu tekan Hitung Sekarang.
                     </EmptyResult>
                 )
             }
@@ -349,18 +494,40 @@ function IsianPersen({ id, label, placeholder, value, onChange, error, max = '50
     );
 }
 
-function IsianRupiah({ id, label, hint, value, onChange, error }) {
+function IsianRupiah({ id, label, hint, value, onChange, error, placeholder = '0' }) {
     return (
         <div>
             <InputLabel htmlFor={id} value={label} />
-            <CurrencyInput id={id} className="mt-1.5" placeholder="0" value={value} onChange={onChange} />
+            <CurrencyInput id={id} className="mt-1.5" placeholder={placeholder} value={value} onChange={onChange} />
             {hint && <p className="mt-1.5 text-xs text-text-muted">{hint}</p>}
             <InputError className="mt-1.5" message={error} />
         </div>
     );
 }
 
-function HasilPinjaman({ result, stress, input }) {
+function Pil({ aktif, onClick, kecil = false, children }) {
+    return (
+        <button
+            type="button"
+            aria-pressed={aktif}
+            onClick={onClick}
+            className={
+                'rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-lime-500 ' +
+                (kecil ? 'px-2.5 py-0.5 text-xs ' : 'px-3 py-1.5 text-xs ') +
+                (aktif
+                    ? 'border-lime-500 bg-lime-softBg text-lime-500'
+                    : 'border-border-strong text-text-muted hover:text-text-primary')
+            }
+        >
+            {children}
+        </button>
+    );
+}
+
+/** 20 -> "20%", 12.5 -> "12,5%". */
+const formatPersen = (n) => `${String(Math.round(n * 10) / 10).replace('.', ',')}%`;
+
+function HasilPinjaman({ result, stress, input, purchase }) {
     const berjenjang = result.tiers.length > 1;
     const bedaTerakhir = result.last_installment !== result.monthly_installment;
 
@@ -387,6 +554,16 @@ function HasilPinjaman({ result, stress, input }) {
                               hint: `Skenario uji: bunga naik sejak awal. Total bunganya ${formatRupiah(stress.total_interest)}.`,
                           }]
                         : []),
+                    ...(purchase
+                        ? [
+                              { label: 'Harga rumah', value: formatRupiah(purchase.property_price) },
+                              {
+                                  label: 'Uang muka (DP)',
+                                  value: formatRupiah(purchase.down_payment),
+                                  hint: `${formatPersen(purchase.down_payment_percent)} dari harga rumah.`,
+                              },
+                          ]
+                        : []),
                     { label: 'Pokok pinjaman', value: formatRupiah(result.principal) },
                     {
                         label: 'Total bunga',
@@ -396,6 +573,8 @@ function HasilPinjaman({ result, stress, input }) {
                     { label: 'Total pembayaran', value: formatRupiah(result.total_payment) },
                 ]}
             />
+
+            {purchase && <UangTunai purchase={purchase} />}
 
             <LoanChart series={result.series} className="mt-6" />
 
@@ -414,6 +593,35 @@ function HasilPinjaman({ result, stress, input }) {
                 </p>
             </div>
         </>
+    );
+}
+
+/**
+ * Uang tunai yang harus siap saat akad: DP ditambah biaya akad. Bila belum
+ * terkumpul, itulah tabungan yang dikejar — jadi "Jadikan Tujuan" di sini
+ * membawa nominal ITU, bukan pinjamannya. Kapan harus terkumpul tidak
+ * diketahui kalkulator ini, jadi jangka waktunya dipilih di form tujuan.
+ */
+function UangTunai({ purchase }) {
+    if (!(purchase.cash_needed > 0)) return null;
+
+    return (
+        <div className="mt-5 rounded-lg border border-border p-4">
+            <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold text-text-primary">Uang tunai saat akad</p>
+                <p className="num-tabular text-lg font-bold text-text-primary">{formatRupiah(purchase.cash_needed)}</p>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                {purchase.closing_costs > 0
+                    ? `DP ${formatRupiah(purchase.down_payment)} + biaya akad ${formatRupiah(purchase.closing_costs)}.`
+                    : 'Uang muka saja — biaya akad tidak diisi.'}
+            </p>
+            <JadikanTujuan
+                label="Jadikan tujuan: DP rumah"
+                note="Belum terkumpul?"
+                params={{ name: 'DP rumah', target_amount: purchase.cash_needed }}
+            />
+        </div>
     );
 }
 

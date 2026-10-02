@@ -44,7 +44,7 @@ describe('Kalkulator Pinjaman / KPR', () => {
     it('sebelum dihitung, panel hasil memberi petunjuk, bukan angka nol', () => {
         render(<CalculatorLoan input={null} result={null} />);
 
-        expect(screen.getByText(/Isi pokok pinjaman, tenor, dan suku bunga/)).toBeInTheDocument();
+        expect(screen.getByText(/Isi harga rumah dan uang muka/)).toBeInTheDocument();
         expect(screen.queryByText('Angsuran bulanan')).toBeNull();
     });
 
@@ -239,6 +239,87 @@ describe('Kalkulator Pinjaman / KPR', () => {
         render(<CalculatorLoan input={null} result={null} />);
 
         expect(screen.getByText(/Jenis bunga di tautan ini tidak dikenal/)).toBeInTheDocument();
+    });
+
+    // ── Dari harga rumah & DP ────────────────────────────────────────────
+
+    it('formulir baru mulai dari harga rumah, tautan lama tetap pokok langsung', () => {
+        const { unmount } = render(<CalculatorLoan input={null} result={null} />);
+        expect(screen.getByLabelText('Harga rumah')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Pokok pinjaman')).toBeNull();
+        unmount();
+
+        render(<CalculatorLoan input={input} result={null} />);
+        expect(screen.getByLabelText('Pokok pinjaman')).toHaveValue('500.000.000');
+        expect(screen.queryByLabelText('Harga rumah')).toBeNull();
+    });
+
+    it('pratinjau pokok mengikuti harga dan DP persen', async () => {
+        render(<CalculatorLoan input={null} result={null} />);
+
+        await userEvent.type(screen.getByLabelText('Harga rumah'), '600000000');
+        await userEvent.click(screen.getByRole('button', { name: '%' }));
+        await userEvent.type(screen.getByLabelText('Uang muka (DP)'), '20');
+
+        expect(screen.getByText('Rp 480.000.000')).toBeInTheDocument();
+        expect(screen.getByText(/DP Rp 120\.000\.000 \(20% dari harga\)/)).toBeInTheDocument();
+    });
+
+    it('mode harga mengirim harga dan DP, bukan pokok', async () => {
+        const { kiriman } = sadapKiriman('get');
+        render(<CalculatorLoan input={null} result={null} />);
+
+        await userEvent.type(screen.getByLabelText('Harga rumah'), '600000000');
+        await userEvent.type(screen.getByLabelText('Uang muka (DP)'), '100000000');
+        await userEvent.type(screen.getByLabelText('Tenor (bulan)'), '240');
+        await userEvent.type(screen.getByLabelText('Suku bunga (% / tahun)'), '10');
+        await userEvent.click(screen.getByRole('button', { name: 'Hitung Sekarang' }));
+
+        expect(kiriman[0].data).toEqual({
+            principal_mode: 'price',
+            property_price: 600000000,
+            down_payment: 100000000,
+            down_payment_unit: 'amount',
+            annual_interest_rate: '10',
+            months: '240',
+            rate_type: 'fixed',
+        });
+    });
+
+    it('hasil menampilkan uang tunai saat akad dan tombol tujuan DP', () => {
+        render(
+            <CalculatorLoan
+                input={{ principal_mode: 'price', property_price: '600000000', down_payment: '100000000', annual_interest_rate: '10', months: '240' }}
+                result={hasil()}
+                purchase={{
+                    property_price: 600_000_000,
+                    down_payment: 100_000_000,
+                    down_payment_percent: 16.67,
+                    closing_costs: 15_000_000,
+                    cash_needed: 115_000_000,
+                    principal: 500_000_000,
+                }}
+            />,
+        );
+
+        expect(screen.getByText('Rp 115.000.000')).toBeInTheDocument();
+        expect(screen.getByText(/16,7% dari harga rumah/)).toBeInTheDocument();
+
+        const tautan = screen.getByRole('link', { name: 'Jadikan tujuan: DP rumah' });
+        const alamat = new URL(tautan.getAttribute('href'), 'http://arus.test');
+        expect(Object.fromEntries(alamat.searchParams)).toEqual({ name: 'DP rumah', target_amount: '115000000' });
+    });
+
+    it('tanpa DP dan biaya akad, tidak ada tombol tujuan DP', () => {
+        render(
+            <CalculatorLoan
+                input={{ principal_mode: 'price', property_price: '500000000', annual_interest_rate: '10', months: '240' }}
+                result={hasil()}
+                purchase={{ property_price: 500_000_000, down_payment: 0, down_payment_percent: 0, closing_costs: 0, cash_needed: 0, principal: 500_000_000 }}
+            />,
+        );
+
+        expect(screen.queryByRole('link', { name: 'Jadikan tujuan: DP rumah' })).toBeNull();
     });
 
     /** Bug "tombol diam" (Goal.jsx): pastikan tombolnya benar-benar mengirim. */

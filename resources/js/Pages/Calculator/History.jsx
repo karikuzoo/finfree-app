@@ -32,8 +32,17 @@ function uraian({ calculator, input, summary }) {
                       ? `bunga mengambang ${input.annual_interest_rate}%`
                       : `bunga ${input.annual_interest_rate}%`;
 
+            const pinjaman =
+                input.principal_mode === "price"
+                    ? `Rumah ${formatRupiah(input.property_price)}, DP ${
+                          input.down_payment_unit === "percent"
+                              ? `${input.down_payment ?? 0}%`
+                              : formatRupiah(input.down_payment ?? 0)
+                      }`
+                    : `Pinjaman ${formatRupiah(input.principal)}`;
+
             return {
-                isian: `Pinjaman ${formatRupiah(input.principal)}, tenor ${formatDuration(input.months)}, ${bunga}`,
+                isian: `${pinjaman}, tenor ${formatDuration(input.months)}, ${bunga}`,
                 utama: `Angsuran ${formatRupiah(summary.monthly_installment)} / bulan`,
             };
         }

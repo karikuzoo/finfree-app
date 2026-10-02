@@ -87,11 +87,15 @@ class GoalController extends Controller
             return null;
         }
 
+        // `months`, imbal hasil, dan `name` opsional: "DP rumah" dari
+        // kalkulator KPR hanya membawa nominal dan nama — kapan DP-nya harus
+        // terkumpul tidak diketahui kalkulator itu, jadi dipilih pengguna.
         $validator = validator($request->query(), [
+            'name' => ['nullable', 'string', 'max:100'],
             'target_amount' => ['required', 'numeric', 'min:1', 'max:999999999999'],
             'initial_amount' => ['nullable', 'numeric', 'min:0', 'lt:target_amount'],
-            'months' => ['required', 'integer', 'min:1', 'max:720'],
-            'estimated_return_rate' => ['required', 'numeric', 'min:0', 'max:30'],
+            'months' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'estimated_return_rate' => ['nullable', 'numeric', 'min:0', 'max:30'],
             'estimated_inflation_rate' => ['nullable', 'numeric', 'min:0', 'max:20'],
         ]);
 
@@ -102,10 +106,11 @@ class GoalController extends Controller
         $data = $validator->validated();
 
         return [
+            'name' => $data['name'] ?? null,
             'target_amount' => (float) $data['target_amount'],
             'initial_amount' => (float) ($data['initial_amount'] ?? 0),
-            'months' => (int) $data['months'],
-            'estimated_return_rate' => (float) $data['estimated_return_rate'],
+            'months' => isset($data['months']) ? (int) $data['months'] : null,
+            'estimated_return_rate' => (float) ($data['estimated_return_rate'] ?? 0),
             'estimated_inflation_rate' => (float) ($data['estimated_inflation_rate'] ?? 0),
         ];
     }
