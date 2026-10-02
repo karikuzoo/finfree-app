@@ -69,7 +69,7 @@ Alat hitung sekali pakai, terpisah dari Tujuan — jawab "kalau begini hasilnya 
 | Kalkulator Investasi — proyeksi nilai akhir dari setoran rutin | 2 | FR-42 |
 | **Jadikan Tujuan** — simpan hasil kalkulator jadi target yang dipantau | 2 | FR-43 |
 | Dapat diakses **tanpa login**; menyimpan hasil baru butuh akun | 2 | FR-44 |
-| Riwayat kalkulasi cepat, bisa dibuka & diubah lagi (belum dibangun) | 2 | FR-45 |
+| Riwayat kalkulasi cepat, bisa dibuka & diubah lagi | 2 | FR-45 |
 | Kalkulator Pajak PPh 21 | Fase 2 | FR-46 |
 
 ### 📈 Dashboard & Tujuan
