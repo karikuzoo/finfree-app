@@ -5,12 +5,14 @@ import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
+import TargetPlanner from "@/Components/TargetPlanner";
 import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { calculateMonthlyContribution } from "@/utils/goalCalculator";
 import { formatRupiah } from "@/utils/format";
-import { todayInJakarta } from "@/utils/timezone";
+import { tambahBulan, todayInJakarta } from "@/utils/timezone";
 import { Head, Link, useForm } from "@inertiajs/react";
+import { useState } from "react";
 
 /** Selisih bulan dari hari ini ke sebuah tanggal, dibulatkan ke atas. */
 const bulanSampai = (iso) => {
@@ -69,6 +71,31 @@ export default function GoalEdit({ goal, currentAmount }) {
         Number(form.data.target_amount) > 0 &&
         Number(form.data.target_amount) < currentAmount;
 
+    const [penentuTerbuka, setPenentuTerbuka] = useState(false);
+    const [terisiDari, setTerisiDari] = useState(null);
+
+    // Sama dengan Goal/Create.jsx, kecuali jangka waktu: form ini memakai
+    // pemilih tanggal, jadi `months` diterjemahkan menjadi tanggal target
+    // dari hari ini, dan dana darurat (mode 'tanpa') mengosongkan tanggalnya.
+    // Nama tidak pernah ditimpa — di form ubah, nama selalu sudah terisi.
+    const pakaiPenentu = ({ isian }, label) => {
+        form.setData((data) => ({
+            ...data,
+            target_amount: isian.target_amount,
+            target_date: isian.mode === "tanpa" ? "" : tambahBulan(isian.months),
+            ...(isian.estimated_inflation_rate !== undefined && {
+                estimated_inflation_rate: String(isian.estimated_inflation_rate),
+            }),
+        }));
+
+        setTerisiDari({
+            label,
+            tanpaTenggat: isian.mode === "tanpa",
+            inflasi: isian.estimated_inflation_rate !== undefined,
+        });
+        setPenentuTerbuka(false);
+    };
+
     const submit = (e) => {
         e.preventDefault();
         form.patch(route("goals.update", goal.id));
@@ -120,6 +147,38 @@ export default function GoalEdit({ goal, currentAmount }) {
                                 </p>
                             )}
                             <InputError message={form.errors.target_amount} className="mt-2" />
+
+                            {/*
+                                Penentu target (FR-20..22). Dana darurat
+                                memakai dana yang SUDAH TERKUMPUL untuk
+                                perkiraan waktunya — di form ubah, itulah
+                                titik berangkatnya, bukan dana awal.
+                            */}
+                            {penentuTerbuka ? (
+                                <TargetPlanner
+                                    konteks={{ initial_amount: currentAmount }}
+                                    onPakai={pakaiPenentu}
+                                    onTutup={() => setPenentuTerbuka(false)}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setPenentuTerbuka(true)}
+                                    className="mt-2 text-xs font-semibold text-lime-500 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                >
+                                    Hitung ulang nominalnya
+                                </button>
+                            )}
+
+                            {terisiDari && !penentuTerbuka && (
+                                <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+                                    {terisiDari.tanpaTenggat
+                                        ? `Nominal terisi dari penghitung ${terisiDari.label.toLowerCase()}, dan tanggal target dikosongkan (tanpa tenggat).`
+                                        : `${terisiDari.inflasi ? "Nominal, tanggal target, dan inflasi" : "Nominal dan tanggal target"} terisi dari penghitung ${terisiDari.label.toLowerCase()}.`}{" "}
+                                    Belum tersimpan sampai Anda menekan Simpan
+                                    Perubahan.
+                                </p>
+                            )}
                         </div>
 
                         <div>

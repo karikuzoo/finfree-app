@@ -49,6 +49,22 @@ export function nowInJakartaParts() {
     return { tahun, bulan: bulan - 1, tanggal };
 }
 
+/**
+ * n bulan dari hari ini (WIB), format YYYY-MM-DD. Dipakai form Buat dan Ubah
+ * Tujuan untuk menerjemahkan jangka waktu menjadi tanggal target. `sekarang`
+ * bisa diisi (bagian WIB-nya) supaya hasilnya bisa diuji.
+ *
+ * Tanggal yang tidak ada di bulan tujuan meluber ke bulan berikutnya
+ * (31 Jan + 1 bulan = 3 Mar) — perilaku bawaan `Date`, sama seperti
+ * sebelum fungsi ini dipindah dari Goal/Create.jsx.
+ */
+export function tambahBulan(jumlahBulan, sekarang = nowInJakartaParts()) {
+    const { tahun, bulan, tanggal } = sekarang;
+    const d = new Date(tahun, bulan + Number(jumlahBulan), tanggal);
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const jakartaTimeFormatter = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',

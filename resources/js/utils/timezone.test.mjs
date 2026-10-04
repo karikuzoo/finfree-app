@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatRelativeTime, todayInJakarta, nowInJakartaParts } from "./timezone.js";
+import { formatRelativeTime, todayInJakarta, nowInJakartaParts, tambahBulan } from "./timezone.js";
 
 /**
  * Pasangan frontend dari tests/Feature/AppTimezoneTest.php di backend.
@@ -56,4 +56,15 @@ test("formatRelativeTime mengikuti kalender WIB", () => {
 
 test("formatRelativeTime diam untuk masukan rusak", () => {
     assert.equal(formatRelativeTime("bukan tanggal"), "");
+});
+
+// bulan di nowInJakartaParts 0-indexed: { bulan: 9 } = Oktober.
+test("tambahBulan menghitung n bulan dari tanggal WIB yang diberikan", () => {
+    const sekarang = { tahun: 2026, bulan: 9, tanggal: 4 };
+
+    assert.equal(tambahBulan(1, sekarang), "2026-11-04");
+    assert.equal(tambahBulan(3, sekarang), "2027-01-04");
+    assert.equal(tambahBulan(300, sekarang), "2051-10-04");
+    // Isian dari form datang sebagai teks.
+    assert.equal(tambahBulan("12", sekarang), "2027-10-04");
 });

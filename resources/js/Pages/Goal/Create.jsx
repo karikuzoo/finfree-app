@@ -8,7 +8,7 @@ import TargetPlanner from "@/Components/TargetPlanner";
 import TextInput from "@/Components/TextInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
-import { nowInJakartaParts } from "@/utils/timezone";
+import { tambahBulan } from "@/utils/timezone";
 import {
     calculateMonthlyContribution,
     solveMonths,
@@ -20,7 +20,7 @@ import { useState } from "react";
  * Batas jangka waktu: 1–719 bulan (bukan 720/60 tahun genap), menyalin
  * `after:today` + `before:+60 tahun` di StoreGoalRequest tapi menyisakan
  * jarak aman 1 bulan — perhitungan tanggal di browser (tambahBulan di
- * bawah) dan di server (Carbon::now()->addYears(60) saat request masuk)
+ * utils/timezone.js) dan di server (Carbon::now()->addYears(60) saat request masuk)
  * dievaluasi pada detik yang sedikit berbeda; 719 bulan menghindari kasus
  * tepi langka di mana keduanya jatuh di sisi berlawanan dari batas.
  */
@@ -33,14 +33,6 @@ const tenorPresets = [
     { label: "10 thn", months: 120 },
     { label: "20 thn", months: 240 },
 ];
-
-/** n bulan dari hari ini (WIB), format YYYY-MM-DD. */
-const tambahBulan = (jumlahBulan) => {
-    const { tahun, bulan, tanggal } = nowInJakartaParts();
-    const d = new Date(tahun, bulan + jumlahBulan, tanggal);
-
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
 
 /** "2027-11-30" -> "30 November 2027". Format tanggal yang SUDAH diketahui
  * (bukan "hari ini"), jadi aman dipakai toLocaleDateString apa pun zona
