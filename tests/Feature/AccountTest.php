@@ -59,6 +59,8 @@ class AccountTest extends TestCase
                 ->post(route('accounts.store'), $this->isian([
                     'name' => $jenis->label(),
                     'kind' => $jenis->value,
+                    // Valas wajib memilih mata uang; jenis lain mengabaikannya.
+                    'currency' => 'USD',
                 ]))
                 ->assertSessionHasNoErrors();
         }

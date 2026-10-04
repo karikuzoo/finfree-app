@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\AccountKind;
+use App\Support\Currencies;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,6 +32,7 @@ class StoreAccountRequest extends FormRequest
         $rekening = $this->route('account');
 
         $jenis = ['required', Rule::in(AccountKind::values())];
+        $mataUang = ['required_if:kind,'.AccountKind::ForeignCurrency->value, 'nullable', Rule::in(Currencies::codes())];
 
         // Jenis dikunci begitu ada transaksi: lihat komentar kelas.
         //
@@ -41,15 +43,25 @@ class StoreAccountRequest extends FormRequest
         if ($rekening !== null
             && $rekening->transactions()->exists()) {
             $jenis[] = Rule::in([$rekening->kind->value]);
+
+            // Mata uang valas ikut terkunci: riwayatnya dicatat untuk mata
+            // uang itu, dan USD yang diganti SGD membuat jumlah valas di
+            // keterangan salah tanpa ada yang menyadarinya.
+            if ($rekening->kind === AccountKind::ForeignCurrency) {
+                $mataUang[] = Rule::in([$rekening->currency]);
+            }
         }
 
         return [
             'name' => ['required', 'string', 'max:100'],
             'kind' => $jenis,
+            // Hanya untuk valas, dan di sana wajib — tanpa mata uang, jumlah
+            // valasnya tidak punya arti. Untuk jenis lain dibuang di dataRekening().
+            'currency' => $mataUang,
             'institution' => ['nullable', 'string', 'max:100'],
             'opening_balance' => ['required', 'numeric', 'min:0', 'max:999999999999999.99'],
-            // FR-51. Hanya untuk jenis bersatuan (emas, saham, reksa dana);
-            // untuk bank dan tunai diabaikan — lihat dataRekening().
+            // FR-51. Hanya untuk jenis bersatuan (emas, saham, reksa dana,
+            // valas); untuk bank dan tunai diabaikan — lihat dataRekening().
             'units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],
         ];
     }
@@ -66,9 +78,12 @@ class StoreAccountRequest extends FormRequest
     public function dataRekening(): array
     {
         $data = $this->validated();
-        $data['units'] = AccountKind::from($data['kind'])->satuan() === null || ($data['units'] ?? '') === ''
+        $jenis = AccountKind::from($data['kind']);
+
+        $data['units'] = ! $jenis->punyaSatuan() || ($data['units'] ?? '') === ''
             ? null
             : $data['units'];
+        $data['currency'] = $jenis === AccountKind::ForeignCurrency ? $data['currency'] : null;
 
         return $data;
     }
@@ -83,6 +98,8 @@ class StoreAccountRequest extends FormRequest
             'name.max' => 'Nama rekening maksimal 100 karakter.',
             'kind.required' => 'Pilih jenis rekening.',
             'kind.in' => 'Jenis rekening tidak bisa diubah karena sudah punya riwayat transaksi.',
+            'currency.required_if' => 'Pilih mata uangnya.',
+            'currency.in' => 'Mata uang tidak bisa diubah karena rekening ini sudah punya riwayat transaksi, atau belum tersedia.',
             'institution.max' => 'Nama lembaga maksimal 100 karakter.',
             'opening_balance.required' => 'Saldo awal wajib diisi. Isi 0 bila mulai dari kosong.',
             'opening_balance.numeric' => 'Saldo awal harus berupa angka.',

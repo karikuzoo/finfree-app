@@ -8,6 +8,7 @@ use App\Http\Requests\StoreAccountRequest;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Services\AccountBalanceService;
+use App\Support\Currencies;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -51,6 +52,7 @@ class AccountController extends Controller
             'totalAssets' => $this->saldo->totalAssets($user),
             'composition' => $this->saldo->assetComposition($user),
             'kinds' => $this->jenis(),
+            'currencies' => Currencies::options(),
         ]);
     }
 
@@ -78,6 +80,7 @@ class AccountController extends Controller
             ],
             'mutations' => $this->mutasi($account),
             'kinds' => $this->jenis(),
+            'currencies' => Currencies::options(),
         ]);
     }
 
@@ -173,7 +176,9 @@ class AccountController extends Controller
             'opening_balance' => (float) $r->opening_balance,
             // FR-51: keterangan saja, bukan dasar hitung. NULL bila tidak diisi.
             'units' => $r->units === null ? null : (float) $r->units,
-            'unit' => $r->kind->satuan(),
+            'unit' => $r->satuan(),
+            // Valas: kode ISO 4217 (USD, SGD, …); NULL untuk jenis lain.
+            'currency' => $r->currency,
             'balance' => $tersedia[$r->id]['balance'] ?? 0.0,
             // Saldo penuh tetap angka utamanya — uangnya memang masih di
             // rekening ini. Dua angka di bawah menjelaskan kenapa
@@ -198,6 +203,7 @@ class AccountController extends Controller
             'label' => $k->label(),
             'liquid' => $k->likuid(),
             'unit' => $k->satuan(),
+            'needs_valuation' => $k->perluPenilaian(),
         ]);
     }
 

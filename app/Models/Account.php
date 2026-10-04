@@ -24,6 +24,7 @@ class Account extends Model
     protected $fillable = [
         'name',
         'kind',
+        'currency',
         'institution',
         'opening_balance',
         'units',
@@ -36,6 +37,18 @@ class Account extends Model
             'opening_balance' => 'decimal:2',
             'units' => 'decimal:4',
         ];
+    }
+
+    /**
+     * Satuan jumlah aset rekening ini: gram/lot/unit menurut jenisnya, atau
+     * kode mata uang untuk valas ("USD"). Pakai ini, bukan
+     * AccountKind::satuan(), untuk satu rekening — satuan valas per rekening.
+     */
+    public function satuan(): ?string
+    {
+        return $this->kind === AccountKind::ForeignCurrency
+            ? $this->currency
+            : $this->kind->satuan();
     }
 
     public function user(): BelongsTo

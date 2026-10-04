@@ -40,7 +40,7 @@ class AccountValuationController extends Controller
 
         // FR-51: jumlah satuan terbaru, hanya untuk jenis bersatuan. Kosong
         // berarti "tidak diubah", jadi nilai lamanya dipertahankan.
-        $satuanBaru = $account->kind->satuan() !== null && ($data['units'] ?? null) !== null
+        $satuanBaru = $account->satuan() !== null && ($data['units'] ?? null) !== null
             ? round((float) $data['units'], 4)
             : null;
         $satuanBerubah = $satuanBaru !== null && $satuanBaru !== round((float) $account->units, 4);

@@ -28,6 +28,12 @@ const PER_JENIS = {
         kelompok: [{ judul: 'Agen penjual reksa dana', pilih: () => true }],
         contohLain: 'Nama aplikasi atau manajer investasi',
     },
+    // Tabungan valas dibuka di bank — dompet digital tidak menyediakannya.
+    valas: {
+        judul: 'Bank',
+        kelompok: [{ judul: 'Bank', pilih: (l) => !l.dompet }],
+        contohLain: 'Nama bank, mis. Bank DKI',
+    },
     gold: {
         judul: 'Tempat menyimpan emas',
         kelompok: [{ judul: 'Emas fisik & tabungan emas', pilih: () => true }],

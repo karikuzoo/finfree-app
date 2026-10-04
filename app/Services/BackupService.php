@@ -14,6 +14,7 @@ use App\Models\FinancialGoal;
 use App\Models\Reminder;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\Currencies;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -93,6 +94,7 @@ class BackupService
                 'ref' => $refRekening[$r->id],
                 'name' => $r->name,
                 'kind' => $r->kind->value,
+                'currency' => $r->currency,
                 'institution' => $r->institution,
                 'opening_balance' => (float) $r->opening_balance,
                 'units' => $r->units === null ? null : (float) $r->units,
@@ -222,6 +224,8 @@ class BackupService
                 $petaRekening[$baris['ref']] = $user->accounts()->create([
                     'name' => $baris['name'],
                     'kind' => $baris['kind'],
+                    // Berkas dari sebelum valas (4 Okt 2026) tidak membawanya.
+                    'currency' => $baris['currency'] ?? null,
                     'institution' => $baris['institution'] ?? null,
                     'opening_balance' => $baris['opening_balance'],
                     // Berkas dari sebelum FR-51 tidak membawanya.
@@ -361,6 +365,8 @@ class BackupService
             'accounts.*.ref' => ['required', 'integer', 'min:1', 'distinct'],
             'accounts.*.name' => ['required', 'string', 'max:100'],
             'accounts.*.kind' => ['required', Rule::in(AccountKind::values())],
+            // Aturan yang sama dengan form (StoreAccountRequest): wajib untuk valas.
+            'accounts.*.currency' => ['required_if:accounts.*.kind,'.AccountKind::ForeignCurrency->value, 'nullable', Rule::in(Currencies::codes())],
             'accounts.*.institution' => ['nullable', 'string', 'max:100'],
             'accounts.*.opening_balance' => $uang,
             'accounts.*.units' => ['nullable', 'numeric', 'min:0', 'max:9999999999999999'],

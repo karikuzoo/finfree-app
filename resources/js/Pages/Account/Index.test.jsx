@@ -13,6 +13,12 @@ const KINDS = [
     { value: 'stock', label: 'Saham', liquid: false },
     { value: 'fund', label: 'Reksa Dana', liquid: false },
     { value: 'gold', label: 'Emas', liquid: false },
+    { value: 'valas', label: 'Valas', liquid: true, unit: null, needs_valuation: true },
+];
+
+const CURRENCIES = [
+    { code: 'USD', label: 'Dolar Amerika Serikat' },
+    { code: 'SGD', label: 'Dolar Singapura' },
 ];
 
 function rekening(ubah = {}) {
@@ -34,7 +40,7 @@ function rekening(ubah = {}) {
 }
 
 function tampilkan(akun = [rekening()]) {
-    return render(<AccountIndex accounts={akun} totalAssets={20_000_000} composition={[]} kinds={KINDS} />);
+    return render(<AccountIndex accounts={akun} totalAssets={20_000_000} composition={[]} kinds={KINDS} currencies={CURRENCIES} />);
 }
 
 const dialog = () => screen.getByRole('dialog');
@@ -120,5 +126,25 @@ describe('Halaman Rekening & aset', () => {
 
         expect(screen.getByRole('link', { name: 'Lihat detail Portofolio saham' }))
             .toHaveAttribute('href', '/accounts.show/3');
+    });
+    it('valas meminta mata uang, lalu jumlahnya dalam mata uang itu', async () => {
+        tampilkan([]);
+
+        await userEvent.click(screen.getAllByRole('button', { name: 'Tambah rekening' })[0]);
+        expect(within(dialog()).queryByLabelText('Mata uang')).toBeNull();
+
+        await userEvent.selectOptions(within(dialog()).getByLabelText('Jenis'), 'valas');
+        await userEvent.selectOptions(within(dialog()).getByLabelText('Mata uang'), 'SGD');
+
+        expect(within(dialog()).getByLabelText('Jumlah SGD (opsional)')).toBeInTheDocument();
+        expect(within(dialog()).getByLabelText('Nilai dalam rupiah saat mulai mencatat')).toBeInTheDocument();
+    });
+
+    it('kartu valas menampilkan jumlah valas dan kurs yang tercatat', () => {
+        tampilkan([rekening({ kind: 'valas', kind_label: 'Valas', unit: 'USD', currency: 'USD', units: 1500, balance: 24_450_000 })]);
+
+        expect(screen.getByText(/1\.500 USD/)).toBeInTheDocument();
+        expect(screen.getByText(/≈ Rp 16\.300\/USD/)).toBeInTheDocument();
+        expect(screen.getByText(/saat kursnya bergerak/)).toBeInTheDocument();
     });
 });

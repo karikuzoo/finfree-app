@@ -26,7 +26,7 @@ import { useState } from "react";
  * (CLAUDE.md §6.9). Saldo menyentuh transaksi keluar MAUPUN transfer masuk —
  * menghitungnya lagi di frontend hampir pasti melewatkan sisi kedua.
  */
-export default function AccountIndex({ accounts, totalAssets, composition, kinds }) {
+export default function AccountIndex({ accounts, totalAssets, composition, kinds, currencies = [] }) {
     const [menyunting, setMenyunting] = useState(null);
     const [menambah, setMenambah] = useState(false);
 
@@ -79,6 +79,7 @@ export default function AccountIndex({ accounts, totalAssets, composition, kinds
                 show={menambah || menyunting !== null}
                 rekening={menyunting}
                 kinds={kinds}
+                currencies={currencies}
                 onClose={() => {
                     setMenambah(false);
                     setMenyunting(null);
@@ -241,7 +242,7 @@ function KartuRekening({ rekening, onSunting }) {
                 {rekening.needs_valuation && (
                     <p className="leading-relaxed text-text-muted">
                         Nilainya tidak berubah sendiri — catat penyesuaian nilai
-                        saat harganya bergerak.
+                        saat {rekening.kind === "valas" ? "kursnya" : "harganya"} bergerak.
                     </p>
                 )}
             </div>
@@ -310,16 +311,19 @@ function Kosong({ onTambah }) {
  * yang disunting berganti. Tanpa itu, nilai rekening sebelumnya tertinggal di
  * state saat pengguna menutup lalu membuka kartu lain.
  */
-export function FormRekening({ show, rekening, kinds, onClose }) {
+export function FormRekening({ show, rekening, kinds, currencies = [], onClose }) {
     const menyunting = rekening !== null;
 
     const form = useForm({
         name: rekening?.name ?? "",
         kind: rekening?.kind ?? "bank",
+        currency: rekening?.currency ?? "",
         institution: rekening?.institution ?? "",
         opening_balance: rekening?.opening_balance ?? 0,
         units: rekening?.units ?? "",
     });
+
+    const valas = form.data.kind === "valas";
 
     const simpan = (e) => {
         e.preventDefault();
@@ -383,13 +387,40 @@ export function FormRekening({ show, rekening, kinds, onClose }) {
                         </p>
                     ) : (
                         <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
-                            Hanya bank dan tunai yang boleh menyimpan dana
-                            tujuan — nilai saham dan emas bergerak sendiri, sehingga
-                            tujuan yang dananya di sana bisa meleset diam-diam.
+                            Hanya bank, tunai, dan valas yang boleh menyimpan
+                            dana tujuan — nilai saham dan emas bergerak sendiri,
+                            sehingga tujuan yang dananya di sana bisa meleset
+                            diam-diam.
                         </p>
                     )}
                     <InputError message={form.errors.kind} className="mt-2" />
                 </div>
+
+                {valas && (
+                    <div>
+                        <InputLabel htmlFor="currency" value="Mata uang" />
+                        <select
+                            id="currency"
+                            className="mt-1.5 block w-full rounded-lg border-border-strong bg-bg-base text-text-primary focus:border-lime-500 focus:ring-lime-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            value={form.data.currency}
+                            onChange={(e) => form.setData("currency", e.target.value)}
+                            disabled={Boolean(rekening?.kind_locked)}
+                        >
+                            <option value="">Pilih mata uang…</option>
+                            {currencies.map((m) => (
+                                <option key={m.code} value={m.code}>
+                                    {m.code} — {m.label}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                            {rekening?.kind_locked
+                                ? "Mata uang tidak bisa diubah karena rekening ini sudah punya riwayat transaksi."
+                                : "Semua angka Arus tetap dalam rupiah. Saat kurs bergerak, perbarui nilainya dari halaman detail rekening."}
+                        </p>
+                        <InputError message={form.errors.currency} className="mt-2" />
+                    </div>
+                )}
 
                 <InstitutionField
                     kind={form.data.kind}
@@ -408,7 +439,10 @@ export function FormRekening({ show, rekening, kinds, onClose }) {
                 />
 
                 <div>
-                    <InputLabel htmlFor="opening_balance" value="Saldo saat mulai mencatat" />
+                    <InputLabel
+                        htmlFor="opening_balance"
+                        value={valas ? "Nilai dalam rupiah saat mulai mencatat" : "Saldo saat mulai mencatat"}
+                    />
                     <CurrencyInput
                         id="opening_balance"
                         className="mt-1.5"
@@ -416,16 +450,17 @@ export function FormRekening({ show, rekening, kinds, onClose }) {
                         onChange={(v) => form.setData("opening_balance", v)}
                     />
                     <p className="mt-1.5 text-xs text-text-muted">
-                        Bukan saldo saat rekening dibuka. Isi 0 bila Anda mulai
-                        dari kosong.
+                        {valas
+                            ? "Jumlah valas dikali kurs hari itu. Isi 0 bila Anda mulai dari kosong."
+                            : "Bukan saldo saat rekening dibuka. Isi 0 bila Anda mulai dari kosong."}
                     </p>
                     <InputError message={form.errors.opening_balance} className="mt-2" />
                 </div>
 
-                {/* key={kind}: ganti jenis berarti satuan lain (gram → lot). */}
+                {/* key: ganti jenis atau mata uang berarti satuan lain (gram → lot, USD → SGD). */}
                 <UnitsInput
-                    key={form.data.kind}
-                    unit={kinds.find((k) => k.value === form.data.kind)?.unit}
+                    key={`${form.data.kind}-${form.data.currency}`}
+                    unit={valas ? form.data.currency : kinds.find((k) => k.value === form.data.kind)?.unit}
                     value={form.data.units}
                     onChange={(v) => form.setData("units", v)}
                     error={form.errors.units}

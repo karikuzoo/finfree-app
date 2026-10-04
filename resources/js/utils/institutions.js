@@ -66,6 +66,7 @@ const P = {
 /** Daftar pilihan per jenis rekening, dalam urutan tampil di pemilih. */
 export const DAFTAR_PER_JENIS = {
     bank: LEMBAGA,
+    valas: LEMBAGA.filter((l) => !l.dompet),
     stock: [P.stockbit, P.ajaib, P.ipot, P.mirae, P.bions, P.most, P.bibit, P.pluang],
     fund: [P.bibit, P.bareksa, P.ajaib, P.tanamduit, P.makmur, P.pluang],
     gold: [P.antam, P.pegadaian, P.pluang, P.treasury, P.tokopedia, P.indogold],
@@ -122,7 +123,7 @@ function cariDariNama(nama) {
 /**
  * Lencana untuk sebuah rekening: lembaga yang dikenali, atau ikon jenisnya.
  *
- * Saham, reksa dana, emas, dan tunai SELALU memakai ikon jenisnya, bukan
+ * Saham, reksa dana, emas, valas, dan tunai SELALU memakai ikon jenisnya, bukan
  * lembaganya: yang ingin dikenali sekilas di KARTU adalah macam asetnya.
  * Lencana platformnya (Stockbit, Antam…) hanya tampil di pemilih, tempat
  * yang sedang dipilih memang platformnya.

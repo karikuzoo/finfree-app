@@ -21,6 +21,7 @@ const IKON = {
     stock: { label: 'Saham', latar: '#1D3345', warna: '#9AC9FB' },
     fund: { label: 'Reksa dana', latar: '#2E2A45', warna: '#C4B5FD' },
     gold: { label: 'Emas', latar: '#3A3118', warna: '#F1CC80' },
+    valas: { label: 'Valas', latar: '#1D3A3A', warna: '#7FD8D0' },
 };
 
 /**
@@ -110,6 +111,15 @@ function IkonJenis({ jenis, className }) {
                 <svg {...umum}>
                     <path d="M7 9.5h10l3 8.5H4z" />
                     <path d="M9.5 9.5 11 5.5h2l1.5 4" />
+                </svg>
+            );
+        case 'valas':
+            // Bola dunia: uang dari negara lain.
+            return (
+                <svg {...umum}>
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M3.5 12h17" />
+                    <path d="M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5S9.6 5.9 12 3.5z" />
                 </svg>
             );
         default:

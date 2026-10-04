@@ -112,4 +112,20 @@ describe('Detail rekening', () => {
 
         expect(within(screen.getByRole('dialog')).getByLabelText('Nama rekening')).toHaveValue('BCA - Utama');
     });
+    it('valas punya tombol Perbarui nilai yang membuka form penilaian', async () => {
+        tampilkan(akun({ kind: 'valas', kind_label: 'Valas', currency: 'USD', unit: 'USD', units: 1500, needs_valuation: true, balance: 24_450_000 }));
+
+        expect(screen.getByText(/Bank BCA · Valas USD/)).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Perbarui nilai' }));
+
+        const form = within(screen.getByRole('dialog'));
+        expect(form.getByLabelText('Nilai totalnya sekarang')).toHaveValue('24.450.000');
+        expect(form.getByLabelText('Jumlah USD (opsional)')).toBeInTheDocument();
+    });
+
+    it('rekening bank tidak punya tombol Perbarui nilai', () => {
+        tampilkan();
+
+        expect(screen.queryByRole('button', { name: 'Perbarui nilai' })).toBeNull();
+    });
 });

@@ -3,6 +3,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import { KeteranganSatuan } from "@/Components/UnitsInput";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { FormRekening } from "@/Pages/Account/Index";
+import { FormPenilaian } from "@/Pages/Investment/Index";
 import { formatRupiah } from "@/utils/format";
 import { Head, Link } from "@inertiajs/react";
 import { useState } from "react";
@@ -15,8 +16,9 @@ import { useState } from "react";
  * sudah membawa saldo sesudah tiap baris dari server; halaman ini tidak
  * menjumlahkan apa pun (CLAUDE.md §6.9).
  */
-export default function AccountShow({ account, mutations, kinds }) {
+export default function AccountShow({ account, mutations, kinds, currencies = [] }) {
     const [menyunting, setMenyunting] = useState(false);
+    const [menilai, setMenilai] = useState(false);
 
     return (
         <AuthenticatedLayout>
@@ -30,7 +32,11 @@ export default function AccountShow({ account, mutations, kinds }) {
                     ← Semua rekening
                 </Link>
 
-                <Ringkasan account={account} onSunting={() => setMenyunting(true)} />
+                <Ringkasan
+                    account={account}
+                    onSunting={() => setMenyunting(true)}
+                    onNilai={() => setMenilai(true)}
+                />
                 <DanaTujuan account={account} />
                 <Mutasi mutations={mutations} />
             </div>
@@ -40,8 +46,21 @@ export default function AccountShow({ account, mutations, kinds }) {
                 show={menyunting}
                 rekening={account}
                 kinds={kinds}
+                currencies={currencies}
                 onClose={() => setMenyunting(false)}
             />
+
+            {/*
+                Form yang sama dengan halaman Investasi. Di sini terutama
+                untuk valas: ia likuid, jadi tidak tampil di halaman
+                Investasi, padahal nilainya bergerak mengikuti kurs.
+            */}
+            {menilai && (
+                <FormPenilaian
+                    aset={{ ...account, value: account.balance }}
+                    onClose={() => setMenilai(false)}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }
@@ -54,7 +73,7 @@ const tanggal = (iso) =>
         year: "numeric",
     });
 
-function Ringkasan({ account, onSunting }) {
+function Ringkasan({ account, onSunting, onNilai }) {
     return (
         <div className="mt-4 rounded-card border border-border bg-bg-card p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -66,10 +85,16 @@ function Ringkasan({ account, onSunting }) {
                         </h1>
                         <p className="truncate text-sm text-text-muted">
                             {account.institution || "—"} · {account.kind_label}
+                            {account.currency ? ` ${account.currency}` : ""}
                         </p>
                     </div>
                 </div>
-                <SecondaryButton onClick={onSunting}>Ubah</SecondaryButton>
+                <div className="flex gap-2">
+                    {account.needs_valuation && (
+                        <SecondaryButton onClick={onNilai}>Perbarui nilai</SecondaryButton>
+                    )}
+                    <SecondaryButton onClick={onSunting}>Ubah</SecondaryButton>
+                </div>
             </div>
 
             <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -92,7 +117,7 @@ function Ringkasan({ account, onSunting }) {
                         ? `Nilai terakhir diperbarui ${tanggal(account.last_valuation)}.`
                         : "Nilainya belum pernah diperbarui sejak dicatat."}{" "}
                     Nilainya tidak berubah sendiri — catat penyesuaian nilai saat
-                    harganya bergerak.
+                    {" "}{account.kind === "valas" ? "kursnya" : "harganya"} bergerak.
                 </p>
             )}
         </div>

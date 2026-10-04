@@ -17,9 +17,19 @@ const TEKS = {
     unit: { label: 'Jumlah unit penyertaan', contoh: 'mis. 1.234,5678', catatan: 'Tertera di laporan atau aplikasi reksa dana Anda.' },
 };
 
+/**
+ * Valas: satuannya kode mata uang (USD, SGD, …), jadi teksnya dibentuk dari
+ * kode itu, bukan dari daftar TEKS.
+ */
+const teksValas = (kode) => ({
+    label: `Jumlah ${kode}`,
+    contoh: 'mis. 1.500',
+    catatan: 'Saldo dalam mata uang aslinya, sesuai buku tabungan atau aplikasi bank.',
+});
+
 export default function UnitsInput({ unit, value, onChange, error, id = 'units', catatanTambahan = null }) {
     const [teks, setTeks] = useState(() => formatDesimal(value));
-    const t = TEKS[unit];
+    const t = TEKS[unit] ?? (/^[A-Z]{3}$/.test(unit ?? '') ? teksValas(unit) : null);
 
     if (!t) return null;
 

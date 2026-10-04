@@ -323,7 +323,7 @@ function FormInvestasi({ show, kinds, onClose }) {
  * portofolionya bernilai 19 juta, bukan bahwa ia "naik 1.000.000". Backend
  * yang menghitung selisihnya lalu menyimpannya sebagai transaksi penyesuaian.
  */
-function FormPenilaian({ aset, onClose }) {
+export function FormPenilaian({ aset, onClose }) {
     const form = useForm({
         value: aset.value,
         occurred_on: todayInJakarta(),
