@@ -51,6 +51,9 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            // Pemberitahuan sekali tampil (flash) untuk bingkai halaman — saat
+            // ini hanya dari penanganan 419 di bootstrap/app.php.
+            'notice' => fn () => $request->session()->get('notice'),
             'auth' => [
                 // HANYA yang dipakai bingkai halaman (sidebar, topbar, sapaan).
                 //

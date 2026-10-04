@@ -3,6 +3,7 @@ import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import PageTransition from "@/Components/PageTransition";
+import SessionNotice from "@/Components/SessionNotice";
 
 /**
  * Shell halaman publik — dipakai Beranda, Kalkulator, dan Berita.
@@ -139,7 +140,7 @@ function GuestTopNav({ children }) {
                 )}
             </header>
 
-            <main className="flex-1"><PageTransition>{children}</PageTransition></main>
+            <main className="flex-1"><div className="px-4 sm:px-6 lg:px-8"><SessionNotice /></div><PageTransition>{children}</PageTransition></main>
 
             <footer className="border-t border-border">
                 <div className="mx-auto max-w-7xl px-4 py-6 text-xs text-text-muted sm:px-6 lg:px-8">

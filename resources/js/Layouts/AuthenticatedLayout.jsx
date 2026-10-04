@@ -1,6 +1,7 @@
 import Brand from '@/Components/Brand';
 import Avatar from '@/Components/Avatar';
 import PageTransition from '@/Components/PageTransition';
+import SessionNotice from '@/Components/SessionNotice';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
@@ -63,7 +64,7 @@ export default function AuthenticatedLayout({ header, children }) {
         <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex min-h-[76px] items-center justify-between gap-3 border-b border-border px-4 sm:px-8"><div className="flex min-w-0 items-center gap-3"><button type="button" onClick={() => setMobileOpen(true)} aria-label="Buka menu navigasi" aria-expanded={mobileOpen} className="rounded-lg p-2 text-text-secondary lg:hidden"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><span className="hidden text-sm text-text-muted sm:inline">Ruang pribadi</span><span className="hidden text-text-muted sm:inline" aria-hidden="true">›</span><span className="truncate text-sm font-medium">{activeLabel}</span></div><Link href={route('profile.edit')} aria-label="Buka profil saya" className="flex shrink-0 items-center gap-3"><span className="hidden text-xs text-text-secondary sm:inline">Akun pribadi</span><Avatar user={user} size={32}/></Link></div>
             {header && <header className="px-4 pt-8 sm:px-8">{header}</header>}
-            <main id="main-content" className="min-w-0 flex-1"><PageTransition>{children}</PageTransition></main>
+            <main id="main-content" className="min-w-0 flex-1"><div className="px-4 sm:px-6 lg:px-8"><SessionNotice /></div><PageTransition>{children}</PageTransition></main>
             <Modal show={confirmingLogout} onClose={() => setConfirmingLogout(false)} maxWidth="sm">
                 <div className="p-6">
                     <h2 className="text-lg font-semibold text-text-primary">Keluar dari akun?</h2>

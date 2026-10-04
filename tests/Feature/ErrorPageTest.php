@@ -112,4 +112,29 @@ class ErrorPageTest extends TestCase
 
         $this->assertStringContainsString('noindex', $html);
     }
+
+    /**
+     * Tautan wajib `target="_top"`. Galat dari kiriman Inertia tampil di dalam
+     * iframe modal, dan X-Frame-Options: DENY memblokir navigasi di dalam
+     * bingkai — tanpa `_top`, tombolnya diam (ditemukan pengguna, 4 Okt 2026).
+     *
+     * @dataProvider kodeError
+     */
+    public function test_semua_tautan_halaman_error_membuka_jendela_utama(string $kode): void
+    {
+        foreach ([null, User::factory()->create()] as $pengguna) {
+            if ($pengguna) {
+                $this->actingAs($pengguna);
+            }
+
+            $html = View::make("errors.{$kode}", ['exception' => null])->render();
+
+            preg_match_all('/<a\s[^>]*>/', $html, $tautan);
+            $this->assertNotEmpty($tautan[0]);
+
+            foreach ($tautan[0] as $a) {
+                $this->assertStringContainsString('target="_top"', $a, "Tautan tanpa target=\"_top\" di halaman {$kode}: {$a}");
+            }
+        }
+    }
 }

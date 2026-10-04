@@ -11,6 +11,12 @@
     Warnanya disalin dari tema "Arus" di tailwind.config.js. Duplikasi ini
     disengaja dan merupakan harga dari kemandirian di atas — bila token tema
     berubah, berkas ini ikut disesuaikan manual.
+
+    Setiap tautan WAJIB `target="_top"`. Saat galat datang dari kiriman
+    Inertia, halaman ini tampil di dalam iframe modal Inertia — dan
+    SecurityHeaders (X-Frame-Options: DENY) melarang Arus dibuka di dalam
+    bingkai, sehingga tautan tanpa `_top` diblokir diam-diam: tombolnya
+    tampak tidak berbuat apa-apa (ditemukan pengguna, 4 Okt 2026).
 --}}
 <!DOCTYPE html>
 <html lang="id">
@@ -166,7 +172,7 @@
 <body>
 
     <div class="bar">
-        <a class="mark" href="{{ url('/') }}">
+        <a class="mark" href="{{ url('/') }}" target="_top">
             <img src="{{ asset('favicon.svg') }}" width="32" height="32" alt="">
             {{ config('app.name', 'Arus') }}
         </a>
@@ -187,11 +193,11 @@
                     {{-- Pengguna yang sudah masuk lebih berguna diantar ke dashboard
                          daripada ke halaman depan pemasaran. --}}
                     @auth
-                        <a class="btn btn--primary" href="{{ url('/dashboard') }}">Kembali ke Dashboard</a>
+                        <a class="btn btn--primary" href="{{ url('/dashboard') }}" target="_top">Kembali ke Dashboard</a>
                     @else
-                        <a class="btn btn--primary" href="{{ url('/') }}">Kembali ke Beranda</a>
+                        <a class="btn btn--primary" href="{{ url('/') }}" target="_top">Kembali ke Beranda</a>
                     @endauth
-                    <a class="btn btn--ghost" href="{{ url('/kalkulator') }}">Buka Kalkulator</a>
+                    <a class="btn btn--ghost" href="{{ url('/kalkulator') }}" target="_top">Buka Kalkulator</a>
                 @endif
             </div>
 
