@@ -585,7 +585,7 @@ Route baru (semua di grup `auth` pada `routes/web.php`):
 
 | Method & path | Nama route | Controller |
 |---|---|---|
-| `GET/POST /rekening`, `PATCH/DELETE /rekening/{account}` | `accounts.index/store/update/destroy` | `AccountController` |
+| `GET/POST /rekening`, `GET/PATCH/DELETE /rekening/{account}` | `accounts.index/store/show/update/destroy` | `AccountController` — `show` (4 Okt 2026): detail + mutasi dengan saldo berjalan dari fungsi jendela PostgreSQL (`EFEK_SQL`), dijaga `AccountShowTest` |
 | `POST /rekening/{account}/nilai` | `accounts.valuation.store` | `AccountValuationController` |
 | `GET /investasi` | `investments.index` | `InvestmentController` |
 | `GET/POST /transaksi`, `PATCH/DELETE /transaksi/{transaction}` | `transactions.index/store/update/destroy` | `TransactionController` |
