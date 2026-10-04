@@ -110,7 +110,7 @@ FR-5 mengasumsikan pengguna sudah tahu nominal targetnya. Untuk tiga kategori, a
 > - **Tanpa angka bawaan** (D-7): usia harapan hidup, inflasi pendidikan, dan imbal hasil masa pensiun diisi pengguna. Sampai ada angka bersumber, "asumsi harapan hidup default" di FR-20 belum diisi.
 > - **Dana darurat** memindahkan form ke "Tanpa tenggat"; perkiraan waktu tercapai dari setoran yang sanggup disisihkan, tanpa imbal hasil, memperhitungkan dana awal.
 > - **Dana pendidikan: satu jenjang per tujuan** (MVP yang diizinkan); beberapa jenjang = beberapa tujuan. Model rangkaian pencairan belum dibangun.
-> - Hanya di form Buat Tujuan, belum di form Ubah.
+> - **Form Ubah Tujuan (4 Okt 2026):** tautan "Hitung ulang nominalnya" membuka panel yang sama. Karena form ubah memakai pemilih tanggal, jangka waktu diterjemahkan menjadi tanggal target dari hari ini, dan dana darurat mengosongkan tanggalnya. Nama tidak ditimpa, dan perkiraan waktu dana darurat berangkat dari dana yang sudah terkumpul.
 
 ### 6.3 Rekomendasi Instrumen Investasi
 - FR-10: Berdasarkan jangka waktu tujuan & profil risiko pengguna, sistem menampilkan saran alokasi antar instrumen (contoh: jangka <2 tahun → dominan deposito/obligasi jangka pendek; 2–5 tahun → campuran obligasi & reksa dana campuran; >5 tahun → dominan saham/reksa dana saham).
