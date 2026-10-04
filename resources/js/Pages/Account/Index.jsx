@@ -12,7 +12,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import { formatRupiah } from "@/utils/format";
-import { Head, useForm } from "@inertiajs/react";
+import { Head, Link, useForm } from "@inertiajs/react";
 import { useState } from "react";
 
 /**
@@ -190,27 +190,43 @@ function KartuRekening({ rekening, onSunting }) {
     };
 
     return (
-        <div className="rounded-card border border-border bg-bg-card p-5">
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                    <AccountBadge rekening={rekening} />
-                    <div className="min-w-0">
-                        <p className="truncate font-semibold text-text-primary">
-                            {rekening.name}
-                        </p>
-                        <p className="truncate text-xs text-text-muted">
-                            {rekening.institution || "—"}
-                        </p>
+        <div className="rounded-card border border-border bg-bg-card p-5 transition hover:border-border-strong">
+            {/*
+                Bagian atas kartu adalah tautan ke detail (mutasi dan rincian
+                dana tujuan). Tombol Ubah/Hapus sengaja di luar tautan supaya
+                tidak ada tombol di dalam tautan.
+            */}
+            <Link
+                href={route("accounts.show", rekening.id)}
+                aria-label={`Lihat detail ${rekening.name}`}
+                className="group -m-2 block rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-lime-500"
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <AccountBadge rekening={rekening} />
+                        <div className="min-w-0">
+                            <p className="truncate font-semibold text-text-primary group-hover:text-lime-500">
+                                {rekening.name}
+                            </p>
+                            <p className="truncate text-xs text-text-muted">
+                                {rekening.institution || "—"}
+                            </p>
+                        </div>
                     </div>
+                    <span className="shrink-0 rounded-full bg-bg-cardAlt px-2.5 py-1 text-xs font-semibold text-text-secondary">
+                        {rekening.kind_label}
+                    </span>
                 </div>
-                <span className="shrink-0 rounded-full bg-bg-cardAlt px-2.5 py-1 text-xs font-semibold text-text-secondary">
-                    {rekening.kind_label}
-                </span>
-            </div>
 
-            <p className="num-tabular mt-4 text-xl font-bold text-text-primary">
-                {formatRupiah(rekening.balance)}
-            </p>
+                <div className="mt-4 flex items-baseline justify-between gap-2">
+                    <p className="num-tabular text-xl font-bold text-text-primary">
+                        {formatRupiah(rekening.balance)}
+                    </p>
+                    <span className="shrink-0 text-xs font-semibold text-text-muted group-hover:text-lime-500">
+                        Detail →
+                    </span>
+                </div>
+            </Link>
 
             <KeteranganSatuan rekening={rekening} nilai={rekening.balance} />
             <RincianDanaTujuan rekening={rekening} />
@@ -294,7 +310,7 @@ function Kosong({ onTambah }) {
  * yang disunting berganti. Tanpa itu, nilai rekening sebelumnya tertinggal di
  * state saat pengguna menutup lalu membuka kartu lain.
  */
-function FormRekening({ show, rekening, kinds, onClose }) {
+export function FormRekening({ show, rekening, kinds, onClose }) {
     const menyunting = rekening !== null;
 
     const form = useForm({

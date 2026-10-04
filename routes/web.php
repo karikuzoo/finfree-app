@@ -167,6 +167,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounts.index');
     Route::post('/rekening', [AccountController::class, 'store'])
         ->name('accounts.store');
+    // Detail satu rekening: ringkasan dan mutasi dengan saldo berjalan.
+    Route::get('/rekening/{account}', [AccountController::class, 'show'])
+        ->name('accounts.show');
     Route::patch('/rekening/{account}', [AccountController::class, 'update'])
         ->name('accounts.update');
     Route::delete('/rekening/{account}', [AccountController::class, 'destroy'])

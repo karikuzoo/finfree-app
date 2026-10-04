@@ -115,4 +115,10 @@ describe('Halaman Rekening & aset', () => {
         expect(within(dialog()).getByLabelText('Lembaga (opsional)')).toBeInTheDocument();
         expect(within(dialog()).queryByRole('radiogroup')).toBeNull();
     });
+    it('kartu menautkan ke halaman detail rekening', () => {
+        tampilkan();
+
+        expect(screen.getByRole('link', { name: 'Lihat detail Portofolio saham' }))
+            .toHaveAttribute('href', '/accounts.show/3');
+    });
 });
