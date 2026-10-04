@@ -581,6 +581,8 @@ Tiga aturan yang berlaku di seluruh lapisan ini (rincian di PRD §6.13–§6.18 
 2. **Setiap penulisan yang menyentuh uang** dibungkus `DB::transaction` lalu memanggil `LedgerGuard::assertConsistent($user, $field)`: saldo tidak minus, pembayaran tidak melebihi sisa pokok, total alokasi per rekening tidak melebihi saldo. Pelanggaran dilempar sebagai `ValidationException` dan membatalkan penulisan. Pemanggilnya: `TransactionController` (store/update/destroy), `AccountValuationController`, `DebtController@update`, `SavingsPlanController` (`updateAllocation`, `setAside`), dan `BackupService::import`. Aksi baru yang mengubah transaksi, utang, atau alokasi **wajib** ikut memanggilnya.
 3. **Kebutuhan bulanan di Rencana menabung memakai `GoalCalculatorService`** (anuitas + inflasi), bukan pembagian biasa; `SavingsPlanService` hanya membagi kemampuan menabung menurut prioritas lalu tenggat.
 
+**Valas (4 Okt 2026):** satu-satunya jenis yang `likuid()` SEKALIGUS `perluPenilaian()`. Satuan rekening valas adalah kode mata uangnya, jadi untuk SATU rekening pakai `Account::satuan()`, bukan `AccountKind::satuan()` (yang NULL untuk valas); untuk menanyakan apakah suatu jenis mencatat jumlah satuan pakai `AccountKind::punyaSatuan()`. Kolom `kind` adalah varchar + CHECK `accounts_kind_check` — jenis baru berarti migrasi yang mengganti CHECK itu.
+
 Route baru (semua di grup `auth` pada `routes/web.php`):
 
 | Method & path | Nama route | Controller |
