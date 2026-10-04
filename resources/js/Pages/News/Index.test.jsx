@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import NewsIndex from './Index';
 
@@ -10,6 +10,22 @@ vi.mock('@inertiajs/react', async (asli) => ({
     ...(await asli()),
     Head: () => null,
 }));
+
+/**
+ * Jam dibekukan di SIANG hari WIB. "3 jam lalu" dihitung dari tanggal WIB
+ * (formatRelativeTime), jadi bila suite dijalankan pukul 00.00–05.00 WIB,
+ * waktu 3–5 jam lalu jatuh ke kemarin dan tampil sebagai "kemarin" — test
+ * gagal hanya karena jamnya (terjadi 4 Okt 2026). Hanya `Date` yang dipalsukan;
+ * timer lain tetap asli supaya interaksi dan render tidak ikut membeku.
+ */
+beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-04T12:00:00+07:00'));
+});
+
+afterEach(() => {
+    vi.useRealTimers();
+});
 
 const KATEGORI = [
     { slug: 'kebijakan-moneter', label: 'Kebijakan Moneter', count: 1 },
